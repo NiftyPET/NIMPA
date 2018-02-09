@@ -160,6 +160,9 @@ os.chdir(path_current)
 print 'i> found those packages:'
 print find_packages(exclude=['docs'])
 
+with open('README.rst') as file:
+    long_description = file.read()
+
 #---- for setup logging -----
 stdout = sys.stdout
 stderr = sys.stderr
@@ -176,16 +179,12 @@ elif platform.system() == 'Windows' :
 setup(
     name='nimpa',
     license = 'Apache 2.0',
-    version='1.0.1',
-    description='Python and CUDA utilities for high-throughput PET image processing and analysis.',
-    author='Pawel Markiewicz',
+    version='1.0.4',
+    description='Python CUDA-based utilities for high-throughput PET/MR image processing and analysis.',
+    long_description=long_description,
+    author='Pawel J. Markiewicz',
     author_email='p.markiewicz@ucl.ac.uk',
-    url='https://github.com/pjmark/NiftyPET',
-    classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Students and Scientists',
-        'Programming Language :: Python :: 2.7',
-    ],
+    url='https://github.com/pjmark/NIMPA',
     keywords='PET MR processing analysis',
     install_requires=['nibabel'],
     packages=find_packages(exclude=['docs']),
@@ -195,5 +194,16 @@ setup(
         'niftypet.nimpa.prc' : [fex],
     },
     zip_safe=False,
+    # namespace_packages=['niftypet'],
+    # classifiers=[
+    #     'Development Status :: 5 - Production/Stable',
+    #     'Intended Audience :: Science/Research',
+    #     'Intended Audience :: Healthcare Industry'
+    #     'Programming Language :: Python :: 2.7',
+    #     'License :: OSI Approved :: Apache Software License',
+    #     'Operating System :: POSIX :: Linux',
+    #     'Programming Language :: C',
+    #     'Topic :: Scientific/Engineering :: Medical Science Apps.'
+    # ],
 )
 #===============================================================

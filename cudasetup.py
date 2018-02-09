@@ -102,8 +102,8 @@ def dev_setup():
     # get the current locations
     path_current = os.path.dirname( os.path.realpath(__file__) )
     path_resins = os.path.join(path_current, 'resources')
-    path_dinf = os.path.join(path_current, 'nimpa')
-    #path_dinf = os.path.join(path_dinf, 'nimpa')
+    path_dinf = os.path.join(path_current, 'niftypet')
+    path_dinf = os.path.join(path_dinf, 'nimpa')
     path_dinf = os.path.join(path_dinf, 'dinf')
     # temporary installation location for identifying the CUDA devices
     path_tmp_dinf = os.path.join(path_resins,'dinf')
