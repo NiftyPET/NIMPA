@@ -145,18 +145,24 @@ def install_tool(app, Cnt):
     # get the current working directory
     cwd = os.getcwd()
 
-    if not 'PATHTOOLS' in Cnt:
-        # pick the target installation folder
-        if 'DISPLAY' in os.environ:
-            Tk().withdraw()
-            dircore = askdirectory(title='choose a place for NiftyPET tools', initialdir=os.path.expanduser('~'))
-        else:
-            dircore = input_path('q> enter the path to the folder which will contain NiftyPET tools: ')
+    # pick the target installation folder
+    if 'PATHTOOLS' in Cnt:
+        path_tools = Cnt['PATHTOOLS']
+    elif 'PATHTOOLS' not in Cnt and 'DISPLAY' in os.environ:
+        Tk().withdraw()
+        dircore = askdirectory(title='choose a place for NiftyPET tools', initialdir=os.path.expanduser('~'))
         # get the full (combined path)
         path_tools = os.path.join(dircore, Cnt['DIRTOOLS'])
         Cnt['PATHTOOLS'] = path_tools
     else:
-        path_tools = Cnt['PATHTOOLS']
+        if platform.system() == 'Linux' :
+            path_tools = os.path.join( os.path.expanduser('~'), Cnt['DIRTOOLS'] )
+        elif platform.system() == 'Windows' :
+            path_tools = os.path.join( os.getenv('LOCALAPPDATA'), Cnt['DIRTOOLS'] )
+        else:
+            print 'e> only Linux and Windows operating systems are supported!'
+            raise SystemError('OS not supported!')      
+        Cnt['PATHTOOLS'] = path_tools
 
     #create the main tools folder
     if not os.path.isdir(path_tools):

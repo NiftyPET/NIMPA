@@ -6,6 +6,8 @@ __copyright__   = "Copyright 2017, University College London"
 
 import numpy as np
 from math import pi
+import platform
+import os
 
 # Hardware (CT-based) mu-maps, which come with the mMR scanner.
 # The names may be different
@@ -25,12 +27,17 @@ riLUT = {   'Ge68':{'BF':0.891,'thalf':270.9516*24*60*60},
         }
 
 # -----------------------------------------------------
+# The name and path to the NiftyPET tools (software)
+DIRTOOLS  = 'NiftyPET_tools'
+# PATHTOOLS = os.path.join('/chosen/path/', DIRTOOLS)
+# -----------------------------------------------------
+
+# -----------------------------------------------------
 # DO NOT MODIFY BELOW--DONE AUTOMATICALLY
 ### start GPU properties ###
 ### end GPU properties ###
 
 # paths to apps and tools needed by NiftyPET
-DIRTOOLS = 'NiftyPET_tools'
 ### start NiftyPET tools ###
 ### end NiftyPET tools ###
 # -----------------------------------------------------

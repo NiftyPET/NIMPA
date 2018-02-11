@@ -2,6 +2,6 @@ graft niftypet/nimpa/prc/src
 graft niftypet/nimpa/dinf
 graft niftypet/auxdata
 graft resources/
-recursive-include CMakeLists.txt
+recursive-include niftypet CMakeLists.txt
 include LICENCE
 include *.py

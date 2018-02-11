@@ -25,6 +25,9 @@ pyhdr = get_python_inc()
 # get numpy header path:
 nphdr = np.get_include()
 
+# minimum required CUDA compute capability 
+mincc = 35
+
 # ---------------------------------------------------------------------------------
 def path_niftypet_local():
     '''Get the path to the local (home) folder for NiftyPET resources.'''
@@ -130,50 +133,31 @@ def dev_setup():
     else:
         print 'e> only Linux and Windows operating systems are supported!'
         return None
-
-    # subprocess.call(['make', '-j4'])
     
     # imoprt the new module for device properties
     sys.path.insert(0, path_tmp_build)
     import dinf
+    # get the list of installed CUDA devices
     Ldev = dinf.dev_info(0)
-    print ''
-    print '------- INTPUT NEEDED FOR THE DEVICE --------'
-    cclist = []
-    for i in range(len(Ldev)):
-        cclist.append(int(str(Ldev[i][2])+str(Ldev[i][3])))
-        if cclist[i]>=35:
-            support='    SUPPORTED:'
-        else:
-            support='NOT SUPPORTED:'
-        print '> ID #', i, support, Ldev[i][0], '| compute capability:', str(Ldev[i][2])+'.'+str(Ldev[i][3]), '| total memory: ', Ldev[i][1], 'MB'
-    print '--------------------------------------------------------------------------------'
-    try:
-        idstr = raw_input('n> input ID number for desired devices (the default card first, separated with space from one another):')
-        dev_ids= map(int, idstr.split())
-        # default device
-        devid = dev_ids[0]
-        print ''
-        if all(np.array(cclist)[dev_ids]>=35):
-            print 'i> default device:', Ldev[devid][0]
-        else:
-            raise ValueError('e> not all selected devices are supported!')  
-    except ValueError:
-        print "e> wrong selection or not a number! select the supported cards."
-        sys.exit()
-    else:
-        sys.path.remove(path_tmp_build)
-        # delete the build once the info about the GPUs has been obtained
-        os.chdir(path_current)
-        shutil.rmtree(path_tmp_dinf, ignore_errors=True)
-
+    # extract the compute capability as a single number 
+    cclist = [int(str(e[2])+str(e[3])) for e in Ldev]
+    # get the list of supported CUDA devices (with minimum compute capability)
+    spprtd = [str(cc) for cc in cclist if cc>=mincc]
+    # best for the default CUDA device
+    i = [int(s) for s in spprtd]
+    devid = i.index(max(i))
     #-----------------------------------------------------------------------------------
     # form return list of compute capability numbers for which the software will be compiled
     ccstr = ''
-    for i in range(len(dev_ids)):
-        cc = str(cclist[dev_ids[i]])
+    for cc in spprtd:
         ccstr += '-gencode=arch=compute_'+cc+',code=compute_'+cc+';'
     #-----------------------------------------------------------------------------------
+
+    # remove the temporary path
+    sys.path.remove(path_tmp_build)
+    # delete the build once the info about the GPUs has been obtained
+    os.chdir(path_current)
+    shutil.rmtree(path_tmp_dinf, ignore_errors=True)
 
     # passing this setting to resources.py
     fpth = os.path.join(path_resources,'resources.py') #resource_filename(__name__, 'resources/resources.py')

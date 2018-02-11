@@ -1,18 +1,16 @@
 ========================================================
-NIMPA: NeuroImage Processing and Analysis Python package
+NIMPA: Neuro and NiftyPET Image Processing and Analysis
 ========================================================
 
-Author: Pawel Markiewicz
+NIMPA is a stand-alone and independent package dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET) and magnetic resonance (MR).  Although, it is an essential part of the *NiftyPET* package for seamless PET image reconstruction, NIMPA is equally well suited for independent image processing, including trimming, upsampling and partial volume correction (PVC).
 
-Copyright 2018
+Trimming is performed in order to reduce the unused image voxels in brain imaging, when using whole body PET scanners, for which only some part of the field of view (FOV) is used.
 
-NIMPA is a stand-alone and independent package dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET).  It is part of NiftyPET and this package is essential for seamless PET image reconstruction using NiftyPET.
+The upsampling is needed for more accurate extraction (sampling) of PET data using regions of interest (ROI), obtained using parcellation of the corresponding T1w MR image, usually of higher image resolution.
 
-Currently the package offers trimming and upsampling of brain images.  Trimming is performed in order to reduce the unused image voxels in brain imaging, while using whole body PET scanners, for which only some part of the field of view (FOV) is used.
+PVC is needed to correct for the spill-in and spill-out of PET signal from defined ROIs (specific for any given application).
 
-The upsampling is needed for more accurate extraction (sampling) of PET data using regions of interest (ROI), obtained using parcellation of the corresponding T1w MR image.
-
-In order to facilitate these operations, this package relies on third-party software for image conversion from DICOM to NIfTI (dcm2niix) and image registration (NiftyReg).  The additional software is installed automatically to a user specified location.
+In order to facilitate these operations, NIMPA relies on third-party software for image conversion from DICOM to NIfTI (dcm2niix) and image registration (NiftyReg).  The additional software is installed automatically to a user specified location.
 
 
 Dependencies
@@ -36,4 +34,17 @@ To install NIMPA from source for any given CUDA version and operating system (Li
 
 .. code-block:: bash
 
-	pip install nimpa
+  pip install nimpa
+
+Usage
+-----
+
+.. code-block:: python
+
+  from niftypet import nimpa
+
+
+
+Author: Pawel J. Markiewicz
+
+Copyright 2018
