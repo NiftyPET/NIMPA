@@ -60,6 +60,17 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
     #-------------------------------------------
     # NiftyPET tools:
     #-------------------------------------------
+    # DCM2NIIX
+    if not chck_tls['DCM2NIIX']:
+        # reply = tls.query_yesno('q> the latest compatible version of dcm2niix seems to be missing.\n   Do you want to install it?')
+        # if reply:
+        #-------- Install dmc2niix -------------
+        print '---------------------------------------------'
+        print 'i> installing dcm2niix:'
+        Cnt = tls.install_tool('dcm2niix', Cnt)
+    #---------------------------------------
+    
+    #-------------------------------------------
     # NiftyReg
     if not chck_tls['REGPATH'] or not chck_tls['RESPATH']:
         # reply = tls.query_yesno('q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?')
@@ -69,17 +80,7 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
         print 'i> installing NiftyReg:'
         Cnt = tls.install_tool('niftyreg', Cnt)
     #-------------------------------------------
-
-    #-------------------------------------------
-    # DCM2NIIX
-    if not chck_tls['DCM2NIIX']:
-        # reply = tls.query_yesno('q> the latest compatible version of dcm2niix seems to be missing.\n   Do you want to install it?')
-        # if reply:
-        #-------- Install dmc2niix -------------
-        print '---------------------------------------------'
-        print 'i> installing dcm2niix:'
-        Cnt = tls.install_tool('dcm2niix', Cnt)
-        #---------------------------------------
+    
 else:
     raise SystemError('Missing file: resources.py')
 

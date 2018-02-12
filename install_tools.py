@@ -136,20 +136,20 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
 
     return output
 #--------------------------------------------------------------------
-def download_dcm2niix(Cnt, os):
+def download_dcm2niix(Cnt, path, os):
     print '================================================='
     print 'i> dcm2niix has to be installed directly from:'
     print '   https://github.com/rordenlab/dcm2niix/releases'
     print '================================================='
     import urllib, zipfile
-    if os=='Windows'
+    if os=='Windows':
         urllib.urlretrieve(
             'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_win.zip',
             os.path.join(path, 'dcm2niix.zip')
         )
     elif os=='Linux':
         urllib.urlretrieve(
-            'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_lnx.zip'
+            'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_lnx.zip',
             os.path.join(path, 'dcm2niix.zip')
         )
     zipf = zipfile.ZipFile(os.path.join(path, 'dcm2niix.zip'), 'r')
@@ -263,18 +263,18 @@ def install_tool(app, Cnt):
         except IndexError:
             print 'e> dcm2niix has NOT been successfully installed.'
             if platform.system() == 'Windows':
-                Cnt = download_dcm2niix(Cnt, 'Windows')
-            else if platform.system() == 'Linux':
-                Cnt = download_dcm2niix(Cnt, 'Linux')
+                Cnt = download_dcm2niix(Cnt, path, 'Windows')
+            elif platform.system() == 'Linux':
+                Cnt = download_dcm2niix(Cnt, path, 'Linux')
             else:
                 raise SystemError('Failed Installation (dcm2niix)')
         # check the installation:
         if not check_version(Cnt, chcklst=['DCM2NIIX']):
             print 'e> dcm2niix has NOT been successfully compiled from github.'
             if platform.system() == 'Windows':
-                Cnt = download_dcm2niix(Cnt, 'Windows')
-            else if platform.system() == 'Linux':
-                Cnt = download_dcm2niix(Cnt, 'Linux')
+                Cnt = download_dcm2niix(Cnt, path, 'Windows')
+            elif platform.system() == 'Linux':
+                Cnt = download_dcm2niix(Cnt, path, 'Linux')
             else:
                 raise SystemError('Failed Installation (dcm2niix)')
         # updated the file resources.py
