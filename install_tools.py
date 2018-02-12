@@ -153,7 +153,7 @@ def download_dcm2niix(Cnt, path, os_type):
             os.path.join(path, 'dcm2niix.zip')
         )
     zipf = zipfile.ZipFile(os.path.join(path, 'dcm2niix.zip'), 'r')
-    zipf.extractall(os.path.join(os.path.join(path, 'bin'), 'dcm2niix.zip'))
+    zipf.extractall(os.path.join(path, 'bin'))
     zipf.close()
     Cnt['DCM2NIIX'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'dcm2niix*'))[0]
 
