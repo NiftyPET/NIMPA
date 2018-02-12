@@ -4,7 +4,7 @@ install tools for NiftyPET including:
 * dcm2niix
 '''
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2017, University College London"
+__copyright__   = "Copyright 2018"
 
 
 import os
@@ -126,7 +126,7 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
             print 'e> dcm2niix does NOT seem to be installed correctly.'
 
     # hdw mu-map list
-    if 'HMUDIR' in chcklst:
+    if 'HMUDIR' in chcklst and 'HMUDIR' in Cnt:
         for hi in Cnt['HMULIST']:
             if os.path.isfile(os.path.join(Cnt['HMUDIR'],hi)):
                 output['HMUDIR'] = True
@@ -198,11 +198,25 @@ def install_tool(app, Cnt):
 
     # run cmake with arguments
     if platform.system()=='Windows':
-        call(['cmake', '../'+dirsrc, '-DBUILD_ALL_DEP=ON', '-DCMAKE_INSTALL_PREFIX='+path, '-G', 'Visual Studio 12 2013 Win64'])
+        call(
+            ['cmake', '../'+dirsrc,
+            '-DBUILD_ALL_DEP=ON',
+            '-DCMAKE_INSTALL_PREFIX='+path,
+            '-G', Cnt['MSVC_VRSN']]
+        )
         call(['cmake', '--build', './', '--config', 'Release', '--target', 'install'])
     elif platform.system()=='Linux':
-        call(['cmake', '../'+dirsrc, '-DBUILD_ALL_DEP=ON', '-DCMAKE_INSTALL_PREFIX='+path])
-        call(['cmake', '--build', './', '--config', 'Release', '--target', 'install', '--','-j', str(ncpu)])
+        call(
+            ['cmake', '../'+dirsrc,
+            '-DBUILD_ALL_DEP=ON',
+            '-DCMAKE_INSTALL_PREFIX='+path]
+        )
+        call(
+            ['cmake', '--build', './',
+            '--config', 'Release',
+            '--target', 'install',
+            '--','-j', str(ncpu)]
+        )
 
     # restore the current working directory
     os.chdir(cwd)
@@ -264,7 +278,7 @@ def update_resources(Cnt):
             else:
                 pth_list.append('\'\'')
 
-        # modify resources.py with the new path to NiftyReg
+        # modify resources.py with the new paths
         strNew = '### start NiftyPET tools ###\n'
         for i in range(len(key_list)):
             strNew += key_list[i]+' = '+pth_list[i] + '\n'

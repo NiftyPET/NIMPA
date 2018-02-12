@@ -80,6 +80,8 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
         print 'i> installing dcm2niix:'
         Cnt = tls.install_tool('dcm2niix', Cnt)
         #---------------------------------------
+else:
+    raise SystemError('Missing file: resources.py')
 
 print '---------------------------------------'
 print 'i> installation of NiftyPET-tools done.'
@@ -109,7 +111,7 @@ cmd.append([
 cmd.append(['cmake', '--build', './'])
 
 if platform.system()=='Windows':
-    cmd[0] += ['-G', 'Visual Studio 14 2015 Win64']
+    cmd[0] += ['-G', Cnt['MSVC_VRSN']]
     cmd[1] += ['--config', 'Release' , '--target', 'install']
 
 # error string for later reporting
@@ -179,7 +181,7 @@ elif platform.system() == 'Windows' :
 setup(
     name='nimpa',
     license = 'Apache 2.0',
-    version='1.0.1',
+    version='1.0.8',
     description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
     long_description=long_description,
     author='Pawel J. Markiewicz',

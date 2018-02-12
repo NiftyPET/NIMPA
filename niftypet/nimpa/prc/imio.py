@@ -60,12 +60,6 @@ def getnii(fim, output='image'):
 
     return out
 
-def getnii_affine(fim):
-    '''Get affine matrix from the NIfTI file'''
-    nim = nib.load(fim)
-    A = nim.get_sform()
-    return A
-
 def getnii_descr(fim):
     '''
     Extracts the custom description header field to dictionary

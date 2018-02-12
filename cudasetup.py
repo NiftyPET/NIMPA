@@ -2,7 +2,7 @@
 """ccompile.py: tools for CUDA compilation and set-up for Python."""
 
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018, University College London"
+__copyright__   = "Copyright 2018"
 # ---------------------------------------------------------------------------------
 
 from distutils.sysconfig import get_python_inc
@@ -97,7 +97,7 @@ def dev_setup():
         return None
 
     # get all constants and check if device is already chosen
-    Cnt = resources.get_gpu_constants()
+    Cnt = resources.get_setup()
     if 'CCARCH' in Cnt and 'DEVID' in Cnt:
         print 'i> using this CUDA architecture(s):', Cnt['CCARCH']
         return Cnt['CCARCH']
@@ -124,11 +124,17 @@ def dev_setup():
     os.makedirs(path_tmp_build)
     os.chdir(path_tmp_build)
     if platform.system()=='Windows':
-        subprocess.call(['cmake', '../', '-DPYTHON_INCLUDE_DIRS='+pyhdr, '-DPYTHON_PREFIX_PATH='+prefix, '-G', 'Visual Studio 12 2013 Win64'])
+        subprocess.call(
+            ['cmake', '../', '-DPYTHON_INCLUDE_DIRS='+pyhdr,
+             '-DPYTHON_PREFIX_PATH='+prefix, '-G', Cnt['MSVC_VRSN']]
+        )
         subprocess.call(['cmake', '--build', './', '--config', 'Release'])
         path_tmp_build = os.path.join(path_tmp_build, 'Release')
     elif platform.system()=='Linux':
-        subprocess.call(['cmake', '../', '-DPYTHON_INCLUDE_DIRS='+pyhdr, '-DPYTHON_PREFIX_PATH='+prefix])
+        subprocess.call(
+            ['cmake', '../', '-DPYTHON_INCLUDE_DIRS='+pyhdr,
+             '-DPYTHON_PREFIX_PATH='+prefix]
+        )
         subprocess.call(['cmake', '--build', './'])
     else:
         print 'e> only Linux and Windows operating systems are supported!'

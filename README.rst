@@ -2,7 +2,7 @@
 NIMPA: Neuro and NiftyPET Image Processing and Analysis
 ========================================================
 
-NIMPA is a stand-alone and independent package dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET) and magnetic resonance (MR).  Although, it is an essential part of the *NiftyPET* package for seamless PET image reconstruction, NIMPA is equally well suited for independent image processing, including trimming, upsampling and partial volume correction (PVC).
+NIMPA is a stand-alone and independent package dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET) and magnetic resonance (MR).  Although, it is an essential part of the *NiftyPET* package for seamless PET image reconstruction, NIMPA is equally well suited for independent image processing, including image trimming, upsampling and partial volume correction (PVC).
 
 Trimming is performed in order to reduce the unused image voxels in brain imaging, when using whole body PET scanners, for which only some part of the field of view (FOV) is used.
 
@@ -34,7 +34,8 @@ To install NIMPA from source for any given CUDA version and operating system (Li
 
 .. code-block:: bash
 
-  pip install nimpa
+  pip install --no-binary :all: --verbose nimpa
+
 
 Usage
 -----
