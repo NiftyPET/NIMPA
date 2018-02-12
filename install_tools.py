@@ -247,7 +247,11 @@ def install_tool(app, Cnt):
         # check the installation:
         if not check_version(Cnt, chcklst=['DCM2NIIX']):
             print 'e> dcm2niix has NOT been successfully installed.'
-            raise SystemError('Failed Installation (dcm2niix)')
+            #raise SystemError('Failed Installation (dcm2niix)')
+            print '================================================='
+            print 'i> dcm2niix has to be installed manually from:'
+            print '   https://github.com/rordenlab/dcm2niix/releases'
+            print '================================================='
 
     return Cnt
     
