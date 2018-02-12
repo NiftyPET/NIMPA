@@ -113,7 +113,7 @@ cmd.append(['cmake', '--build', './'])
 
 if platform.system()=='Windows':
     cmd[0] += ['-G', Cnt['MSVC_VRSN']]
-    cmd[1] += ['--config', 'Release' , '--target', 'install']
+    cmd[1] += ['--config', 'Release']
 
 # error string for later reporting
 errstr = []
