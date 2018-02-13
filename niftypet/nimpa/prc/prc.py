@@ -19,7 +19,6 @@ import re
 from pkg_resources import resource_filename
 import imio
 import improc
-import nipet
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
@@ -365,7 +364,17 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # G E T   P A R C E L L A T I O N S   F O R   P V C   A N D   R O I   E X T R A C T I O N
 # ------------------------------------------------------------------------------------------------------
-def pvc_iyang(petin, mridct, Cnt, pvcroi, krnl, outpath='', faff='', fcomment='', tool='nifty', itr=5):
+def pvc_iyang(
+    petin,
+    mridct,
+    Cnt,
+    pvcroi,
+    krnl,
+    outpath='',
+    faff='',
+    fcomment='',
+    tool='nifty',
+    itr=5):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
         The PVC method uses iterative Yang method.
         GPU based convolution is the key routine of the PVC. 
@@ -452,9 +461,9 @@ def pvc_iyang(petin, mridct, Cnt, pvcroi, krnl, outpath='', faff='', fcomment=''
             sys.exit()
         
     elif tool=='spm':
-        fgt1u = nipet.img.prc.spm_resample(  fpet, mridct['T1lbl'], faff, 
-                                                intrp=0, dirout=prcl_dir, r_prefix='r_trimmed_'+fcomment, 
-                                                del_ref_uncmpr=True, del_flo_uncmpr=True, del_out_uncmpr=True)
+        fgt1u = spm_resample(  fpet, mridct['T1lbl'], faff, 
+                                intrp=0, dirout=prcl_dir, r_prefix='r_trimmed_'+fcomment, 
+                                del_ref_uncmpr=True, del_flo_uncmpr=True, del_out_uncmpr=True)
 
     #==================================================================
 
@@ -514,15 +523,15 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=1.5, rthrsh=0.05
     if outpath=='':
         outpath = os.path.dirname(fflo)
     odir = os.path.join(outpath,'PET2PET')
-    nipet.mmraux.create_dir(odir)
+    imio.create_dir(odir)
 
     if rmsk:
         fimdir = os.path.join(odir, 'tmp')
-        nipet.mmraux.create_dir(fimdir)
+        imio.create_dir(fimdir)
         fmsk = os.path.join(fimdir, 'rmask.nii.gz')
-
-        smoim = ndi.filters.gaussian_filter(nimpa.prc.getnii(fref),
-                                            nipet.mmraux.fwhm2sig(rfwhm), mode='mirror')
+        imdct = nimpa.getnii(fref, output='all')
+        smoim = ndi.filters.gaussian_filter(imdct['im'],
+                                            imio.fwhm2sig(rfwhm, voxsize=imdct['affine'][0,0]), mode='mirror')
         thrsh = rthrsh*smoim.max()
         immsk = np.int8(smoim>thrsh)
         for iz in range(immsk.shape[0]):
@@ -567,7 +576,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=1.
 
     # create output path if given
     if outpath!='':
-        nipet.mmraux.create_dir(outpath)
+        imio.create_dir(outpath)
 
     # --- MR T1w
     if 'T1nii' in mridct and os.path.isfile(mridct['T1nii']):
@@ -590,7 +599,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=1.
         else:
             fimdir = os.path.join( os.path.basename(ft1w), 'tmp')
 
-        nipet.mmraux.create_dir(fimdir)
+        imio.create_dir(fimdir)
         fmsk = os.path.join(fimdir, 'rmask.nii.gz')
         imdct = imio.getnii(fpet, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
@@ -610,7 +619,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=1.
         mrodir = os.path.join(outpath,'T1w2PET')
     else:
         mrodir = os.path.join(os.path.dirname(ft1w),'mr2pet')
-    nipet.mmraux.create_dir(mrodir)
+    imio.create_dir(mrodir)
 
     # if provided, separate the comment with underscore
     if fcomment!='': fcomment = '_'+fcomment
@@ -752,9 +761,6 @@ def fsl_res(imout, imref, imflo, faff, interp=1):
 
 
 
-
-
-
 def dcm2im(fpth):
     '''Get the DICOM files from 'fpth' into an image with the affine transformation.'''
 
@@ -855,8 +861,15 @@ def dcm2im(fpth):
     return im, A, ornt
 
 
+
+
+
+
+
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-# R O I   E X T R A C T I O N
+# OUTDATED
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
@@ -951,10 +964,10 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
             if Cnt['VERBOSE']: print 'i> eroding white matter as PET image not partial volume corrected.'
             nilb = nib.load(froi2)
             B = nilb.get_sform()
-            tmp = ndi.filters.gaussian_filter(rmsk, nipet.mmraux.fwhm2sig(12./10), mode='mirror')
+            tmp = ndi.filters.gaussian_filter(rmsk, imio.fwhm2sig(12,Cnt['VOXY']), mode='mirror')
             rmsk = np.float32(tmp>0.85)
             froi3 = os.path.join(prcl_dir, os.path.basename(datain['T1lbl']).split('.')[0]+ '_toPET_'+k+'_eroded.nii.gz')
-            nipet.img.mmrimg.savenii(rmsk, froi3, B, Cnt)
+            savenii(rmsk, froi3, B, Cnt)
 
         # ROI value and mask sums:
         rvsum  = np.sum(im*rmsk)
@@ -1012,7 +1025,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
     else:
         fpet_ = fpet
     # get file of coregistered labels to upsampled PET
-    flblu = nipet.img.prc.spm_resample(fpet_, flbl, M, intrp=0, dirout=dirout, r_prefix=r_prefix, del_flo_uncmpr=True, del_out_uncmpr=True)
+    flblu = spm_resample(fpet_, flbl, M, intrp=0, dirout=dirout, r_prefix=r_prefix, del_flo_uncmpr=True, del_out_uncmpr=True)
 
     imlbl = imio.getnii(flblu)
 
@@ -1051,119 +1064,119 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 
 
 
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-# U T E  +   p C T    B O T S T R A P   R E C O N S T R U C T I O N   &   A N A L Y S I S
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-def btproi(datain, amyroi, txLUT, axLUT, Cnt, Bitr = 50, upscale=True, t0=0, t1=0, itr=4, fwhm=0., fcomment='', int_order=0):
+# # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# # U T E  +   p C T    B O T S T R A P   R E C O N S T R U C T I O N   &   A N A L Y S I S
+# # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# def btproi(datain, amyroi, txLUT, axLUT, Cnt, Bitr = 50, upscale=True, t0=0, t1=0, itr=4, fwhm=0., fcomment='', int_order=0):
 
-    # ff not bootstrap then do only one reconstruction
-    if Cnt['BTP']==0: Bitr = 1
+#     # ff not bootstrap then do only one reconstruction
+#     if Cnt['BTP']==0: Bitr = 1
 
-    # array for all bootstrap/normal SUVr's extracted from multiple/single reconstruction(s) and for different reference regions
-    # SUVr = { 'ute':{'nopvc':[], 'pvc':[]}, 'pct':{'nopvc':[], 'pvc':[]} }
-    # SUVr['ute']['nopvc'] = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
-    # SUVr['ute']['pvc']   = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
-    # SUVr['pct']['nopvc'] = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
-    # SUVr['pct']['pvc']   = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     # array for all bootstrap/normal SUVr's extracted from multiple/single reconstruction(s) and for different reference regions
+#     # SUVr = { 'ute':{'nopvc':[], 'pvc':[]}, 'pct':{'nopvc':[], 'pvc':[]} }
+#     # SUVr['ute']['nopvc'] = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     # SUVr['ute']['pvc']   = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     # SUVr['pct']['nopvc'] = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     # SUVr['pct']['pvc']   = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
 
-    btpout = namedtuple('btpout',  'Rpct,  Rpctpvc,  Rute,  Rutepvc, \
-                                    M1pct, M1pctpvc, M1ute, M1utepvc, \
-                                    M2pct, M2pctpvc, M2ute, M2utepvc, Itrp, Itru')
-    btpout.Rpct    = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
-    btpout.Rpctpvc = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
-    btpout.Rute    = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
-    btpout.Rutepvc = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     btpout = namedtuple('btpout',  'Rpct,  Rpctpvc,  Rute,  Rutepvc, \
+#                                     M1pct, M1pctpvc, M1ute, M1utepvc, \
+#                                     M2pct, M2pctpvc, M2ute, M2utepvc, Itrp, Itru')
+#     btpout.Rpct    = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     btpout.Rpctpvc = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     btpout.Rute    = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
+#     btpout.Rutepvc = np.zeros((Bitr, len(amyroi.refi), len(amyroi.roii)), dtype=np.float32)
 
-    btpout.Itrp = 0
-    btpout.Itru = 0
+#     btpout.Itrp = 0
+#     btpout.Itru = 0
 
-    for bitr in range(Bitr):
-        if Cnt['BTP']==0:
-            cmmnt = '(P)'
-        else:
-            cmmnt = '(b'+str(bitr)+')'
-        # perform reconstruction with UTE and pCT mu-maps while aligning the pCT/T1w to PET-UTE
-        recout = nipet.img.prc.osemduo(datain, txLUT, axLUT, Cnt, t0=t0, t1=t1, itr=itr, fcomment=fcomment+cmmnt, use_stored=True)
+#     for bitr in range(Bitr):
+#         if Cnt['BTP']==0:
+#             cmmnt = '(P)'
+#         else:
+#             cmmnt = '(b'+str(bitr)+')'
+#         # perform reconstruction with UTE and pCT mu-maps while aligning the pCT/T1w to PET-UTE
+#         recout = nipet.img.prc.osemduo(datain, txLUT, axLUT, Cnt, t0=t0, t1=t1, itr=itr, fcomment=fcomment+cmmnt, use_stored=True)
         
-        # get the PSF kernel for PVC
-        krnlPSF = nipet.img.mmrimg.getPSFmeasured()
-        # trim PET and upsample.  The trimming is done based on the first file in the list below, i.e., recon with pCT
-        imudic = nipet.img.prc.trimPET( datain, Cnt, fpets=[recout.fpct, recout.fute], scale=2, 
-                                        fcomment='trim_'+fcomment, int_order=int_order)
-        # create separate dictionary for UTE and pCT reconstructions
-        imupct = {'im':imudic['im'][0,:,:,:], 'fpet':imudic['fpet'][0], 'affine':imudic['affine']} 
-        imuute = {'im':imudic['im'][1,:,:,:], 'fpet':imudic['fpet'][1], 'affine':imudic['affine']}
+#         # get the PSF kernel for PVC
+#         krnlPSF = nimpa.psf_measured(scale=2)
+#         # trim PET and upsample.  The trimming is done based on the first file in the list below, i.e., recon with pCT
+#         imudic = trimim( datain, Cnt, fpets=[recout.fpct, recout.fute], scale=2, 
+#                                         fcomment='trim_'+fcomment, int_order=int_order)
+#         # create separate dictionary for UTE and pCT reconstructions
+#         imupct = {'im':imudic['im'][0,:,:,:], 'fpet':imudic['fpet'][0], 'affine':imudic['affine']} 
+#         imuute = {'im':imudic['im'][1,:,:,:], 'fpet':imudic['fpet'][1], 'affine':imudic['affine']}
 
-        if bitr==0 and Cnt['BTP']>0:
-            # initialise the online variance images in this first iteration
-            btpout.M1pct   = np.zeros(imupct['im'].shape, dtype=np.float32)
-            btpout.M1pctpvc= np.zeros(imupct['im'].shape, dtype=np.float32)
-            btpout.M1ute   = np.zeros(imuute['im'].shape, dtype=np.float32)
-            btpout.M1utepvc= np.zeros(imuute['im'].shape, dtype=np.float32)
-            btpout.M2pct   = np.zeros(imupct['im'].shape, dtype=np.float32)
-            btpout.M2pctpvc= np.zeros(imupct['im'].shape, dtype=np.float32)
-            btpout.M2ute   = np.zeros(imuute['im'].shape, dtype=np.float32)
-            btpout.M2utepvc= np.zeros(imuute['im'].shape, dtype=np.float32)
+#         if bitr==0 and Cnt['BTP']>0:
+#             # initialise the online variance images in this first iteration
+#             btpout.M1pct   = np.zeros(imupct['im'].shape, dtype=np.float32)
+#             btpout.M1pctpvc= np.zeros(imupct['im'].shape, dtype=np.float32)
+#             btpout.M1ute   = np.zeros(imuute['im'].shape, dtype=np.float32)
+#             btpout.M1utepvc= np.zeros(imuute['im'].shape, dtype=np.float32)
+#             btpout.M2pct   = np.zeros(imupct['im'].shape, dtype=np.float32)
+#             btpout.M2pctpvc= np.zeros(imupct['im'].shape, dtype=np.float32)
+#             btpout.M2ute   = np.zeros(imuute['im'].shape, dtype=np.float32)
+#             btpout.M2utepvc= np.zeros(imuute['im'].shape, dtype=np.float32)
         
-        #-----------------------------
-        # PCT ANALYSIS
-        if Cnt['BTP']==0:
-            cmmnt = '(pct-P)'
-        else:
-            cmmnt = '(pct-b'+str(bitr)+')'
-        # perform PVC, iterative Yang
-        pvcdic = nipet.img.prc.pvc_iYang(datain, Cnt, imupct, amyroi, krnlPSF, faffu=recout.faff, fcomment=cmmnt)
-        # the rigid transformation is the same for PVC corrected and uncorrected images
-        imupct['faff'] = pvcdic['faff']
-        # and now for PVC image
-        roisum, roimsk = nipet.img.prc.roi_extraction(pvcdic, amyroi, datain, Cnt, use_stored=False)
-        for i in range(len(amyroi.refi)):
-            refc = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
-            for j in range(len(amyroi.roii)):
-                btpout.Rpctpvc[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / refc
-        # extract the ROI values from uncorrected image
-        roisum, roimsk = nipet.img.prc.roi_extraction(imupct, amyroi, datain, Cnt, use_stored=True)
-        for i in range(len(amyroi.refi)):
-            ref = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
-            for j in range(len(amyroi.roii)):
-                btpout.Rpct[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / ref
-        # calculate variance online
-        if Cnt['BTP']>0 and imupct['im'].shape==btpout.M1pct.shape:
-            nipet.mmr_auxe.varon(btpout.M1pct,    btpout.M2pct,    imupct['im']/ref , btpout.Itrp, Cnt)
-            nipet.mmr_auxe.varon(btpout.M1pctpvc, btpout.M2pctpvc, pvcdic['im']/refc, btpout.Itrp, Cnt)
-            btpout.Itrp += 1
-        else:
-            print 'e> Omitting on-line variance calculations. Check the shape of images.'
+#         #-----------------------------
+#         # PCT ANALYSIS
+#         if Cnt['BTP']==0:
+#             cmmnt = '(pct-P)'
+#         else:
+#             cmmnt = '(pct-b'+str(bitr)+')'
+#         # perform PVC, iterative Yang
+#         pvcdic = nipet.img.prc.pvc_iYang(datain, Cnt, imupct, amyroi, krnlPSF, faffu=recout.faff, fcomment=cmmnt)
+#         # the rigid transformation is the same for PVC corrected and uncorrected images
+#         imupct['faff'] = pvcdic['faff']
+#         # and now for PVC image
+#         roisum, roimsk = nipet.img.prc.roi_extraction(pvcdic, amyroi, datain, Cnt, use_stored=False)
+#         for i in range(len(amyroi.refi)):
+#             refc = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
+#             for j in range(len(amyroi.roii)):
+#                 btpout.Rpctpvc[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / refc
+#         # extract the ROI values from uncorrected image
+#         roisum, roimsk = nipet.img.prc.roi_extraction(imupct, amyroi, datain, Cnt, use_stored=True)
+#         for i in range(len(amyroi.refi)):
+#             ref = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
+#             for j in range(len(amyroi.roii)):
+#                 btpout.Rpct[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / ref
+#         # calculate variance online
+#         if Cnt['BTP']>0 and imupct['im'].shape==btpout.M1pct.shape:
+#             nipet.mmr_auxe.varon(btpout.M1pct,    btpout.M2pct,    imupct['im']/ref , btpout.Itrp, Cnt)
+#             nipet.mmr_auxe.varon(btpout.M1pctpvc, btpout.M2pctpvc, pvcdic['im']/refc, btpout.Itrp, Cnt)
+#             btpout.Itrp += 1
+#         else:
+#             print 'e> Omitting on-line variance calculations. Check the shape of images.'
 
 
-        #-----------------------------
-        # UTE ANALYSIS
-        if Cnt['BTP']==0:
-            cmmnt = '(ute-P)'
-        else:
-            cmmnt = '(ute-b'+str(bitr)+')' 
-        # perform PVC, iterative Yang
-        pvcdic = nipet.img.prc.pvc_iYang(datain, Cnt, imuute, amyroi, krnlPSF, faffu=recout.faff, fcomment=cmmnt)
-        # the rigid transformation is the same for PVC corrected and uncorrected images
-        imuute['faff'] = pvcdic['faff']
-        # extract the ROI values from uncorrected image
-        roisum, roimsk = nipet.img.prc.roi_extraction(imuute, amyroi, datain, Cnt, use_stored=False)
-        for i in range(len(amyroi.refi)):
-            ref = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
-            for j in range(len(amyroi.roii)):
-                btpout.Rute[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / ref
-        # and now for PVC image
-        roisum, roimsk = nipet.img.prc.roi_extraction(pvcdic, amyroi, datain, Cnt, use_stored=True)
-        for i in range(len(amyroi.refi)):
-            ref = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
-            for j in range(len(amyroi.roii)):
-                btpout.Rutepvc[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / ref
-        # calculate variance online
-        if Cnt['BTP']>0 and imuute['im'].shape==btpout.M1ute.shape:
-            nipet.mmr_auxe.varon(btpout.M1ute,    btpout.M2ute,    imuute['im'], btpout.Itru, Cnt)
-            nipet.mmr_auxe.varon(btpout.M1utepvc, btpout.M2utepvc, pvcdic['im'], btpout.Itru, Cnt)
-            btpout.Itru += 1
-        else:
-            print 'e> different shape encountered in online variance calculations (UTE).  Omitting.'
+#         #-----------------------------
+#         # UTE ANALYSIS
+#         if Cnt['BTP']==0:
+#             cmmnt = '(ute-P)'
+#         else:
+#             cmmnt = '(ute-b'+str(bitr)+')' 
+#         # perform PVC, iterative Yang
+#         pvcdic = nipet.img.prc.pvc_iYang(datain, Cnt, imuute, amyroi, krnlPSF, faffu=recout.faff, fcomment=cmmnt)
+#         # the rigid transformation is the same for PVC corrected and uncorrected images
+#         imuute['faff'] = pvcdic['faff']
+#         # extract the ROI values from uncorrected image
+#         roisum, roimsk = nipet.img.prc.roi_extraction(imuute, amyroi, datain, Cnt, use_stored=False)
+#         for i in range(len(amyroi.refi)):
+#             ref = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
+#             for j in range(len(amyroi.roii)):
+#                 btpout.Rute[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / ref
+#         # and now for PVC image
+#         roisum, roimsk = nipet.img.prc.roi_extraction(pvcdic, amyroi, datain, Cnt, use_stored=True)
+#         for i in range(len(amyroi.refi)):
+#             ref = np.array(roisum[amyroi.refi[i]]) / np.array(roimsk[amyroi.refi[i]])
+#             for j in range(len(amyroi.roii)):
+#                 btpout.Rutepvc[bitr,i,j] = ( np.array(roisum[amyroi.roii[j]]) / np.array(roimsk[amyroi.roii[j]]) ) / ref
+#         # calculate variance online
+#         if Cnt['BTP']>0 and imuute['im'].shape==btpout.M1ute.shape:
+#             nipet.mmr_auxe.varon(btpout.M1ute,    btpout.M2ute,    imuute['im'], btpout.Itru, Cnt)
+#             nipet.mmr_auxe.varon(btpout.M1utepvc, btpout.M2utepvc, pvcdic['im'], btpout.Itru, Cnt)
+#             btpout.Itru += 1
+#         else:
+#             print 'e> different shape encountered in online variance calculations (UTE).  Omitting.'
 
-    return btpout
+#     return btpout
