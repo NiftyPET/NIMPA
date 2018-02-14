@@ -31,6 +31,7 @@ def trimim( fims,
             int_order=0,
             fmax = 0.05,
             outpath='',
+            fname='',
             fcomment='',
             store_avg=False,
             store_img_intrmd=False,
@@ -55,6 +56,7 @@ def trimim( fims,
     int_order: interpolation order (0-nearest neighbour, 1-linear, as in scipy)
     fmax: fraction of the max image value used for finding image borders for trimming
     outpath: output folder path
+    fname: file name when image given as a numpy matrix
     fcomment: part of the name of the output file, left for the user as a comment
     store_img_intrmd: stores intermediate images with suffix '_i'
     store_avg: stores the average image (if multiple images are given)
@@ -106,7 +108,10 @@ def trimim( fims,
             imin.shape = (1, imin.shape[0], imin.shape[1], imin.shape[2])
         imshape = imin.shape[-3:]
         fldrin = os.path.join(os.path.expanduser('~'), 'NIMPA_output')
-        fnms = imin.shape[0] * [ 'NIMPA' ]
+        if fname=='':
+            fnms = imin.shape[0] * [ 'NIMPA' ]
+        else:
+            fnms = imin.shape[0] * [ fname ]
 
     else:
         raise TypeError('Wrong data type input.')
@@ -572,7 +577,7 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=1.5, rthrsh=0.05
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=1.5, rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
+def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15, rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
 
     # create output path if given
     if outpath!='':
@@ -603,7 +608,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=1.
         fmsk = os.path.join(fimdir, 'rmask.nii.gz')
         imdct = imio.getnii(fpet, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
-                                            imio.fwhm2sig(rfwhm, voxsize=imdct['affine'][0,0]), mode='mirror')
+                                            imio.fwhm2sig(rfwhm, voxsize=abs(imdct['affine'][0,0])), mode='mirror')
         thrsh = rthrsh*smoim.max()
         immsk = np.int8(smoim>thrsh)
         for iz in range(immsk.shape[0]):
@@ -612,7 +617,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=1.
                 ix1 = immsk.shape[2] - np.argmax(immsk[iz,iy,::-1]>0)
                 if (ix1-ix0) > immsk.shape[2]-10: continue
                 immsk[iz,iy,ix0:ix1] = 1
-        imio.array2nii( immsk[::-1,::-1,:], imio.getnii_affine(fpet), fmsk)
+        imio.array2nii( immsk[::-1,::-1,:], imio.getnii(fpet, output='affine'), fmsk)
 
     #create a folder for MR images registered to PET
     if outpath!='':
