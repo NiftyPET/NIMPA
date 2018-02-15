@@ -425,9 +425,10 @@ def pvc_iyang(
         fpet = imdic['fpet']
         B = imdic['affine']
     elif isinstance(petin, basestring) and os.path.isfile(petin):
-        im = imio.getnii(petin)
+        imdct = imio.getnii(petin, output='all')
+        im = imdct['im']
+        B = imdct['affine']
         fpet = petin
-        B = imio.getnii_affine(petin)
     
     if im.ndim!=3:
         raise IndexError('Only 3D images are expected in this method of partial volume correction.')
