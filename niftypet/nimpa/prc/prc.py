@@ -375,11 +375,13 @@ def pvc_iyang(
     Cnt,
     pvcroi,
     krnl,
-    outpath='',
-    faff='',
-    fcomment='',
+    itr=5,
     tool='nifty',
-    itr=5):
+    faff='',
+    outpath='',
+    fcomment='',
+    store_img=False,
+    ):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
         The PVC method uses iterative Yang method.
         GPU based convolution is the key routine of the PVC. 
@@ -513,11 +515,13 @@ def pvc_iyang(
     imgroi2 = imio.getnii(froi2)
     # run iterative Yang PVC
     imgpvc, m_a = iyang(im, krnl, imgroi2, Cnt, itr=itr)
-    fpvc = os.path.join( os.path.split(fpet)[0],
-                         os.path.split(fpet)[1].split('.')[0]+'_PVC'+fcomment+'.nii.gz')
-    imio.array2nii( imgpvc[::-1,::-1,:], B, fpvc, descrip='pvc=iY') 
+    outdct = {'im':imgpvc, 'froi':froi2, 'imroi':imgroi2, 'faff':faff}
+    if store_img:
+        fpvc = os.path.join( os.path.split(fpet)[0],
+                             os.path.split(fpet)[1].split('.')[0]+'_PVC'+fcomment+'.nii.gz')
+        imio.array2nii( imgpvc[::-1,::-1,:], B, fpvc, descrip='pvc=iY')
+        outdct['fpet'] = fpvc
     # ===============================================================
-    return {'fpet':fpvc, 'im':imgpvc, 'froi':froi2, 'imroi':imgroi2, 'faff':faff}
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>

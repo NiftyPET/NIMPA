@@ -103,7 +103,7 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
             if reg_ver in out:
                 output['RESPATH'] = True
         except OSError:
-            print 'e> NiftyReg (reg_resample) does NOT seem to be installed correctly.'
+            print 'e> NiftyReg (reg_resample) either is NOT installed or is corrupt.'
     
     # niftyreg reg_aladin
     if 'REGPATH' in chcklst and 'REGPATH' in Cnt:
@@ -113,7 +113,7 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
             if reg_ver in out:
                 output['REGPATH'] = True
         except OSError:
-            print 'e> NiftyReg (reg_aladin) does NOT seem to be installed correctly.'
+            print 'e> NiftyReg (reg_aladin) either is NOT installed or is corrupt.'
 
     # dcm2niix
     if 'DCM2NIIX' in chcklst and 'DCM2NIIX' in Cnt:
@@ -123,7 +123,7 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
             if dcm_ver in re.search('(?<=dcm2niiX version v)\d{1,2}.\d{1,2}.\d*', out).group(0):
                 output['DCM2NIIX'] = True
         except OSError:
-            print 'e> dcm2niix does NOT seem to be installed correctly.'
+            print 'e> dcm2niix either is NOT installed or is corrupt.'
 
     # hdw mu-map list
     if 'HMUDIR' in chcklst and 'HMUDIR' in Cnt:
@@ -168,9 +168,10 @@ def install_tool(app, Cnt):
     cwd = os.getcwd()
 
     # pick the target installation folder
-    if 'PATHTOOLS' in Cnt:
+    if 'PATHTOOLS' in Cnt and Cnt['PATHTOOLS']!='':
         path_tools = Cnt['PATHTOOLS']
-    elif 'PATHTOOLS' not in Cnt and 'DISPLAY' in os.environ:
+    elif ('PATHTOOLS' not in Cnt or Cnt['PATHTOOLS']!='') and 'DISPLAY' in os.environ:
+        print '>>>>> DISPLAY', os.environ['DISPLAY']
         Tk().withdraw()
         dircore = askdirectory(title='choose a place for NiftyPET tools', initialdir=os.path.expanduser('~'))
         # get the full (combined path)
@@ -312,7 +313,8 @@ def update_resources(Cnt):
         # modify resources.py with the new paths
         strNew = '### start NiftyPET tools ###\n'
         for i in range(len(key_list)):
-            strNew += key_list[i]+' = '+pth_list[i] + '\n'
+            if pth_list[i] != '\'\'':
+                strNew += key_list[i]+' = '+pth_list[i] + '\n'
         rsrcNew = rsrc[:i0] + strNew + rsrc[i1:]
         f = open(resources_file, 'w')
         f.write(rsrcNew)
