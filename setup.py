@@ -2,7 +2,7 @@
 """Compile CUDA source code and setup Python package 'nimpa' for package 'niftypet'."""
 
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018, Pawel Markiewicz"
+__copyright__   = "Copyright 2018"
 # ---------------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
