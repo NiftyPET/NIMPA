@@ -251,7 +251,7 @@ def trimim( fims,
         
         # save the up-sampled and trimmed PET images
         if store_img_intrmd:
-            _frm = '_frm-'+str(i)
+            _frm = '_trmfrm-'+str(i)
             _fstr = '_trimmed-upsampled-scale-'+str(scale) + _frm*(Nim>1) +fcomment
             fpetu.append( os.path.join(petudir, fnms[i]+_fstr+'.nii.gz') )
             imio.array2nii( imtrim[i,::-1,::-1,:], A, fpetu[i], descrip=niidescr)

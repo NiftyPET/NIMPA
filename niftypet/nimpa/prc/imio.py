@@ -167,8 +167,10 @@ def niisort(fims):
     if all(notfrm):
         print 'w> none image is a dynamic frame.'
         sortlist = range(Nim)
+    # number of frames (can be larger than the # images)
+    Nfrm = max(sortlist)+1
     # sort the list according to the frame numbers
-    _fims = [None]*Nim
+    _fims = ['Blank']*Nfrm
     # list of NIfTI image shapes and data types used
     shape = []
     dtype = []
@@ -178,6 +180,7 @@ def niisort(fims):
             _nii = nib.load(fims[i])
             dtype.append(_nii.get_data_dtype()) 
             shape.append(_nii.shape)
+
     # check if all images are of the same shape and data type
     if not shape.count(_nii.shape)==len(shape):
         raise ValueError('Input images are of different shapes.')
@@ -188,15 +191,19 @@ def niisort(fims):
         raise ValueError('Input image(s) must be 3D.')
 
     # get the images into an array
-    _imin = np.zeros((Nim,)+_nii.shape[::-1], dtype=_nii.get_data_dtype())
-    for i in range(Nim):
+    _imin = np.zeros((Nfrm,)+_nii.shape[::-1], dtype=_nii.get_data_dtype())
+    for i in range(Nfrm):
         if i in sortlist:
             imdic = getnii(_fims[i], 'all')
             _imin[i,:,:,:] = imdic['im']
             affine = imdic['affine']
 
     # return a dictionary
-    return {'shape':_nii.shape[::-1], 'files':_fims, 'sortlist':sortlist,
-            'im':_imin[:Nim-sum(notfrm),:,:,:],
+    return {'shape':_nii.shape[::-1],
+            'files':_fims, 
+            'sortlist':sortlist,
+            #'im':_imin[:Nim-sum(notfrm),:,:,:],
+            'im':_imin[:Nfrm,:,:,:],
             'affine':affine,
-            'dtype':_nii.get_data_dtype(), 'N':Nim}
+            'dtype':_nii.get_data_dtype(), 
+            'N':Nim}
