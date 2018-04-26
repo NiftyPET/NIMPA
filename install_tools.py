@@ -221,19 +221,18 @@ def install_tool(app, Cnt):
 
     # run cmake with arguments
     if platform.system()=='Windows':
-        call(
-            ['cmake', '../'+dirsrc,
+        cmd = ['cmake', '../'+dirsrc,
             '-DBUILD_ALL_DEP=ON',
             '-DCMAKE_INSTALL_PREFIX='+path,
             '-G', Cnt['MSVC_VRSN']]
-        )
+        call(cmd)
         call(['cmake', '--build', './', '--config', 'Release', '--target', 'install'])
     elif platform.system()=='Linux':
-        call(
-            ['cmake', '../'+dirsrc,
+        cmd = ['cmake', '../'+dirsrc,
             '-DBUILD_ALL_DEP=ON',
             '-DCMAKE_INSTALL_PREFIX='+path]
-        )
+        if Cnt['CMAKE_TLS_PAR']!='': cmd.append(Cnt['CMAKE_TLS_PAR'])
+        call(cmd)
         call(
             ['cmake', '--build', './',
             '--config', 'Release',
