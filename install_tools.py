@@ -156,6 +156,8 @@ def download_dcm2niix(Cnt, path, os_type):
     zipf.extractall(os.path.join(path, 'bin'))
     zipf.close()
     Cnt['DCM2NIIX'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'dcm2niix*'))[0]
+    # ensure the permissions are given to the executable
+    os.chmod(Cnt['DCM2NIIX'], 755)
     return Cnt
 
 
