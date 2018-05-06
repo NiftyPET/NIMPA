@@ -251,14 +251,14 @@ def trimim( fims,
         
         # save the up-sampled and trimmed PET images
         if store_img_intrmd:
-            _frm = '_trmfrm-'+str(i)
+            _frm = '_trmfrm'+str(i)
             _fstr = '_trimmed-upsampled-scale-'+str(scale) + _frm*(Nim>1) +fcomment
             fpetu.append( os.path.join(petudir, fnms[i]+_fstr+'.nii.gz') )
             imio.array2nii( imtrim[i,::-1,::-1,:], A, fpetu[i], descrip=niidescr)
             if verbose:  print 'i> saved upsampled PET image to:', fpetu[i]
 
     if store_img:
-        _nfrm = '_nfrm-'+str(Nim)
+        _nfrm = '_nfrm'+str(Nim)
         fim = os.path.join(petudir, 'final_trimmed-upsampled-scale-'+str(scale))+_nfrm*(Nim>1)+fcomment+'.nii.gz'
         imio.array2nii( np.squeeze(imtrim[:,::-1,::-1,:]), A, fim, descrip=niidescr)
         dctout['fim'] = fim
@@ -584,7 +584,29 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=1.5, rthrsh=0.05
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15, rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
+def imfill(immsk):
+    '''fill the empty patches of image mask 'immsk' '''
+
+    for iz in range(immsk.shape[0]):
+        for iy in range(immsk.shape[1]):
+            ix0 = np.argmax(immsk[iz,iy,:]>0)
+            ix1 = immsk.shape[2] - np.argmax(immsk[iz,iy,::-1]>0)
+            if (ix1-ix0) > immsk.shape[2]-10: continue
+            immsk[iz,iy,ix0:ix1] = 1
+    return immsk
+
+def mr2pet_rigid(
+        fpet, mridct, Cnt,
+        outpath='',
+        fcomment='',
+        rmsk=True,
+        rfwhm=15.,
+        rthrsh=0.05,
+        fmsk=True,
+        ffwhm = 15.,
+        fthrsh=0.05,
+        pi=50, pv=50,
+        smof=0, smor=0):
 
     # create output path if given
     if outpath!='':
@@ -605,33 +627,34 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
         print 'e> disaster: no T1w image!'
         sys.exit()
 
-    if rmsk:
-        if outpath!='':
-            fimdir = os.path.join( outpath, os.path.join('T1w2PET','tmp'))
-        else:
-            fimdir = os.path.join( os.path.basename(ft1w), 'tmp')
+    #create a folder for MR images registered to PET
+    if outpath!='':
+        mrodir = os.path.join(outpath,'T1w2PET')
+        fimdir = os.path.join(outpath, os.path.join('T1w2PET','tmp'))
+    else:
+        mrodir = os.path.join(os.path.dirname(ft1w),'mr2pet')
+        fimdir = os.path.join(os.path.basename(ft1w), 'tmp')
+    imio.create_dir(mrodir)
+    imio.create_dir(fimdir)
 
-        imio.create_dir(fimdir)
-        fmsk = os.path.join(fimdir, 'rmask.nii.gz')
+    if rmsk:
+        f_rmsk = os.path.join(fimdir, 'rmask.nii.gz')
         imdct = imio.getnii(fpet, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
                                             imio.fwhm2sig(rfwhm, voxsize=abs(imdct['affine'][0,0])), mode='mirror')
         thrsh = rthrsh*smoim.max()
         immsk = np.int8(smoim>thrsh)
-        for iz in range(immsk.shape[0]):
-            for iy in range(immsk.shape[1]):
-                ix0 = np.argmax(immsk[iz,iy,:]>0)
-                ix1 = immsk.shape[2] - np.argmax(immsk[iz,iy,::-1]>0)
-                if (ix1-ix0) > immsk.shape[2]-10: continue
-                immsk[iz,iy,ix0:ix1] = 1
-        imio.array2nii( immsk[::-1,::-1,:], imio.getnii(fpet, output='affine'), fmsk)
-
-    #create a folder for MR images registered to PET
-    if outpath!='':
-        mrodir = os.path.join(outpath,'T1w2PET')
-    else:
-        mrodir = os.path.join(os.path.dirname(ft1w),'mr2pet')
-    imio.create_dir(mrodir)
+        immsk = imfill(immsk)
+        imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_rmsk)
+    if fmsk:
+        f_fmsk = os.path.join(fimdir, 'fmask.nii.gz')
+        imdct = imio.getnii(ft1w, output='all')
+        smoim = ndi.filters.gaussian_filter(imdct['im'],
+                                            imio.fwhm2sig(ffwhm, voxsize=abs(imdct['affine'][1,0])), mode='mirror')
+        thrsh = fthrsh*smoim.max()
+        immsk = np.int8(smoim>thrsh)
+        immsk = imfill(immsk)
+        imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_fmsk)
 
     # if provided, separate the comment with underscore
     if fcomment!='': fcomment = '_'+fcomment
@@ -653,7 +676,10 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
              '-res', ft1out]
         if rmsk: 
             cmd.append('-rmask')
-            cmd.append(fmsk)
+            cmd.append(f_rmsk)
+        if fmsk:
+            cmd.append('-fmask')
+            cmd.append(f_fmsk)
         if 'VERBOSE' in Cnt and not Cnt['VERBOSE']: cmd.append('-voff')
         print cmd
         call(cmd)
