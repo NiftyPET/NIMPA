@@ -22,7 +22,7 @@ if 'DISPLAY' in os.environ:
     from tkFileDialog import askdirectory
 
 # NiftyReg git repository
-repo_reg = 'git://git.code.sf.net/p/niftyreg/git'
+repo_reg = 'https://cmiclab.cs.ucl.ac.uk/mmodat/niftyreg.git' #'git://git.code.sf.net/p/niftyreg/git'
 # git SHA-1 checksum for NiftyReg version (16 Nov 2017) used for PET/MR image registration and resampling
 sha1_reg =  '6bf84b492050a4b9a93431209babeab9bc8f14da' 
 #'62af1ca6777379316669b6934889c19863eaa708'
