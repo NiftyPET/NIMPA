@@ -146,7 +146,7 @@ print ' '
 print '--- error report ---'
 for ci in range(len(cmd)):
     if errstr[ci] != '_':
-        print 'e> found error(s) in ', ' '.join(cmd[ci]), '>>', errstr[i]
+        print 'e> found error(s) in ', ' '.join(cmd[ci]), '>>', errstr[ci]
         print ' '
 print '--- end ---'
 

@@ -8,6 +8,7 @@ __copyright__   = "Copyright 2018"
 import sys
 import os
 import nibabel as nib
+import pydicom as dcm
 import numpy as np
 import datetime
 import re
@@ -29,18 +30,26 @@ def fwhm2sig (fwhm, voxsize=2.0):
 
 
 #================================================================================
-def getnii(fim, output='image'):
+def getnii(fim, nan_replace=None, output='image'):
     '''Get PET image from NIfTI file.
+    fim: input file name for the nifty image
+    nan_replace:    the value to be used for replacing the NaNs in the image.
+                    by default no change (None).
+    output: option for choosing output: image, affine matrix or a dictionary with all info.
     ----------
     Return:
         'image': outputs just an image (4D or 3D)
         'affine': outputs just the affine matrix
         'all': outputs all as a dictionary
     '''
+
+    import numbers
+
     nim = nib.load(fim)
     if output=='image' or output=='all':
         imr = nim.get_data()
-        imr[np.isnan(imr)]=0
+        # replace NaNs if requested
+        if isinstance(nan_replace, numbers.Number): imr[np.isnan(imr)]=nan_replace
         # Flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
         if len(nim.shape)==4:
             imr  = np.transpose(imr[:,::-1,::-1,:], (3, 2, 1, 0))
@@ -207,3 +216,137 @@ def niisort(fims):
             'affine':affine,
             'dtype':_nii.get_data_dtype(), 
             'N':Nim}
+
+
+#================================================================================
+
+def dcm2im(fpth):
+    ''' Get the DICOM files from 'fpth' into an image with the affine transformation.
+        fpth can be a list of DICOM files or a path (string) to the folder with DICOM files.
+    '''
+
+    # possible DICOM file extensions
+    ext = ('dcm', 'DCM', 'ima', 'IMA') 
+    # case when given a folder path
+    if isinstance(fpth, basestring) and os.path.isdir(fpth):
+        SZ0 = len([d for d in os.listdir(fpth) if d.endswith(".dcm")])
+        # list of DICOM files
+        fdcms = os.listdir(fpth)
+        fdcms = [f for f in fdcms if f.endswith(ext)]
+    # case when list of DICOM files is given
+    elif isinstance(fpth, list) and os.path.isfile(os.path.join(fpth[0])):
+        SZ0 = len(fpth)
+        # list of DICOM files
+        fdcms = fpth
+        fdcms = [f for f in fdcms if f.endswith(ext)]
+    else:
+        raise NameError('Unrecognised input for DICOM files.')
+
+    if SZ0<1:
+        print 'e> no DICOM images in the specified path.'
+        raise IOError('Input DICOM images not recognised')
+
+    # pick single DICOM header
+    dhdr = dcm.read_file(fdcms[0])
+
+    #------------------------------------
+    # some info, e.g.: patient position and series UID
+    if [0x018, 0x5100] in dhdr:
+        ornt = dhdr[0x18,0x5100].value
+    else:
+        ornt = 'unkonwn'
+    # Series UID
+    sruid = dhdr[0x0020, 0x000e].value
+    #------------------------------------
+
+    #------------------------------------
+    # INIT
+    # image position 
+    P = np.zeros((SZ0,3), dtype=np.float64)
+    #image orientation
+    Orn = np.zeros((SZ0,6), dtype=np.float64)
+    #xy resolution
+    R = np.zeros((SZ0,2), dtype=np.float64)
+    #slice thickness
+    S = np.zeros((SZ0,1), dtype=np.float64)
+    #slope and intercept
+    SI = np.ones((SZ0,2), dtype=np.float64)
+    SI[:,1] = 0
+
+    #image data as an list of array for now
+    IM = []
+    #------------------------------------
+
+    c = 0
+    for d in fdcms:
+        dhdr = dcm.read_file(d)
+        if [0x20,0x32] in dhdr and [0x20,0x37] in dhdr and [0x28,0x30] in dhdr:
+            P[c,:] = np.array([float(f) for f in dhdr[0x20,0x32].value])
+            Orn[c,:] = np.array([float(f) for f in dhdr[0x20,0x37].value])
+            R[c,:] = np.array([float(f) for f in dhdr[0x28,0x30].value])
+            S[c,:] = float(dhdr[0x18,0x50].value)
+        else:
+            print 'e> could not read all the DICOM tags.'
+            return {'im':[], 'affine':[], 'shape':[], 'orient':ornt, 'sruid':sruid}
+            
+        if [0x28,0x1053] in dhdr and [0x28,0x1052] in dhdr:
+            SI[c,0] = float(dhdr[0x28,0x1053].value)
+            SI[c,1] = float(dhdr[0x28,0x1052].value)
+        IM.append(dhdr.pixel_array)
+        c += 1
+
+
+    #check if orientation/resolution is the same for all slices
+    if np.sum(Orn-Orn[0,:]) > 1e-6:
+        print 'e> varying orientation for slices'
+    else:
+        Orn = Orn[0,:]
+    if np.sum(R-R[0,:]) > 1e-6:
+        print 'e> varying resolution for slices'
+    else:
+        R = R[0,:]
+
+    # Patient Position
+    #patpos = dhdr[0x18,0x5100].value
+    # Rows and Columns
+    if [0x28,0x10] in dhdr and [0x28,0x11] in dhdr:
+        SZ2 = dhdr[0x28,0x10].value
+        SZ1 = dhdr[0x28,0x11].value
+    # image resolution
+    SZ_VX2 = R[0]
+    SZ_VX1 = R[1]
+
+    #now sort the images along k-dimension
+    k = np.argmin(abs(Orn[:3]+Orn[3:]))
+    #sorted indeces
+    si = np.argsort(P[:,k])
+    Pos = np.zeros(P.shape, dtype=np.float64)
+    im = np.zeros((SZ0, SZ1, SZ2 ), dtype=np.float32)
+
+    #check if the detentions are in agreement (the pixel array could be transposed...)
+    if IM[0].shape[0]==SZ1:
+        for i in range(SZ0):
+            im[i,:,:] = IM[si[i]]*SI[si[i],0] + SI[si[i],1]
+            Pos[i,:] = P[si[i]]
+    else:
+        for i in range(SZ0):
+            im[i,:,:] = IM[si[i]].T * SI[si[i],0] + SI[si[i],1]
+            Pos[i,:] = P[si[i]]
+
+    # proper slice thickness
+    Zz = (P[si[-1],2] - P[si[0],2])/(SZ0-1)
+    Zy = (P[si[-1],1] - P[si[0],1])/(SZ0-1)
+    Zx = (P[si[-1],0] - P[si[0],0])/(SZ0-1)
+    
+
+    # dictionary for affine and image size for the image
+    A = {
+        'AFFINE':np.array([[SZ_VX2*Orn[0], SZ_VX1*Orn[3], Zx, Pos[0,0]],
+                           [SZ_VX2*Orn[1], SZ_VX1*Orn[4], Zy, Pos[0,1]],
+                           [SZ_VX2*Orn[2], SZ_VX1*Orn[5], Zz, Pos[0,2]],
+                           [0., 0., 0., 1.]]),
+        'SHAPE':(SZ0, SZ1, SZ2)
+    }
+
+    #the returned image is already scaled according to the dcm header
+    return {'im':im, 'affine':A['AFFINE'], 'shape':A['SHAPE'], 'orient':ornt, 'sruid':sruid}
