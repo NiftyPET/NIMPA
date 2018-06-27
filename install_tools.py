@@ -33,7 +33,7 @@ repo_dcm = 'https://github.com/rordenlab/dcm2niix'
 # git SHA-1 checksum for the version (v1.0.20171204) used for PET/MR
 sha1_dcm = 'e35a1f1bf3212387e1724891b84507f7af303810'
 #'8c7d7b896e91b7e153754bfab740f690b0a34368'
-dcm_ver = '1.0.20171204'
+dcm_ver = '1.0.20171215'
 
 # source and build folder names
 dirsrc = '_src'
