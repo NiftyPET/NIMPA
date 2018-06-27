@@ -267,6 +267,7 @@ def trimim( fims,
     dctout['fimi'] = fpetu
     dctout['im'] = np.squeeze(imtrim)
     dctout['N'] = Nim
+    dctout['affine'] = A
         
     return dctout
 
@@ -387,7 +388,7 @@ def pvc_iyang(
         GPU based convolution is the key routine of the PVC. 
         Input:
         -------
-        petin:  either a dictionary of image data, file name and affine transform,
+        petin:  either a dictionary containing image data, file name and affine transform,
                 or a string of the path to the NIfTI file of the PET data.
         mridct: a dictionary of MRI data, including the T1w image, which can be given
                 in DICOM (field 'T1dcm') or NIfTI (field 'T1nii').  The T1w image data
