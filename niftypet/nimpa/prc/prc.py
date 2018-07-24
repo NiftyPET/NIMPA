@@ -15,6 +15,7 @@ from collections import namedtuple
 from subprocess import call
 import datetime
 import re
+import multiprocessing
 
 from pkg_resources import resource_filename
 import imio
@@ -528,8 +529,179 @@ def pvc_iyang(
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-# P E T 2 P E T   R E G I S T R A T I O N
+# I M A G E   R E G I S T R A T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+def imfill(immsk):
+    '''fill the empty patches of image mask 'immsk' '''
+
+    for iz in range(immsk.shape[0]):
+        for iy in range(immsk.shape[1]):
+            ix0 = np.argmax(immsk[iz,iy,:]>0)
+            ix1 = immsk.shape[2] - np.argmax(immsk[iz,iy,::-1]>0)
+            if (ix1-ix0) > immsk.shape[2]-10: continue
+            immsk[iz,iy,ix0:ix1] = 1
+    return immsk
+
+#-------------------------------------------------------------------------------------
+def affine_niftyreg(
+    fref, fflo,
+    outpath='',
+    fcomment='',
+    exepath = '',
+    omp=1,
+    rigOnly = False,
+    affDirect = False,
+    maxit=5,
+    speed=True,
+    pi=50, pv=50,
+    smof=0, smor=0,
+    rmsk=True,
+    fmsk=True,
+    rfwhm=1.5,
+    rthrsh=0.05,
+    ffwhm = 15.,
+    fthrsh=0.05,
+    verbose=True):
+
+    # check if the executable exists:
+    if not os.path.isfile(exepath):
+        raise IOError('Incorrect path to executable file for registration.')
+
+    #create a folder for images registered to ref
+    if outpath!='':
+        odir = os.path.join(outpath,'affine')
+        fimdir = os.path.join(outpath, os.path.join('affine','mask'))
+    else:
+        odir = os.path.join(os.path.dirname(fflo),'affine')
+        fimdir = os.path.join(os.path.basename(fflo), 'mask')
+    imio.create_dir(odir)
+    imio.create_dir(fimdir)
+
+    if rmsk:
+        f_rmsk = os.path.join(fimdir, 'rmask.nii.gz')
+        imdct = imio.getnii(fref, output='all')
+        smoim = ndi.filters.gaussian_filter(imdct['im'],
+                                            imio.fwhm2sig(rfwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), mode='mirror')
+        thrsh = rthrsh*smoim.max()
+        immsk = np.int8(smoim>thrsh)
+        immsk = imfill(immsk)
+        imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_rmsk)
+    if fmsk:
+        f_fmsk = os.path.join(fimdir, 'fmask.nii.gz')
+        imdct = imio.getnii(fflo, output='all')
+        smoim = ndi.filters.gaussian_filter(imdct['im'],
+                                            imio.fwhm2sig(ffwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), mode='mirror')
+        thrsh = fthrsh*np.ptp(smoim) + np.min(smoim)
+        immsk = np.int8(smoim>thrsh)
+        immsk = imfill(immsk)
+        imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_fmsk)
+
+    # output in register with ref
+    fout = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.')[0]+fcomment+'.nii.gz')
+    # text file for the affine transform T1w->PET
+    faff   = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.')[0]+fcomment+'.txt')  
+    # call the registration routine
+    cmd = [exepath,
+         '-ref', fref,
+         '-flo', fflo,
+         '-aff', faff,
+         '-pi', str(pi),
+         '-pv', str(pv),
+         '-smooF', str(smof),
+         '-smooR', str(smor),
+         '-maxit', '10',
+         '-omp', str(omp),
+         '-res', fout]
+    if speed:
+        cmd.append('-speeeeed')
+    if rigOnly:
+        cmd.append('-rigOnly')
+    if affDirect:
+        cmd.append('affDirect')
+    if rmsk: 
+        cmd.append('-rmask')
+        cmd.append(f_rmsk)
+    if fmsk:
+        cmd.append('-fmask')
+        cmd.append(f_fmsk)
+    if not verbose:
+        cmd.append('-voff')
+
+    call(cmd)
+       
+    return faff, fout
+#-------------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------------
+def reg_mr2pet(
+        fpet,
+        mri,
+        Cnt,
+        rigOnly = True,
+        affDirect = False,
+        maxit=5,
+        outpath='',
+        fcomment=''
+    ):
+    ''' MR to PET registration with optimal choice of registration parameters
+    '''
+
+    if isinstance(mri, dict):
+        # check if NIfTI file is given
+        if 'T1nii' in mri and os.path.isfile(mri['T1nii']):
+            ft1w = mri['T1nii']
+        # or bias corrected
+        elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
+            ft1w = mri['T1bc']
+        elif 'T1dcm' in mri and os.path.exists(mri['MRT1W']):
+            # create file name for the converted NIfTI image
+            fnii = 'converted'
+            call( [ Cnt['DCM2NIIX'], '-f', fnii, mri['T1nii'] ] )
+            ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
+            ft1w = ft1nii[0]
+        else:
+            print 'e> disaster: could not fine a T1w image!'
+            raise IOError('No correct path given to T1w image in the specified dictionary')
+            
+    elif isinstance(mri, basestring):
+        if os.path.isfile(mri):
+            ft1w = mri
+        else:
+            raise IOError('No correct path given to T1w image in the specified string')
+
+    else:
+        raise IOError('No correct input specified to T1w image')
+
+    if not os.path.isfile(fpet):
+        raise IOError('No correct input specified for the PET image')
+
+    # run the registration and return the results (file paths to affine trans. and the resampled image)
+    return affine_niftyreg(
+        fpet, ft1w,
+        exepath = Cnt['REGPATH'],
+        outpath=outpath,
+        fcomment=fcomment,
+        omp=multiprocessing.cpu_count()/2,
+        rigOnly = rigOnly,
+        affDirect = affDirect,
+        maxit=maxit,
+        speed=True,
+        pi=50, pv=50,
+        smof=0, smor=0,
+        rmsk=True,
+        fmsk=True,
+        rfwhm=1.5,
+        rthrsh=0.05,
+        ffwhm = 15.,
+        fthrsh=0.05,
+        verbose=Cnt['VERBOSE'])
+#-------------------------------------------------------------------------------------
+
+
+
+#-------------------------------------------------------------------------------------
 def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=1.5, rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
 
     #create a folder for PET images registered to ref PET
@@ -582,19 +754,8 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=1.5, rthrsh=0.05
         raise StandardError('No registration executable found')
         
     return faff, fout
-
-
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-def imfill(immsk):
-    '''fill the empty patches of image mask 'immsk' '''
 
-    for iz in range(immsk.shape[0]):
-        for iy in range(immsk.shape[1]):
-            ix0 = np.argmax(immsk[iz,iy,:]>0)
-            ix1 = immsk.shape[2] - np.argmax(immsk[iz,iy,::-1]>0)
-            if (ix1-ix0) > immsk.shape[2]-10: continue
-            immsk[iz,iy,ix0:ix1] = 1
-    return immsk
 
 def mr2pet_rigid(
         fpet, mridct, Cnt,
@@ -651,7 +812,7 @@ def mr2pet_rigid(
         f_fmsk = os.path.join(fimdir, 'fmask.nii.gz')
         imdct = imio.getnii(ft1w, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
-                                            imio.fwhm2sig(ffwhm, voxsize=abs(imdct['affine'][1,0])), mode='mirror')
+                                            imio.fwhm2sig(ffwhm, voxsize=abs(imdct['affine'][0,0])), mode='mirror')
         thrsh = fthrsh*smoim.max()
         immsk = np.int8(smoim>thrsh)
         immsk = imfill(immsk)

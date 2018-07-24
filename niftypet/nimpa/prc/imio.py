@@ -12,6 +12,11 @@ import pydicom as dcm
 import numpy as np
 import datetime
 import re
+import shutil
+
+# possible extentions for DICOM files
+dcmext = ('dcm', 'DCM', 'ima', 'IMA')
+
 
 #---------------------------------------------------------------
 def create_dir(pth):
@@ -57,6 +62,8 @@ def getnii(fim, nan_replace=None, output='image'):
             imr  = np.transpose(imr[:,::-1,::-1], (2, 1, 0))
     if output=='affine' or output=='all':
         A = nim.get_sform()
+        if not A[:3,:3].any():
+            A = nim.get_qform()
 
     if output=='all':
         out = {'im':imr, 'affine':A, 'dtype':nim.get_data_dtype(), 'shape':imr.shape, 'hdr':nim.header}
@@ -151,7 +158,79 @@ def nii_gzip(imfile):
     return fout
 #================================================================================
 
+def dcmsort(folder, copy_series=False, verbose=False):
+    ''' Sort out the DICOM files in the folder according to the recorded series.
+    '''
 
+    # list files in the input folder
+    files = os.listdir(folder)
+
+    srs = {}
+    for f in files:
+        if os.path.isfile(os.path.join(folder, f)) and f.endswith(dcmext):
+            dhdr = dcm.read_file(os.path.join(folder, f))
+            #---------------------------------
+            # image size
+            imsz = np.zeros(2, dtype=np.int64)
+            if [0x028,0x010] in dhdr:
+                imsz[0] = dhdr[0x028,0x010].value
+            if [0x028,0x011] in dhdr:
+                imsz[1] = dhdr[0x028,0x011].value
+            # voxel size
+            vxsz = np.zeros(3, dtype=np.float64)
+            if [0x028,0x030] in dhdr and [0x018,0x050] in dhdr:
+                pxsz =  np.array([float(e) for e in dhdr[0x028,0x030].value])
+                vxsz[:2] = pxsz
+                vxsz[2] = float(dhdr[0x018,0x050].value)
+            # orientation
+            ornt = np.zeros(6, dtype=np.float64)
+            if [0x020,0x037] in dhdr:
+                ornt = np.array([float(e) for e in dhdr[0x20,0x37].value])
+            # seires description, time and study time
+            srs_dcrp = dhdr[0x0008, 0x103e].value
+            srs_time = dhdr[0x0008, 0x0031].value[:6]
+            std_time = dhdr[0x0008, 0x0030].value[:6]
+
+            if verbose:
+                print 'series desciption:', srs_dcrp
+                print 'series time:', srs_time
+                print 'study  time:', std_time
+                print '---------------------------------------------------'
+
+            #----------
+            # series for any category (can be multiple scans within the same category)
+            recognised_series = False
+            srs_k = srs.keys()
+            for s in srs_k:
+                if  np.array_equal(srs[s]['imorient'],  ornt) and \
+                    np.array_equal(srs[s]['imsize'],    imsz) and \
+                    np.array_equal(srs[s]['voxsize'],   vxsz) and \
+                    srs[s]['tseries'] == srs_time:
+                    recognised_series = True
+                    break
+            # if series was not found, create one
+            if not recognised_series:
+                s = srs_dcrp + '_' + srs_time
+                srs[s] = {}
+                srs[s]['imorient']  = ornt
+                srs[s]['imsize']    = imsz
+                srs[s]['voxsize']   = vxsz
+                srs[s]['tseries']   = srs_time
+            # append the file name
+            if 'files' not in srs[s]: srs[s]['files'] = []
+            if copy_series:
+                srsdir = os.path.join(folder, s)
+                create_dir( srsdir )
+                shutil.copy(os.path.join(folder, f), srsdir)
+                srs[s]['files'].append( os.path.join(srsdir, f) )
+            else:
+                srs[s]['files'].append( os.path.join(folder, f) )
+    #------------------------------------------------------
+
+
+
+
+#================================================================================
 
 def niisort(fims):
     ''' Sort all input NIfTI images and check their shape.
