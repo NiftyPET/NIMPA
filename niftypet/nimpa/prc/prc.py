@@ -689,7 +689,7 @@ def reg_mr2pet(
         maxit=maxit,
         speed=True,
         pi=50, pv=50,
-        smof=0, smor=0,
+        smof=0., smor=0.,
         rmsk=True,
         fmsk=True,
         rfwhm=1.5,
