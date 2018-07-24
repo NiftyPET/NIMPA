@@ -448,7 +448,7 @@ def pvc_iyang(
     #if affine transf. (faff) is given then take the T1 and resample it too.
     if isinstance(faff, basestring) and not os.path.isfile(faff):
         # faff is not given; get it by running the affine; get T1w to PET space
-        faff = reg_mr2pet(fpet, mridct, Cnt, outpath=outpath, fcomment=fcomment)
+        faff, _ = reg_mr2pet(fpet, mridct, Cnt, outpath=outpath, fcomment=fcomment)
 
     # establish the output folder
     if outpath=='':        
