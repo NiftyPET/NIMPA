@@ -44,6 +44,11 @@ CMAKE_TLS_PAR = '' #-DUSE_SSE=OFF'
 ### end NiftyPET tools ###
 # -----------------------------------------------------
 
+# enable xnat module
+ENBLXNAT = False
+# enable Agg
+ENBLAGG = False
+
 #============ SIEMENS mMR SCANNER C O N S T A N T S ===============
 # number of rings (axially) and crystals (transaxially)
 NRNG = 64
@@ -90,7 +95,7 @@ sct_irng = np.int16([0, 10, 19, 28, 35, 44, 53, 63])
 NSRNG = len(sct_irng)
 #------------------------------------------------------
 
-# number of sinos in segment 0
+# number of direct sinograms (i.e., for segment 0)
 SEG0 = 127
 
 # Reference image size (usually the default from Siemens) and GPU dimensions for optimal execution
@@ -258,6 +263,9 @@ def get_setup(Cnt = {}):
     if 'DCM2NIIX'   in globals() and DCM2NIIX!='':      Cnt['DCM2NIIX'] = DCM2NIIX
     # hardware mu-maps
     if 'HMUDIR'     in globals() and HMUDIR!='':        Cnt['HMUDIR']   = HMUDIR
+
+    Cnt['ENBLXNAT'] = ENBLXNAT
+    Cnt['ENBLAGG'] = ENBLAGG
 
     return Cnt
 
