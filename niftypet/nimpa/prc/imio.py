@@ -311,7 +311,7 @@ def dcm2im(fpth):
         SZ0 = len([d for d in os.listdir(fpth) if d.endswith(".dcm")])
         # list of DICOM files
         fdcms = os.listdir(fpth)
-        fdcms = [f for f in fdcms if f.endswith(ext)]
+        fdcms = [os.path.join(fpth,f) for f in fdcms if f.endswith(ext)]
     # case when list of DICOM files is given
     elif isinstance(fpth, list) and os.path.isfile(os.path.join(fpth[0])):
         SZ0 = len(fpth)
