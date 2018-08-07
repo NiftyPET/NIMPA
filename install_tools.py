@@ -135,28 +135,41 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
 
     return output
 #--------------------------------------------------------------------
-def download_dcm2niix(Cnt, path, os_type):
+def download_dcm2niix(Cnt, path):
     print '================================================='
-    print 'i> dcm2niix has to be installed directly from:'
+    print 'i> dcm2niix will be installed directly from:'
     print '   https://github.com/rordenlab/dcm2niix/releases'
     print '================================================='
+
+    #-create the installation folder
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    binpath = os.path.join(path, 'bin')
+    if not os.path.isdir(binpath):
+        os.mkdir(binpath)
+
     import urllib, zipfile
-    if os_type=='Windows':
+    if platform.system()=='Windows':
         urllib.urlretrieve(
             'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_win.zip',
             os.path.join(path, 'dcm2niix.zip')
         )
-    elif os_type=='Linux':
+    elif platform.system()=='Linux':
         urllib.urlretrieve(
             'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_lnx.zip',
             os.path.join(path, 'dcm2niix.zip')
         )
+    else:
+        raise OSError('Unrecognised operating system.')
+
     zipf = zipfile.ZipFile(os.path.join(path, 'dcm2niix.zip'), 'r')
     zipf.extractall(os.path.join(path, 'bin'))
     zipf.close()
     Cnt['DCM2NIIX'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'dcm2niix*'))[0]
     # ensure the permissions are given to the executable
     os.chmod(Cnt['DCM2NIIX'], 755)
+    # update the resources.py file in ~/.niftypet
+    Cnt = update_resources(Cnt)
     return Cnt
 
 
@@ -200,6 +213,9 @@ def install_tool(app, Cnt):
         repo = repo_dcm
         sha1 = sha1_dcm
         path = os.path.join(path_tools, 'dcm2niix')
+        # avoid installing from source, instead download the full version:
+        Cnt = download_dcm2niix(Cnt, path)
+        return Cnt
 
     # Check if the source folder exists and delete it, if it does
     if os.path.isdir(path): shutil.rmtree(path)
@@ -264,23 +280,11 @@ def install_tool(app, Cnt):
             Cnt['DCM2NIIX'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'dcm2niix*'))[0]
         except IndexError:
             print 'e> dcm2niix has NOT been successfully installed.'
-            if platform.system() == 'Windows':
-                Cnt = download_dcm2niix(Cnt, path, 'Windows')
-            elif platform.system() == 'Linux':
-                Cnt = download_dcm2niix(Cnt, path, 'Linux')
-            else:
-                raise SystemError('Failed Installation (dcm2niix)')
+            Cnt = download_dcm2niix(Cnt, path)
         # check the installation:
         if not check_version(Cnt, chcklst=['DCM2NIIX']):
             print 'e> dcm2niix has NOT been successfully compiled from github.'
-            if platform.system() == 'Windows':
-                Cnt = download_dcm2niix(Cnt, path, 'Windows')
-            elif platform.system() == 'Linux':
-                Cnt = download_dcm2niix(Cnt, path, 'Linux')
-            else:
-                raise SystemError('Failed Installation (dcm2niix)')
-        # updated the file resources.py
-        Cnt = update_resources(Cnt)
+            Cnt = download_dcm2niix(Cnt, path)
     return Cnt
     
 
