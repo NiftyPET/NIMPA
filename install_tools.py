@@ -30,6 +30,8 @@ reg_ver = '1.5.54'
 
 # dcm2niix git repository
 repo_dcm = 'https://github.com/rordenlab/dcm2niix'
+http_dcm_lin =  'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20180622/dcm2niix_27-Jun-2018_lnx.zip'
+http_dcm_win = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20180622/dcm2niix_27-Jun-2018_win.zip'
 # git SHA-1 checksum for the version used for PET/MR
 sha1_dcm = '4b641113273d86ad73123816993092fc643ac62f'
 dcm_ver = '1.0.20180622'
@@ -151,12 +153,12 @@ def download_dcm2niix(Cnt, path):
     import urllib, zipfile
     if platform.system()=='Windows':
         urllib.urlretrieve(
-            'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_win.zip',
+            http_dcm_win,
             os.path.join(path, 'dcm2niix.zip')
         )
     elif platform.system()=='Linux':
         urllib.urlretrieve(
-            'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20171215/dcm2niix_3-Jan-2018_lnx.zip',
+            http_dcm_lin,
             os.path.join(path, 'dcm2niix.zip')
         )
     else:
