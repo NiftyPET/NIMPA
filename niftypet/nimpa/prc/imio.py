@@ -241,6 +241,9 @@ def niisort(fims):
     # sorting list (if frame number is present in the form '_frm-dd', where d is a digit)
     sortlist = []
 
+    # non dynamic frames input, assuming False (dynamic input)
+    ndf_flg = False
+
     for f in fims:
         if f.endswith('.nii') or f.endswith('.nii.gz'):
             Nim += 1
@@ -255,6 +258,7 @@ def niisort(fims):
     if all(notfrm):
         print 'w> none image is a dynamic frame.'
         sortlist = range(Nim)
+        ndf_flg = True
     # number of frames (can be larger than the # images)
     Nfrm = max(sortlist)+1
     # sort the list according to the frame numbers
@@ -262,27 +266,33 @@ def niisort(fims):
     # list of NIfTI image shapes and data types used
     shape = []
     dtype = []
+    _nii = []
     for i in range(Nim):
         if not notfrm[i]:
             _fims[sortlist[i]] = fims[i]
             _nii = nib.load(fims[i])
             dtype.append(_nii.get_data_dtype()) 
             shape.append(_nii.shape)
+        elif ndf_flg:
+            _fims[i] = fims[i]
+            _nii = nib.load(fims[i])
+            dtype.append(_nii.get_data_dtype()) 
+            shape.append(_nii.shape)
 
     # check if all images are of the same shape and data type
-    if not shape.count(_nii.shape)==len(shape):
+    if _nii and not shape.count(_nii.shape)==len(shape):
         raise ValueError('Input images are of different shapes.')
-    if not dtype.count(_nii.get_data_dtype())==len(dtype):
+    if _nii and not dtype.count(_nii.get_data_dtype())==len(dtype):
         raise TypeError('Input images are of different data types.')
     # image shape must be 3D
-    if not len(_nii.shape)==3:
+    if _nii and not len(_nii.shape)==3:
         raise ValueError('Input image(s) must be 3D.')
 
     # get the images into an array
     _imin = np.zeros((Nfrm,)+_nii.shape[::-1], dtype=_nii.get_data_dtype())
     for i in range(Nfrm):
         if i in sortlist:
-            imdic = getnii(_fims[i], 'all')
+            imdic = getnii(_fims[i], output='all')
             _imin[i,:,:,:] = imdic['im']
             affine = imdic['affine']
 
