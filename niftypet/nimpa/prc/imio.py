@@ -254,7 +254,7 @@ def niisort(fims):
                 sortlist.append(None)
     notfrm = [e==None for e in sortlist]
     if any(notfrm):
-        print 'w> only some images are dynamic frames.'
+        print 'w> only some images may be dynamic frames.'
     if all(notfrm):
         print 'w> none image is a dynamic frame.'
         sortlist = range(Nim)
