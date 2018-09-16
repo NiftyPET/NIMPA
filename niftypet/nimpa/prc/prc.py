@@ -650,11 +650,13 @@ def reg_mr2pet(
 
     if isinstance(mri, dict):
         # check if NIfTI file is given
-        if 'T1nii' in mri and os.path.isfile(mri['T1nii']):
-            ft1w = mri['T1nii']
-        # or bias corrected
+        if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
+            ft1w = mri['T1N4']
+        # or another bias corrected
         elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
             ft1w = mri['T1bc']
+        elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
+            ft1w = mri['T1nii']
         elif 'T1dcm' in mri and os.path.exists(mri['MRT1W']):
             # create file name for the converted NIfTI image
             fnii = 'converted'
