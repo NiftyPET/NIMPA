@@ -75,7 +75,7 @@ def trimim( fims,
         imshape = imdic['shape']
         affine = imdic['affine']
         fldrin = fims
-        fnms = [os.path.basename(f).split('.')[0] for f in imdic['files'] if f!=None]
+        fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files'] if f!=None]
 
     # case when input file is a 3D or 4D NIfTI image
     elif isinstance(fims, basestring) and os.path.isfile(fims) and (fims.endswith('nii') or fims.endswith('nii.gz')):
@@ -87,7 +87,7 @@ def trimim( fims,
         imshape = imdic['shape'][-3:]
         affine = imdic['affine']
         fldrin = os.path.dirname(fims)
-        fnms = imin.shape[0] * [ os.path.basename(fims).split('.')[0] ]
+        fnms = imin.shape[0] * [ os.path.basename(fims).split('.nii')[0] ]
 
     # case when a list of input files is given
     elif isinstance(fims, list) and all([os.path.isfile(k) for k in fims]):
@@ -96,7 +96,7 @@ def trimim( fims,
         imshape = imdic['shape']
         affine = imdic['affine']
         fldrin = os.path.dirname(fims[0])
-        fnms = [os.path.basename(f).split('.')[0] for f in imdic['files']]
+        fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files']]
 
     # case when an array [#frames, zdim, ydim, xdim].  Can be 3D or 4D
     elif isinstance(fims, (np.ndarray, np.generic)) and (fims.ndim==4 or fims.ndim==3):
@@ -897,13 +897,25 @@ def spm_resample(imref, imflo, m, intrp=1, dirout='', r_prefix='r_', del_ref_unc
     return fout
 
 
-def spm_coreg(imref, imflo, del_uncmpr=False):
+def spm_coreg(
+        imref,
+        imflo,
+        costfun='nmi',
+        seo = [4,2],
+        tol = [ 0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
+                0.0100,0.0100,0.0100,0.0010,0.0010,0.0010],
+        fwhm = [7,7],
+        params = [0,0,0,0,0,0],
+        graphics = 1,
+        del_uncmpr=False
+    ):
+
     import matlab.engine
     from pkg_resources import resource_filename
     # start matlab engine
     eng = matlab.engine.start_matlab()
     # add path to SPM matlab file
-    spmpth = resource_filename(__name__, 'spm')
+    spmpth = resource_filename(__name__, 'mr2pet.m')
     eng.addpath(spmpth, nargout=0)
 
     # decompress if necessary 
@@ -917,7 +929,16 @@ def spm_coreg(imref, imflo, del_uncmpr=False):
         imflou = imflo
 
     # run the matlab SPM coregistration
-    M = eng.spm_mr2pet(imrefu, imflou)
+    M = eng.mr2pet(
+        imrefu,
+        imflou,
+        costfun,
+        matlab.int32(seo),
+        matlab.double(tol),
+        matlab.int32(fwhm),
+        matlab.int32(params),
+        graphics,
+    )
     # get the affine matrix
     m = np.array(M._data.tolist())
     m = m.reshape(4,4).T
