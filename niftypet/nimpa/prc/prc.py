@@ -598,9 +598,9 @@ def affine_niftyreg(
         imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_fmsk)
 
     # output in register with ref
-    fout = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.')[0]+fcomment+'.nii.gz')
+    fout = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
     # text file for the affine transform T1w->PET
-    faff   = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.')[0]+fcomment+'.txt')  
+    faff   = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')  
     # call the registration routine
     cmd = [exepath,
          '-ref', fref,
