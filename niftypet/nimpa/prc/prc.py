@@ -558,7 +558,7 @@ def affine_niftyreg(
     smof=0, smor=0,
     rmsk=True,
     fmsk=True,
-    rfwhm=1.5,
+    rfwhm=15.,
     rthrsh=0.05,
     ffwhm = 15.,
     fthrsh=0.05,
@@ -574,12 +574,12 @@ def affine_niftyreg(
         fimdir = os.path.join(outpath, os.path.join('affine','mask'))
     else:
         odir = os.path.join(os.path.dirname(fflo),'affine')
-        fimdir = os.path.join(os.path.basename(fflo), 'mask')
+        fimdir = os.path.join(os.path.dirname(fflo), 'affine', 'mask')
     imio.create_dir(odir)
     imio.create_dir(fimdir)
 
     if rmsk:
-        f_rmsk = os.path.join(fimdir, 'rmask.nii.gz')
+        f_rmsk = os.path.join(fimdir, 'rmask_'+os.path.basename(fref).split('.nii')[0]+'.nii.gz')
         imdct = imio.getnii(fref, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
                                             imio.fwhm2sig(rfwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), mode='mirror')
@@ -588,7 +588,7 @@ def affine_niftyreg(
         immsk = imfill(immsk)
         imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_rmsk)
     if fmsk:
-        f_fmsk = os.path.join(fimdir, 'fmask.nii.gz')
+        f_fmsk = os.path.join(fimdir, 'fmask_'+os.path.basename(fflo).split('.nii')[0]+'.nii.gz')
         imdct = imio.getnii(fflo, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
                                             imio.fwhm2sig(ffwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), mode='mirror')
@@ -694,7 +694,7 @@ def reg_mr2pet(
         smof=0., smor=0.,
         rmsk=True,
         fmsk=True,
-        rfwhm=1.5,
+        rfwhm=15.,
         rthrsh=0.05,
         ffwhm = 15.,
         fthrsh=0.05,
@@ -704,7 +704,7 @@ def reg_mr2pet(
 
 
 #-------------------------------------------------------------------------------------
-def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=1.5, rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
+def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
 
     #create a folder for PET images registered to ref PET
     if outpath=='':
