@@ -547,6 +547,7 @@ def imfill(immsk):
 def affine_niftyreg(
     fref, fflo,
     outpath='',
+    pickname='ref',
     fcomment='',
     exepath = '',
     omp=1,
@@ -590,17 +591,24 @@ def affine_niftyreg(
     if fmsk:
         f_fmsk = os.path.join(fimdir, 'fmask_'+os.path.basename(fflo).split('.nii')[0]+'.nii.gz')
         imdct = imio.getnii(fflo, output='all')
-        smoim = ndi.filters.gaussian_filter(imdct['im'],
-                                            imio.fwhm2sig(ffwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), mode='mirror')
+        smoim = ndi.filters.gaussian_filter(
+                imdct['im'],
+                imio.fwhm2sig(ffwhm, voxsize=abs(imdct['hdr']['pixdim'][1])),
+                mode='mirror'
+        )
         thrsh = fthrsh*np.ptp(smoim) + np.min(smoim)
         immsk = np.int8(smoim>thrsh)
         immsk = imfill(immsk)
         imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_fmsk)
 
-    # output in register with ref
-    fout = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
-    # text file for the affine transform T1w->PET
-    faff   = os.path.join(odir, 'affine-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')  
+    # output in register with ref and text file for the affine transform
+    if pickname=='ref':
+        fout = os.path.join(odir, 'affine_ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+        faff = os.path.join(odir, 'affine_ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
+    elif pickname=='flo':
+        fout = os.path.join(odir, 'affine_flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+        faff = os.path.join(odir, 'affine_flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
+    
     # call the registration routine
     cmd = [exepath,
          '-ref', fref,
