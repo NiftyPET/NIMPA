@@ -6,7 +6,9 @@ NIMPA: Neuro and NiftyPET Image Processing and Analysis
   :target: https://niftypet.readthedocs.io/en/latest/?badge=latest
   :alt: Documentation Status
 
-NIMPA is a stand-alone and independent package dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET) and magnetic resonance (MR).  Although, it is an essential part of the *NiftyPET* package for seamless PET image reconstruction, NIMPA is equally well suited for independent image processing, including image trimming, upsampling and partial volume correction (PVC).
+``nimpa`` is a stand-alone Python sub-package of NiftyPET_, dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET) and magnetic resonance (MR).  Although, it is an essential part of the *NiftyPET* package for seamless PET image reconstruction, NIMPA is equally well suited for independent image processing, including image trimming, upsampling and partial volume correction (PVC).
+
+.. _NiftyPET: https://github.com/pjmark/NiftyPET
 
 Trimming is performed in order to reduce the unused image voxels in brain imaging, when using whole body PET scanners, for which only some part of the field of view (FOV) is used.
 
