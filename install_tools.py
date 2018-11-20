@@ -24,9 +24,10 @@ if 'DISPLAY' in os.environ:
 # NiftyReg git repository
 repo_reg = 'https://cmiclab.cs.ucl.ac.uk/mmodat/niftyreg.git' #'git://git.code.sf.net/p/niftyreg/git'
 # git SHA-1 checksum for NiftyReg version (16 Nov 2017) used for PET/MR image registration and resampling
-sha1_reg =  '6bf84b492050a4b9a93431209babeab9bc8f14da' 
+sha1_reg = 'f673b7837c0824f55dedb1534b32b55bf68a2823'
+#'6bf84b492050a4b9a93431209babeab9bc8f14da' 
 #'62af1ca6777379316669b6934889c19863eaa708'
-reg_ver = '1.5.54'
+reg_ver = '1.5.58'
 
 # dcm2niix git repository
 repo_dcm = 'https://github.com/rordenlab/dcm2niix'
@@ -69,21 +70,32 @@ def input_path(question, default=os.path.expanduser('~')):
             
 #-----------------------------------------------------------------------------------------------------
 def check_depends():
-    print 'i> checking if [git] and [cmake] are installed...'
-    # check if git is installed
+    print 'i> checking if [CUDA], [git] and [cmake] are installed...'
+
+    outdct = {'cuda':True, 'git':True, 'cmake':True}
+
+    #-check if CUDA is installed
+    try:
+        out = call(['nvcc', '--version'])
+    except OSError:
+        print 'e> CUDA (nvcc) does not seem to be installed;'
+        outdct['cuda'] = False
+
+    #-check if git is installed
     try:
         out = call(['git', '--version'])
     except OSError:
         print 'e> git does not seem to be installed;  for help, visit: https://git-scm.com/download/'
-        return -1
-    # check if cmake is installed
+        outdct['git'] = False
+
+    #-check if cmake is installed
     try:
         out = call(['cmake', '--version'])
     except OSError:
         print 'e> git does not seem to be installed;  for help, visit: https://git-scm.com/download/'
-        return -1
+        outdct['cmake'] = False
 
-    return 0
+    return outdct
 
 #--------------------------------------------------------------------
 def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):

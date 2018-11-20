@@ -392,7 +392,7 @@ def pvc_iyang(
         petin:  either a dictionary containing image data, file name and affine transform,
                 or a string of the path to the NIfTI file of the PET data.
         mridct: a dictionary of MRI data, including the T1w image, which can be given
-                in DICOM (field 'T1dcm') or NIfTI (field 'T1nii').  The T1w image data
+                in DICOM (field 'T1DCM') or NIfTI (field 'T1nii').  The T1w image data
                 is needed for co-registration to PET if affine is not given in the text
                 file with its path in faff.
         Cnt:    a dictionary of paths for third-party tools:
@@ -526,6 +526,31 @@ def pvc_iyang(
     # ===============================================================
 
     return outdct
+
+
+#==============================================================
+# Convert CT units (HU) to PET mu-values
+def ct2mu(im):
+    '''HU units to 511keV PET mu-values
+        https://link.springer.com/content/pdf/10.1007%2Fs00259-002-0796-3.pdf
+        C. Burger, et al., PET attenuation coefficients from CT images, 
+    '''
+
+    # convert nans to -1024 for the HU values only
+    im[np.isnan(im)] = -1024
+    # constants
+    muwater  = 0.096
+    mubone   = 0.172
+    rhowater = 0.184
+    rhobone  = 0.428
+    uim = np.zeros(im.shape, dtype=np.float32)
+    uim[im<=0] = muwater * ( 1+im[im<=0]*1e-3 )
+    uim[im> 0] = muwater+im[im>0]*(rhowater*(mubone-muwater)/(1e3*(rhobone-rhowater)))
+    # remove negative values
+    uim[uim<0] = 0
+    return uim
+#==============================================================
+
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -665,7 +690,7 @@ def reg_mr2pet(
             ft1w = mri['T1bc']
         elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
             ft1w = mri['T1nii']
-        elif 'T1dcm' in mri and os.path.exists(mri['MRT1W']):
+        elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
             # create file name for the converted NIfTI image
             fnii = 'converted'
             call( [ Cnt['DCM2NIIX'], '-f', fnii, mri['T1nii'] ] )
@@ -789,7 +814,7 @@ def mr2pet_rigid(
         ft1w = mridct['T1nii']
     elif 'T1bc' in mridct and os.path.isfile(mridct['T1bc']):
         ft1w = mridct['T1bc']
-    elif 'T1dcm' in mridct and os.path.exists(mridct['MRT1W']):
+    elif 'T1DCM' in mridct and os.path.exists(mridct['MRT1W']):
         # create file name for the converted NIfTI image
         fnii = 'converted'
         call( [ Cnt['DCM2NIIX'], '-f', fnii, mridct['T1nii'] ] )
@@ -863,99 +888,161 @@ def mr2pet_rigid(
 
 
 #---- SPM ----
-def spm_resample(imref, imflo, m, intrp=1, dirout='', r_prefix='r_', del_ref_uncmpr=False, del_flo_uncmpr=False, del_out_uncmpr=False):
-    import matlab.engine
+def resample_spm(
+        imref,
+        imflo,
+        M,
+        matlab_eng='',
+        intrp=1.,
+        which=1,
+        mask=0,
+        mean=0,
+        outpath='',
+        fcomment='',
+        prefix='r_',
+        pickname='ref',
+        del_ref_uncmpr=False,
+        del_flo_uncmpr=False,
+        del_out_uncmpr=False
+    ):
+
+    import matlab
     from pkg_resources import resource_filename
-    # start matlab engine
-    eng = matlab.engine.start_matlab()
+
+    #-start Matlab engine if not given
+    if matlab_eng=='':
+        eng = matlab.engine.start_matlab()
+    else:
+        eng = matlab_eng
+
     # add path to SPM matlab file
     spmpth = resource_filename(__name__, 'spm')
     eng.addpath(spmpth, nargout=0)
 
-    # decompress if necessary 
+    #-decompress if necessary 
     if imref[-3:]=='.gz':
         imrefu = imio.nii_ugzip(imref)
     else:
         imrefu = imref
+    #-floating
     if imflo[-3:]=='.gz': 
         imflou = imio.nii_ugzip(imflo)
     else:
         imflou = imflo
 
-    # run the matlab SPM resampling
-    mm = eng.spm_resample(imrefu, imflou, matlab.single(m.tolist()), intrp, r_prefix)
+    if isinstance(M, basestring):
+        M = np.load(M)
 
-    # delete the uncomressed
+    # run the Matlab SPM resampling
+    r = eng.resample_spm_m(
+        imrefu,
+        imflou,
+        matlab.double(M.tolist()),
+        mask,
+        mean,
+        intrp,
+        which,
+        prefix)
+
+    # delete the uncompressed
     if del_ref_uncmpr:  os.remove(imrefu)
     if del_flo_uncmpr:  os.remove(imflou)
 
-    # compress the output
+    #-compress the output
     split = os.path.split(imflou)
-    fim = os.path.join(split[0], r_prefix+split[1])
+    fim = os.path.join(split[0], prefix+split[1])
     imio.nii_gzip(fim)
     if del_out_uncmpr: os.remove(fim)
 
-    if dirout!='':
-        # move to the output dir
-        fout = os.path.join(dirout, r_prefix+split[1]+'.gz')
-        os.rename(fim+'.gz', fout)
-    else:
-        fout = fim+'.gz'
+    # the compressed output naming
+    if outpath=='':
+        outpath = os.path.dirname(fim)
+
+    imio.create_dir(outpath)
+
+    if pickname=='ref':
+        fout = os.path.join(outpath, 'affine_ref-'+os.path.basename(imrefu).split('.nii')[0]+fcomment+'.nii.gz')
+    elif pickname=='flo':        
+        fout = os.path.join(outpath, 'affine_flo-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
+    # change the file name
+    os.rename(fim+'.gz', fout)
 
     return fout
 
 
-def spm_coreg(
+def coreg_spm(
         imref,
         imflo,
+        matlab_eng='',
+        outpath='',
         costfun='nmi',
-        seo = [4,2],
+        sep = [4,2],
         tol = [ 0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
                 0.0100,0.0100,0.0100,0.0010,0.0010,0.0010],
         fwhm = [7,7],
         params = [0,0,0,0,0,0],
         graphics = 1,
-        del_uncmpr=False
+        visual = 0,
+        del_uncmpr=True,
+        save_mat=True
     ):
 
-    import matlab.engine
+    import matlab
     from pkg_resources import resource_filename
-    # start matlab engine
-    eng = matlab.engine.start_matlab()
+
+    #-start Matlab engine if not given
+    if matlab_eng=='':
+        eng = matlab.engine.start_matlab()
+    else:
+        eng = matlab_eng
+
     # add path to SPM matlab file
-    spmpth = resource_filename(__name__, 'mr2pet.m')
+    spmpth = resource_filename(__name__, 'spm')
+    print 'PATH: ' + spmpth
     eng.addpath(spmpth, nargout=0)
 
-    # decompress if necessary 
+    # decompress floating and ref images as necessary 
     if imref[-3:]=='.gz':
         imrefu = imio.nii_ugzip(imref)
     else:
         imrefu = imref
+    # floating
     if imflo[-3:]=='.gz': 
         imflou = imio.nii_ugzip(imflo)
     else:
         imflou = imflo
 
     # run the matlab SPM coregistration
-    M = eng.mr2pet(
+    Mm = eng.coreg_spm_m(
         imrefu,
         imflou,
         costfun,
-        matlab.int32(seo),
+        matlab.double(sep),
         matlab.double(tol),
-        matlab.int32(fwhm),
-        matlab.int32(params),
+        matlab.double(fwhm),
+        matlab.double(params),
         graphics,
+        visual
     )
     # get the affine matrix
-    m = np.array(M._data.tolist())
-    m = m.reshape(4,4).T
+    M = np.array(Mm._data.tolist())
+    M = M.reshape(4,4).T
+
     # delete the uncompressed files
     if del_uncmpr:
         if imref[-3:]=='.gz': os.remove(imrefu)
         if imflo[-3:]=='.gz': os.remove(imflou)
 
-    return m
+    if outpath=='':
+        outpath = os.path.dirname(imflo)
+
+    imio.create_dir( os.path.join(outpath, 'M-mat') )
+    faff = os.path.join(outpath, 'M-mat',  'M-'+os.path.basename(imref).split('.nii')[0]+'.npy' )
+    np.save(faff, M)
+
+    return {'mat':M, 'faff':faff}
+
+
 
 #---- FSL ----
 def fsl_coreg(imref, imflo, faff, costfun='normmi', dof=6):

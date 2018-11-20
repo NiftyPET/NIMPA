@@ -16,23 +16,30 @@ import cudasetup as cs
 import install_tools as tls
 
 # check if git and cmake are installed
-if tls.check_depends()<0:
+chk = tls.check_depends()
+if not chk['cmake'] or not chk['git']:
     print '-----------------'
     print 'e> [cmake] and/or [git] are not installed but are required.'
     print '-----------------'
     sys.exit()
 
 if not 'Windows' in platform.system() and not 'Linux' in platform.system():
-    print 'e> the operating system is not supported.'
+    print 'e> the operating system is not supported:', platform.system()
     raise SystemError('Unknown Sysytem.')
 
-#----------------------------------------------------
-# select the supported GPU device and install resources.py
-print ' '
-print '---------------------------------------------'
-print 'i> setting up CUDA ...'
-gpuarch = cs.resources_setup()
-#----------------------------------------------------
+
+if chk['cuda']:
+    #----------------------------------------------------
+    # select the supported GPU device and install resources.py
+    print ' '
+    print '---------------------------------------------'
+    print 'i> setting up CUDA ...'
+    gpuarch = cs.resources_setup()
+    #----------------------------------------------------
+else:
+    gpuarch = ''
+
+
 
 #===============================================================
 # First install third party apps for NiftyPET tools
@@ -89,70 +96,70 @@ print 'i> installation of NiftyPET-tools done.'
 print '---------------------------------------'
 #===============================================================
 
+if chk['cuda']:
+    #===============================================================
+    print '---------------------------------'
+    print 'i> CUDA compilation for NIMPA ...'
+    print '---------------------------------'
 
-#===============================================================
-print '---------------------------------'
-print 'i> CUDA compilation for NIMPA ...'
-print '---------------------------------'
+    path_current = os.path.dirname( os.path.realpath(__file__) )
+    path_build = os.path.join(path_current, 'build')
+    if not os.path.isdir(path_build): os.makedirs(path_build)
+    os.chdir(path_build)
 
-path_current = os.path.dirname( os.path.realpath(__file__) )
-path_build = os.path.join(path_current, 'build')
-if not os.path.isdir(path_build): os.makedirs(path_build)
-os.chdir(path_build)
+    # cmake installation commands
+    cmd = []
+    cmd.append([
+        'cmake',
+        os.path.join('..','niftypet'),
+        '-DPYTHON_INCLUDE_DIRS='+cs.pyhdr,
+        '-DPYTHON_PREFIX_PATH='+cs.prefix,
+        '-DCUDA_NVCC_FLAGS='+gpuarch
+    ])
+    cmd.append(['cmake', '--build', './'])
 
-# cmake installation commands
-cmd = []
-cmd.append([
-    'cmake',
-    os.path.join('..','niftypet'),
-    '-DPYTHON_INCLUDE_DIRS='+cs.pyhdr,
-    '-DPYTHON_PREFIX_PATH='+cs.prefix,
-    '-DCUDA_NVCC_FLAGS='+gpuarch
-])
-cmd.append(['cmake', '--build', './'])
+    if platform.system()=='Windows':
+        cmd[0] += ['-G', Cnt['MSVC_VRSN']]
+        cmd[1] += ['--config', 'Release']
 
-if platform.system()=='Windows':
-    cmd[0] += ['-G', Cnt['MSVC_VRSN']]
-    cmd[1] += ['--config', 'Release']
+    # error string for later reporting
+    errstr = []
+    # the log files the cmake results are written
+    cmakelog = ['py_cmake_config.log', 'py_cmake_build.log'] 
+    # run commands with logging
+    for ci in range(len(cmd)):
+        with open(cmakelog[ci], 'w') as f:
+            p = Popen(cmd[ci], stdout=PIPE, stderr=PIPE)
+            for c in iter(lambda: p.stdout.read(1), ''):
+                sys.stdout.write(c)
+                f.write(c)
+        # get the pipes outputs
+        stdout, stderr = p.communicate()
+        ei = stderr.find('error')
+        if ei>=0:
+            errstr.append(stderr[ei:ei+40]+'...')
+        else:
+            errstr.append('_')
 
-# error string for later reporting
-errstr = []
-# the log files the cmake results are written
-cmakelog = ['py_cmake_config.log', 'py_cmake_build.log'] 
-# run commands with logging
-for ci in range(len(cmd)):
-    with open(cmakelog[ci], 'w') as f:
-        p = Popen(cmd[ci], stdout=PIPE, stderr=PIPE)
-        for c in iter(lambda: p.stdout.read(1), ''):
-            sys.stdout.write(c)
-            f.write(c)
-    # get the pipes outputs
-    stdout, stderr = p.communicate()
-    ei = stderr.find('error')
-    if ei>=0:
-        errstr.append(stderr[ei:ei+40]+'...')
-    else:
-        errstr.append('_')
+        if stderr:
+            print 'c>-------- reports -----------'
+            print stderr+'c>------------ end ---------------'
 
-    if stderr:
-        print 'c>-------- reports -----------'
-        print stderr+'c>------------ end ---------------'
+        print ' '
+        print stdout
+
 
     print ' '
-    print stdout
+    print '--- error report ---'
+    for ci in range(len(cmd)):
+        if errstr[ci] != '_':
+            print 'e> found error(s) in ', ' '.join(cmd[ci]), '>>', errstr[ci]
+            print ' '
+    print '--- end ---'
 
-
-print ' '
-print '--- error report ---'
-for ci in range(len(cmd)):
-    if errstr[ci] != '_':
-        print 'e> found error(s) in ', ' '.join(cmd[ci]), '>>', errstr[ci]
-        print ' '
-print '--- end ---'
-
-# come back from build folder
-os.chdir(path_current)
-#===============================================================
+    # come back from build folder
+    os.chdir(path_current)
+    #===============================================================
 
 
 
@@ -182,7 +189,7 @@ elif platform.system() == 'Windows' :
 setup(
     name='nimpa',
     license = 'Apache 2.0',
-    version='1.0.17',
+    version='1.1.0',
     description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
     long_description=long_description,
     author='Pawel J. Markiewicz',
