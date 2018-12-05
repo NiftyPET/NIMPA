@@ -24,9 +24,12 @@ def create_dir(pth):
         os.makedirs(pth)
 
 #---------------------------------------------------------------
-def time_stamp():
+def time_stamp(simple_ascii=False):
     now    = datetime.datetime.now()
-    nowstr = str(now.year)+'-'+str(now.month)+'-'+str(now.day)+' '+str(now.hour)+':'+str(now.minute)
+    if simple_ascii:
+        nowstr = str(now.year)+'-'+str(now.month)+'-'+str(now.day)+'_'+str(now.hour)+'h'+str(now.minute)
+    else:
+        nowstr = str(now.year)+'-'+str(now.month)+'-'+str(now.day)+' '+str(now.hour)+':'+str(now.minute)
     return nowstr
 
 #---------------------------------------------------------------
