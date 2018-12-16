@@ -6,8 +6,8 @@ __copyright__ = "Copyright 2018"
 #-------------------------------------------------------------------------------
 
 import numpy as np
-import sys
-import os
+import sys, os
+import shutil
 import scipy.ndimage as ndi
 import nibabel as nib
 
@@ -570,7 +570,8 @@ def imfill(immsk):
 
 #-------------------------------------------------------------------------------------
 def affine_niftyreg(
-    fref, fflo,
+    fref,
+    fflo,
     outpath='',
     pickname='ref',
     fcomment='',
@@ -923,12 +924,18 @@ def resample_spm(
     if imref[-3:]=='.gz':
         imrefu = imio.nii_ugzip(imref)
     else:
-        imrefu = imref
+        # imrefu = imref
+        fnm = os.path.basename(imref).split('.nii')[0] + '_copy.nii'
+        imrefu = os.path.join(os.path.dirname(imref), fnm)
+        shutil.copyfile(imref, imrefu)
     #-floating
     if imflo[-3:]=='.gz': 
         imflou = imio.nii_ugzip(imflo)
     else:
-        imflou = imflo
+        #imflou = imflo
+        fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
+        imflou = os.path.join(os.path.dirname(imflo), fnm)
+        shutil.copyfile(imflo, imflou)
 
     if isinstance(M, basestring):
         M = np.load(M)
