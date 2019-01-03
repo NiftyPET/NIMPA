@@ -136,30 +136,324 @@ def orientnii(imfile):
             niiorient.append( strorient[ niixyz[i] ] )
         print niiorient
 
-def nii_ugzip(imfile):
-    '''Uncompress *.nii.gz file'''
+def nii_ugzip(imfile, outpath=''):
+    '''Uncompress *.gz file'''
     import gzip
     with gzip.open(imfile, 'rb') as f:
         s = f.read()
     # Now store the uncompressed data
-    fout = imfile[:-3]
+    if outpath=='':
+        fout = imfile[:-3]
+    else:
+        fout = os.path.join(outpath, os.path.basename(imfile)[:-3])
     # store uncompressed file data from 's' variable
     with open(fout, 'wb') as f:
         f.write(s)
     return fout
 
-def nii_gzip(imfile):
-    '''Compress *.nii.gz file'''
+def nii_gzip(imfile, outpath=''):
+    '''Compress *.gz file'''
     import gzip
     with open(imfile, 'rb') as f:
         d = f.read()
-    # Now store the uncompressed data
-    fout = imfile+'.gz'
+    # Now store the compressed data
+    if outpath=='':
+        fout = imfile+'.gz'
+    else:
+        fout = os.path.join(outpath, os.path.basename(imfile)+'.gz')
     # store compressed file data from 'd' variable
     with gzip.open(fout, 'wb') as f:
         f.write(d)
     return fout
 #================================================================================
+
+def dcminfo(dcmvar, verbose=True):
+    ''' Get basic info about the DICOM file/header.
+    '''
+
+    if isinstance(dcmvar, basestring):
+        if verbose:
+            print 'i> provided DICOM file:', dcmvar
+        dhdr = dcm.read_file(dcmvar)
+    elif isinstance(dcmvar, dict):
+        dhdr = dcmvar
+
+    dtype   = dhdr[0x08, 0x08].value
+    if verbose:
+        print '   Image Type:', dtype
+
+    #-------------------------------------------
+    #> scanner ID
+    scanner_vendor = 'unknown'
+    if [0x008, 0x070] in dhdr:
+        scanner_vendor = dhdr[0x008, 0x070].value
+
+    scanner_model = 'unknown'
+    if [0x008, 0x1090] in dhdr:
+        scanner_model = dhdr[0x008, 0x1090].value
+
+    scanner_id = 'other'
+    if any(s in scanner_model for s in ['mMR', 'Biograph']) and 'siemens' in scanner_vendor.lower():
+        scanner_id = 'mmr'
+    #-------------------------------------------
+
+    #> CSA type (mMR)
+    csatype = ''
+    if [0x29, 0x1108] in dhdr:
+        csatype = dhdr[0x29, 0x1108].value
+        if verbose:
+            print '   CSA Data Type:', csatype
+
+    #> DICOM comment or on MR parameters
+    cmmnt   = ''
+    if [0x20, 0x4000] in dhdr:
+        cmmnt = dhdr[0x0020, 0x4000].value
+        if verbose:
+            print '   Comments:', cmmnt
+
+    #> MR parameters (echo time, etc) 
+    TR = 0
+    TE = 0
+    if [0x18, 0x80] in dhdr:
+        TR = float(dhdr[0x18, 0x80].value)
+        if verbose: print '   TR:', TR
+    if [0x18, 0x81] in dhdr:
+        TE = float(dhdr[0x18, 0x81].value)
+        if verbose: print '   TE:', TE
+
+
+    #> check if it is norm file
+    if any('PET_NORM' in s for s in dtype) or cmmnt=='PET Normalization data' or csatype=='MRPETNORM':
+        out = ['raw', 'norm', scanner_id]
+
+    elif any('PET_LISTMODE' in s for s in dtype) or cmmnt=='Listmode' or csatype=='MRPETLM_LARGE':
+        out = ['raw', 'list', scanner_id]
+
+    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt=='MR based umap':
+        out = ['raw', 'mumap', 'ute', 'mr', scanner_id]
+
+    elif TR>400 and TR<2500 and TE<20:
+        out = ['mr', 't1', scanner_id]
+
+    elif TR>2500 and TE>50:
+        out = ['mr', 't2', scanner_id]
+
+    #> UTE's two sequences: UTE2
+    elif TR<50 and TE<20 and TE>1:
+        out = ['mr', 'ute', 'ute2', scanner_id]
+
+    #> UTE1
+    elif TR<50 and TE<20 and TE<0.1 and TR>0 and TE>0:
+        out = ['mr', 'ute', 'ute1', scanner_id]
+
+    #> physio data
+    elif 'PET_PHYSIO' in dtype or 'physio' in cmmnt.lower():
+        out = ['raw', 'physio', scanner_id]
+
+    else:
+        out = ['unknown', cmmnt]
+
+    return out
+
+
+def list_dcm_datain(datain):
+    ''' List all DICOM file paths in the datain dictionary of input data.
+    '''
+
+    if not isinstance(datain, dict):
+        raise ValueError('The input is not a dictionary!')
+
+    dcmlst = []
+    # list of mu-map DICOM files
+    if 'mumapDCM' in datain:
+        dcmump = os.listdir(datain['mumapDCM'])
+        # accept only *.dcm extensions
+        dcmump = [os.path.join(datain['mumapDCM'],d) for d in dcmump if d.endswith(dcmext)]
+        dcmlst += dcmump
+
+    if 'T1DCM' in datain:
+        dcmt1 = os.listdir(datain['T1DCM'])
+        # accept only *.dcm extensions
+        dcmt1 = [os.path.join(datain['T1DCM'],d) for d in dcmt1 if d.endswith(dcmext)]
+        dcmlst += dcmt1
+
+    if 'T2DCM' in datain:
+        dcmt2 = os.listdir(datain['T2DCM'])
+        # accept only *.dcm extensions
+        dcmt2 = [os.path.join(datain['T2DCM'],d) for d in dcmt2 if d.endswith(dcmext)]
+        dcmlst += dcmt2
+
+    if 'UTE1' in datain:
+        dcmute1 = os.listdir(datain['UTE1'])
+        # accept only *.dcm extensions
+        dcmute1 = [os.path.join(datain['UTE1'],d) for d in dcmute1 if d.endswith(dcmext)]
+        dcmlst += dcmute1
+
+    if 'UTE2' in datain:
+        dcmute2 = os.listdir(datain['UTE2'])
+        # accept only *.dcm extensions
+        dcmute2 = [os.path.join(datain['UTE2'],d) for d in dcmute2 if d.endswith(dcmext)]
+        dcmlst += dcmute2
+
+    #-list-mode data dcm
+    if 'lm_dcm' in datain:
+        dcmlst += [datain['lm_dcm']]
+
+    if 'lm_ima' in datain:
+        dcmlst += [datain['lm_ima']]
+
+    #-norm
+    if 'nrm_dcm' in datain:
+        dcmlst += [datain['nrm_dcm']]
+
+    if 'nrm_ima' in datain:
+        dcmlst += [datain['nrm_ima']]
+
+    return dcmlst
+
+
+
+def dcmanonym(
+        dcmpth,
+        displayonly=False,
+        patient='anonymised',
+        physician='anonymised',
+        dob='19800101',
+        verbose=True):
+
+    ''' Anonymise DICOM file(s)
+        Arguments:
+        > dcmpth:   it can be passed as a single DICOM file, or
+                    a folder containing DICOM files, or a list of DICOM file paths.
+        > patient:  the name of the patient.
+        > physician:the name of the referring physician.
+        > dob:      patient's date of birth.
+        > verbose:  display processing output.
+    '''
+
+    #> check if a single DICOM file
+    if isinstance(dcmpth, basestring) and os.path.isfile(dcmpth):
+        dcmlst = [dcmpth]
+        if verbose:
+            print 'i> recognised the input argument as a single DICOM file.'
+
+    #> check if a folder containing DICOM files
+    elif isinstance(dcmpth, basestring) and os.path.isdir(dcmpth):
+        dircontent = os.listdir(dcmpth)
+        #> create a list of DICOM files inside the folder
+        dcmlst = [os.path.join(dcmpth,d) for d in dircontent if os.path.isfile(os.path.join(dcmpth,d)) and d.endswith(dcmext)]
+        if verbose:
+            print 'i> recognised the input argument as the folder containing DICOM files.'
+
+    #> check if a folder containing DICOM files
+    elif isinstance(dcmpth, list):
+        if not all([os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth]):
+            raise IOError('Not all files in the list are DICOM files.')
+        dcmlst = dcmpth
+        if verbose:
+            print 'i> recognised the input argument as the list of DICOM file paths.'
+
+    #> check if dictionary of data input <datain>
+    elif isinstance(dcmpth, dict) and 'corepath' in dcmpth:
+        dcmlst = list_dcm_datain(dcmpth)
+        if verbose:
+            print 'i> recognised the input argument as the dictionary of scanner data.'
+
+    else:
+        raise IOError('Unrecognised input!')
+
+
+
+    for dcmf in dcmlst:
+
+        #> read the file
+        dhdr = dcm.dcmread(dcmf)
+
+        #> get the basic info about the DICOM file
+        dcmtype = dcminfo(dhdr, verbose=False)
+        if verbose:
+            print '-------------------------------'
+            print 'i> the DICOM file is for:', dcmtype
+
+        #> anonymise mMR data.
+        if 'mmr' in dcmtype:
+
+            if [0x029, 0x1120] in dhdr and dhdr[0x029, 0x1120].name=='[CSA Series Header Info]':
+                csafield = dhdr[0x029, 0x1120]
+                csa = csafield.value
+            elif [0x029, 0x1020] in dhdr and dhdr[0x029, 0x1020].name=='[CSA Series Header Info]':
+                csafield = dhdr[0x029, 0x1020]
+                csa = csafield.value
+            else:
+                csa = ''
+
+            # string length considered for replacement
+            strlen = 200
+            
+            idx = [m.start() for m in re.finditer(r'([Pp]atients{0,1}[Nn]ame)', csa)]
+            if idx and verbose:
+                print '   > found sensitive information deep in DICOM headers:', dcmtype
+
+
+            #> run the anonymisation    
+            iupdate = 0
+
+            for i in idx:
+                ci = i - iupdate
+
+                if displayonly:
+                    print '   > sensitive info:'
+                    print '    ', csa[ci:ci+strlen]
+                    continue
+
+                rplcmnt = re.sub( r'(\{\s*\"{1,2}\W*\w+\W*\w+\W*\"{1,2}\s*\})',
+                        '{ ""' +patient+ '"" }',
+                         csa[ci:ci+strlen]
+                )
+                #> update string
+                csa = csa[:ci] + rplcmnt + csa[ci+strlen:]
+                print '   > removed sensitive information.'
+                #> correct for the number of removed letters
+                iupdate = strlen-len(rplcmnt)
+
+            #> update DICOM
+            if not displayonly and csa!='':
+                csafield.value = csa
+
+
+        #> Patient's name
+        if [0x010,0x010] in dhdr:
+            if displayonly:
+                print '   > sensitive info:', dhdr[0x010,0x010].name
+                print '    ', dhdr[0x010,0x010].value
+            else:
+                dhdr[0x010,0x010].value = patient
+                if verbose: print '   > anonymised patients name'
+
+        #> date of birth
+        if [0x010,0x030] in dhdr:
+            if displayonly:
+                print '   > sensitive info:', dhdr[0x010,0x030].name
+                print '    ', dhdr[0x010,0x030].value
+            else:
+                dhdr[0x010,0x030].value = dob
+                if verbose: print '   > anonymised date of birh'
+
+        #> physician's name
+        if [0x008, 0x090] in dhdr:
+            if displayonly:
+                print '   > sensitive info:',  dhdr[0x008,0x090].name
+                print '    ', dhdr[0x008,0x090].value
+            else:
+                dhdr[0x008,0x090].value = physician
+                if verbose: print '   > anonymised physician name'
+
+        dhdr.save_as(dcmf)
+
+
+
+#================================================================================
+
 
 def dcmsort(folder, copy_series=False, verbose=False):
     ''' Sort out the DICOM files in the folder according to the recorded series.
@@ -319,12 +613,14 @@ def dcm2im(fpth):
 
     # possible DICOM file extensions
     ext = ('dcm', 'DCM', 'ima', 'IMA') 
+    
     # case when given a folder path
     if isinstance(fpth, basestring) and os.path.isdir(fpth):
         SZ0 = len([d for d in os.listdir(fpth) if d.endswith(".dcm")])
         # list of DICOM files
         fdcms = os.listdir(fpth)
         fdcms = [os.path.join(fpth,f) for f in fdcms if f.endswith(ext)]
+    
     # case when list of DICOM files is given
     elif isinstance(fpth, list) and os.path.isfile(os.path.join(fpth[0])):
         SZ0 = len(fpth)

@@ -6,7 +6,8 @@ __copyright__ = "Copyright 2018"
 #-------------------------------------------------------------------------------
 
 import numpy as np
-import sys, os
+import sys
+import os
 import shutil
 import scipy.ndimage as ndi
 import nibabel as nib
@@ -573,9 +574,10 @@ def affine_niftyreg(
     fref,
     fflo,
     outpath='',
+    fname_aff='',
     pickname='ref',
     fcomment='',
-    exepath = '',
+    executable = '',
     omp=1,
     rigOnly = False,
     affDirect = False,
@@ -592,7 +594,7 @@ def affine_niftyreg(
     verbose=True):
 
     # check if the executable exists:
-    if not os.path.isfile(exepath):
+    if not os.path.isfile(executable):
         raise IOError('Incorrect path to executable file for registration.')
 
     #create a folder for images registered to ref
@@ -628,15 +630,23 @@ def affine_niftyreg(
         imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_fmsk)
 
     # output in register with ref and text file for the affine transform
-    if pickname=='ref':
-        fout = os.path.join(odir, 'affine_ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
-        faff = os.path.join(odir, 'affine_ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
-    elif pickname=='flo':
-        fout = os.path.join(odir, 'affine_flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
-        faff = os.path.join(odir, 'affine_flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
+    if fname_aff!='':
+        fout = os.path.join(odir, fname_aff.split('.')[0]+'.nii.gz')
+        faff = os.path.join(odir, fname_aff)
+    else:
+        if pickname=='ref':
+            fout = os.path.join(odir, 'affine_ref-' \
+                +os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+            faff = os.path.join(odir, 'affine_ref-' \
+                +os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
+        elif pickname=='flo':
+            fout = os.path.join(odir, 'affine_flo-' \
+                +os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+            faff = os.path.join(odir, 'affine_flo-' \
+                +os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
     
     # call the registration routine
-    cmd = [exepath,
+    cmd = [executable,
          '-ref', fref,
          '-flo', fflo,
          '-aff', faff,
@@ -666,6 +676,66 @@ def affine_niftyreg(
        
     return faff, fout
 #-------------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------------
+def resample_niftyreg(
+        fref,
+        fflo,
+        faff,
+        outpath = '',
+        fimout = '',
+        fcomment = '',
+        pickname = 'ref',
+        intrp = 1,
+        executable = '',
+        verbose = True):
+
+    # check if the executable exists:
+    if not os.path.isfile(executable):
+        raise IOError('Incorrect path to executable file for registration.')
+
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(fflo)
+
+    elif outpath=='':
+        opth = os.path.dirname(fflo)
+
+    else:
+        opth = outpath
+
+    imio.create_dir(opth)
+
+    #> the output naming
+    if '/' in fimout:
+        fout = fimout
+    elif fimout!='' and not os.path.isfile(fimout):
+        fout = os.path.join(opth, fimout)
+    elif pickname=='ref':
+        fout = os.path.join(opth, 'affine_ref-' \
+                + os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+    elif pickname=='flo':        
+        fout = os.path.join(opth, 'affine_flo-' \
+                + os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+
+    if isinstance(intrp, (int, long)): intrp = str(intrp)
+    
+    cmd = [executable,
+       '-ref', fref,
+       '-flo', fflo,
+       '-trans', faff,
+       '-res', fout,
+       '-inter', intrp
+       ]
+    if not verbose:
+        cmd.append('-voff')
+    call(cmd)
+
+    return fout
+#-------------------------------------------------------------------------------------
+
 
 
 #-------------------------------------------------------------------------------------
@@ -716,7 +786,7 @@ def reg_mr2pet(
     # run the registration and return the results (file paths to affine trans. and the resampled image)
     return affine_niftyreg(
         fpet, ft1w,
-        exepath = Cnt['REGPATH'],
+        executable = Cnt['REGPATH'],
         outpath=outpath,
         fcomment=fcomment,
         omp=multiprocessing.cpu_count()/2,
@@ -899,6 +969,7 @@ def resample_spm(
         mask=0,
         mean=0,
         outpath='',
+        fimout='',
         fcomment='',
         prefix='r_',
         pickname='ref',
@@ -920,25 +991,43 @@ def resample_spm(
     spmpth = resource_filename(__name__, 'spm')
     eng.addpath(spmpth, nargout=0)
 
-    #-decompress if necessary 
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(imflo)
+
+    elif outpath=='':
+        opth = os.path.dirname(imflo)
+
+    else:
+        opth = outpath
+
+    imio.create_dir(opth)
+
+    #> decompress if necessary 
     if imref[-3:]=='.gz':
-        imrefu = imio.nii_ugzip(imref)
+        imrefu = imio.nii_ugzip(imref, outpath=opth)
     else:
-        # imrefu = imref
         fnm = os.path.basename(imref).split('.nii')[0] + '_copy.nii'
-        imrefu = os.path.join(os.path.dirname(imref), fnm)
+        imrefu = os.path.join(opth, fnm)
         shutil.copyfile(imref, imrefu)
-    #-floating
+
+    #> floating
     if imflo[-3:]=='.gz': 
-        imflou = imio.nii_ugzip(imflo)
+        imflou = imio.nii_ugzip(imflo, outpath=opth)
     else:
-        #imflou = imflo
         fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
-        imflou = os.path.join(os.path.dirname(imflo), fnm)
+        imflou = os.path.join(opth, fnm)
         shutil.copyfile(imflo, imflou)
 
     if isinstance(M, basestring):
         M = np.load(M)
+        print 'i> matrix M given in the form of numpy file'
+    elif isinstance(M, (np.ndarray, np.generic)):
+        print 'i> matrix M given in the form of Numpy array'
+    else:
+        raise IOError('The form of affine matrix not recognised.')
 
     # run the Matlab SPM resampling
     r = eng.resample_spm_m(
@@ -951,26 +1040,26 @@ def resample_spm(
         which,
         prefix)
 
-    # delete the uncompressed
-    if del_ref_uncmpr:  os.remove(imrefu)
-    if del_flo_uncmpr:  os.remove(imflou)
-
+    
     #-compress the output
     split = os.path.split(imflou)
     fim = os.path.join(split[0], prefix+split[1])
-    imio.nii_gzip(fim)
+    imio.nii_gzip(fim, outpath=opth)
+
+    # delete the uncompressed
+    if del_ref_uncmpr:  os.remove(imrefu)
+    if del_flo_uncmpr and os.path.isfile(imflou):  os.remove(imflou)
     if del_out_uncmpr: os.remove(fim)
 
-    # the compressed output naming
-    if outpath=='':
-        outpath = os.path.dirname(fim)
-
-    imio.create_dir(outpath)
-
-    if pickname=='ref':
-        fout = os.path.join(outpath, 'affine_ref-'+os.path.basename(imrefu).split('.nii')[0]+fcomment+'.nii.gz')
+    #> the compressed output naming
+    if fimout!='':
+        fout = os.path.join(opth, fimout)
+    elif pickname=='ref':
+        fout = os.path.join(opth, 'affine_ref-' \
+                + os.path.basename(imrefu).split('.nii')[0]+fcomment+'.nii.gz')
     elif pickname=='flo':        
-        fout = os.path.join(outpath, 'affine_flo-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
+        fout = os.path.join(opth, 'affine_flo-' \
+                + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
     # change the file name
     os.rename(fim+'.gz', fout)
 
@@ -982,6 +1071,7 @@ def coreg_spm(
         imflo,
         matlab_eng='',
         outpath='',
+        fname_aff='',
         costfun='nmi',
         sep = [4,2],
         tol = [ 0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
@@ -1008,16 +1098,33 @@ def coreg_spm(
     print 'PATH: ' + spmpth
     eng.addpath(spmpth, nargout=0)
 
-    # decompress floating and ref images as necessary 
+    #> output path
+    if outpath=='' and fname_aff!='' and '/' in fname_aff:
+        opth = os.path.dirname(fname_aff)
+        if opth=='':
+            opth = os.path.dirname(imflo)
+        fname_aff = os.path.basename(fname_aff)
+    elif outpath=='':
+        opth = os.path.dirname(imflo)
+    else:
+        opth = outpath
+    imio.create_dir(opth)
+
+    #> decompress ref image as necessary 
     if imref[-3:]=='.gz':
-        imrefu = imio.nii_ugzip(imref)
+        imrefu = imio.nii_ugzip(imref, outpath=opth)
     else:
-        imrefu = imref
-    # floating
+        fnm = os.path.basename(imref).split('.nii')[0] + '_copy.nii'
+        imrefu = os.path.join(opth, fnm)
+        shutil.copyfile(imref, imrefu)
+    
+    #> floating
     if imflo[-3:]=='.gz': 
-        imflou = imio.nii_ugzip(imflo)
+        imflou = imio.nii_ugzip(imflo, outpath=opth)
     else:
-        imflou = imflo
+        fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
+        imflou = os.path.join(opth, fnm)
+        shutil.copyfile(imflo, imflou)
 
     # run the matlab SPM coregistration
     Mm = eng.coreg_spm_m(
@@ -1040,11 +1147,19 @@ def coreg_spm(
         if imref[-3:]=='.gz': os.remove(imrefu)
         if imflo[-3:]=='.gz': os.remove(imflou)
 
-    if outpath=='':
-        outpath = os.path.dirname(imflo)
+    imio.create_dir( os.path.join(opth, 'affine-spm') )
+    if fname_aff == '':
+        faff = os.path.join(
+                opth,
+                'affine-spm',
+                'affine-spm-'+os.path.basename(imref).split('.nii')[0]+'.npy')
+    else:
+        faff = os.path.join(
+                opth,
+                'affine-spm',
+                fname_aff + '.npy')
 
-    imio.create_dir( os.path.join(outpath, 'M-mat') )
-    faff = os.path.join(outpath, 'M-mat',  'M-'+os.path.basename(imref).split('.nii')[0]+'.npy' )
+    #> safe the affine transformation
     np.save(faff, M)
 
     return {'mat':M, 'faff':faff}
@@ -1052,37 +1167,177 @@ def coreg_spm(
 
 
 #---- FSL ----
-def fsl_coreg(imref, imflo, faff, costfun='normmi', dof=6):
+def affine_fsl(
+        imref,
+        imflo,
+        outpath='',
+        fname_aff='',
+        fcomment='',
+        executable='fsl5.0-flirt',
+        costfun='normmi',
+        dof=6,
+        hstbins=256,
+        verbose=True):
 
-    cmd = [ 'fsl5.0-flirt',
+
+
+    #> output path
+    if outpath=='' and fname_aff!='' and os.path.isfile(fname_aff):
+        opth = os.path.dirname(fname_aff)
+        faff = fname_aff
+    else:
+
+        if outpath!='':
+            opth = outpath
+        else:
+            opth = os.path.dirname(imflo)
+
+        if fname_aff!='':
+            faff = os.path.join(opth, 'affine-fsl', fname_aff)
+        else:
+            faff = os.path.join(opth, 'affine-fsl',
+                    os.path.basename(imref).split('.nii')[0]+fcomment+'.mat')
+
+    imio.create_dir(os.path.join(opth, 'affine-fsl'))
+    
+    #> command with options for FSL-FLIRT registration
+    cmd = [ executable,
             '-cost', costfun,
             '-dof', str(dof),
             '-omat', faff,
             '-in', imflo,
-            '-ref', imref]
+            '-ref', imref,
+            '-bins', str(hstbins)]
+
+    #> add verbose mode if requested
+    if isinstance(verbose, bool): verbose = int(verbose)
+    if verbose>0: cmd.extend(['-verbose', str(verbose)])
+
+    #> execute FSL-FLIRT command with the above options
     call(cmd)
 
-    # convert hex parameters to dec
+    # convert to Numpy float
     aff = np.loadtxt(faff)
-    # faffd = faff[:-4]+'d.mat'
-    np.savetxt(faff, aff)
-    return aff
+    # np.savetxt(faff.split('.')[0]+'_np-float.txt', aff)
+
+    return aff, faff
 
 
-def fsl_res(imout, imref, imflo, faff, interp=1):
+def resample_fsl(
+        imref,
+        imflo,
+        faff,
+        outpath = '',
+        fimout = '',
+        pickname = 'ref',
+        fcomment = '',
+        intrp = 1,
+        executable = 'fsl5.0-flirt'):
 
-    if interp==1:
+    print '==================================================================='
+    print ' F S L  resampling'
+
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(imflo)
+
+    elif outpath=='':
+        opth = os.path.dirname(imflo)
+    elif outpath!='':
+        opth = outpath
+    
+    imio.create_dir(opth)
+
+    #> the output naming
+    if '/' in fimout:
+        fout = fimout
+    elif fimout!='' and not os.path.isfile(fimout):
+        fout = os.path.join(opth, fimout)
+    elif pickname=='ref':
+        fout = os.path.join(opth, 'affine_ref-' \
+                + os.path.basename(imref).split('.nii')[0]+fcomment+'.nii.gz')
+    elif pickname=='flo':        
+        fout = os.path.join(opth, 'affine_flo-' \
+                + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
+
+    if isinstance(intrp, (int, long)): intrp = str(intrp)
+    if intrp=='1':
         interpolation = 'trilinear'
-    elif interp==0:
+    elif intrp=='0':
         interpolation = 'nearestneighbour'
 
-    cmd = [ 'fsl5.0-flirt',
+    cmd = [ executable,
             '-in', imflo,
             '-ref', imref,
-            '-out', imout,
-            '-applyxfm', '-init', faff,
+            '-out', fout,
+            '-init', faff,
+            '-applyxfm',
             '-interp', interpolation]
     call(cmd)
+
+    print 'D O N E'
+    print '==================================================================='
+
+    return fout
+
+#=======================================================================
+# V I N I C I   R E G I S T R A T I O N
+#=======================================================================
+
+def coreg_vinci(imref, imflo, xmlparams='', xmlout=''):
+    ''' Find rigid transformation between PET and MR using Vinci's MMM.
+        Based on the RunMMMJob.py file provided by Vinci in
+        .../vinci4/external/python.
+        Arguments:
+        xmlparams   parameters for registration job
+        xmlout      the registration output and summary in XML format.
+
+    '''
+
+    #> get the NiftyPET folder
+    tmp = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    niftypet_dir = os.path.dirname(os.path.dirname(tmp))
+
+    #> add the Vinci to the Python path
+    sys.path.append(os.path.join(niftypet_dir, 'ext_vinci'))
+
+    import VinciPy as vp
+
+    vbin = vp.Vinci_Bin.Vinci_Bin()
+    con = vp.Vinci_Connect.Vinci_Connect(vbin)
+    szVinciBinPath = con.StartMyVinci()
+
+    vc = vp.Vinci_Core.Vinci_CoreCalc(con)
+    vc.StdProject()
+
+    #> open the xml registration parameters file
+    f = open(xmlparams, 'rb')
+    mmm_params = f.read()
+    f.close()
+
+    #> check scheme data file and remove possible XML comments at its beginning
+    root = vp.Vinci_XML.ElementTree.fromstring(mmm_params)
+    if root.tag != "MMM":
+        sys.exit("scheme data file %s does not contain tag MMM\n"%szMMMTemplateFile)
+
+    szSchemeFile = vp.Vinci_XML.ElementTree.tostring(root)
+    #> bytes -> str
+    szSchemeFile = szSchemeFile.decode("utf-8")
+
+    ref = vp.Vinci_ImageT.newTemporary(vc, szFileName = imref)
+    ref.setColorSettings(CTable="Rainbow4")
+
+    rsl = vp.Vinci_ImageT.newTemporary(vc, szFileName = imflo)
+    rsl.alignToRef(ref, szSchemeFile, szRegistrationSummaryFile = xmlout)
+
+    #> close everything
+    rsl.killYourself()  #close image buffer
+    ref.killYourself()
+    con.CloseVinci(True)
+
+
 
 
 
