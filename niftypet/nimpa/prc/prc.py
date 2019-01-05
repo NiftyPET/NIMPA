@@ -179,7 +179,8 @@ def trimim( fims,
     IX = ix1-ix0+1
     IY = iy1-iy0+1
     tmp = max(IX, IY)
-    # get the range such that it divisible by divdim (default 64) for GPU execution
+    #> get the range such that it is divisible by 
+    #> divdim (64 by default) for GPU execution
     IXY = divdim * ((tmp+divdim-1)/divdim)
     div = (IXY-IX)/2
     # x
@@ -205,19 +206,37 @@ def trimim( fims,
     # the absolute values are supposed to work like padding in case the indx are negative
     iz0s, iy0s, ix0s = iz0, iy0, ix0
     iz0t, iy0t, ix0t = 0,0,0
-    if iz0<0: iz0s=0; iz0t = abs(iz0)
-    if iy0<0: iy0s=0; iy0t = abs(iy0)
-    if ix0<0: ix0s=0; ix0t = abs(ix0)
+    if iz0<0: 
+        iz0s=0; 
+        iz0t = abs(iz0)
+        print '-----------------------------------------------------------------'
+        print 'w> Correcting for trimming outside the original image (z-axis)'
+        print '-----------------------------------------------------------------'
+    if iy0<0: 
+        iy0s=0; 
+        iy0t = abs(iy0)
+        print '-----------------------------------------------------------------'
+        print 'w> Correcting for trimming outside the original image (y-axis)'
+        print '-----------------------------------------------------------------'
+    if ix0<0: 
+        ix0s=0; 
+        ix0t = abs(ix0)
+        print '-----------------------------------------------------------------'
+        print 'w> Correcting for trimming outside the original image (x-axis)'
+        print '-----------------------------------------------------------------'
+
 
     # first trim the sum image
     imsumt[iz0t:, iy0t:, ix0t: ] = imsum[iz0s:, iy0s:iy1+1, ix0s:ix1+1]
 
-    # new affine matrix for the scaled and trimmed image
+    #> new affine matrix for the scaled and trimmed image
     A = np.diag(sf*np.diag(affine))
+    #> note half of new voxel offset is used for the new centre of voxels
+    A[0,3] = affine[0,3] + A[0,0]*(ix0-0.5)        
+    A[1,3] = affine[1,3] + (affine[1,1]*(imshape[1]-1) - A[1,1]*(iy1-0.5))
+    A[2,3] = affine[2,3] - A[1,1]*0.5
     A[3,3] = 1
-    A[0,3] = affine[0,3] - abs(affine[0,0])*sf*ix0
-    A[1,3] = affine[1,3] + affine[1,1]*(imshape[1]-sf*iy1)
-    A[2,3] = affine[2,3]
+
 
     # output dictionary
     dctout = {'affine': A, 'trimpar':trimpar, 'imsum':imsumt}
