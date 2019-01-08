@@ -16,6 +16,8 @@ hrdwr_mu = [
     'umap_HNMCU_10606489.v.hdr',   # (2) Head and neck upper coil
     'umap_SPMC_10606491.v.hdr',    # (3) Spine coil
     'umap_PT_2291734.v.hdr'        # (4) Table
+    'umap_HNMCU_10606489.v.hdr',   # (5) Head and neck upper coil
+    'umap_BR4CH_10185525.v.hdr'    # (6) 
 ]
 
 # Radioisotope look-up table
