@@ -618,11 +618,11 @@ def affine_niftyreg(
 
     #create a folder for images registered to ref
     if outpath!='':
-        odir = os.path.join(outpath,'affine')
-        fimdir = os.path.join(outpath, os.path.join('affine','mask'))
+        odir = os.path.join(outpath,'affine-niftyreg')
+        fimdir = os.path.join(outpath, os.path.join('affine-niftyreg','mask'))
     else:
-        odir = os.path.join(os.path.dirname(fflo),'affine')
-        fimdir = os.path.join(os.path.dirname(fflo), 'affine', 'mask')
+        odir = os.path.join(os.path.dirname(fflo),'affine-niftyreg')
+        fimdir = os.path.join(os.path.dirname(fflo), 'affine-niftyreg', 'mask')
     imio.create_dir(odir)
     imio.create_dir(fimdir)
 
@@ -997,6 +997,13 @@ def resample_spm(
         del_out_uncmpr=False
     ):
 
+
+    print '====================================================================='
+    print ' S P M  inputs:'
+    print '> ref:', imref
+    print '> flo:', imflo
+    print '====================================================================='
+
     import matlab
     from pkg_resources import resource_filename
 
@@ -1091,6 +1098,7 @@ def coreg_spm(
         matlab_eng='',
         outpath='',
         fname_aff='',
+        fcomment = '',
         costfun='nmi',
         sep = [4,2],
         tol = [ 0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
@@ -1171,7 +1179,7 @@ def coreg_spm(
         faff = os.path.join(
                 opth,
                 'affine-spm',
-                'affine-spm-'+os.path.basename(imref).split('.nii')[0]+'.npy')
+                'affine-spm-'+os.path.basename(imref).split('.nii')[0]+fcomment+'.npy')
     else:
         faff = os.path.join(
                 opth,
@@ -1239,7 +1247,7 @@ def affine_fsl(
     aff = np.loadtxt(faff)
     # np.savetxt(faff.split('.')[0]+'_np-float.txt', aff)
 
-    return aff, faff
+    return {'mat':aff, 'faff':faff}
 
 
 def resample_fsl(

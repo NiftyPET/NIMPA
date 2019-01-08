@@ -174,8 +174,10 @@ def dcminfo(dcmvar, verbose=True):
     if isinstance(dcmvar, basestring):
         if verbose:
             print 'i> provided DICOM file:', dcmvar
-        dhdr = dcm.read_file(dcmvar)
+        dhdr = dcm.dcmread(dcmvar)
     elif isinstance(dcmvar, dict):
+        dhdr = dcmvar
+    elif isinstance(dcmvar, dcm.dataset.FileDataset):
         dhdr = dcmvar
 
     dtype   = dhdr[0x08, 0x08].value
