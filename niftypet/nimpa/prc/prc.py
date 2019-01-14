@@ -468,7 +468,8 @@ def pvc_iyang(
     #if affine transf. (faff) is given then take the T1 and resample it too.
     if isinstance(faff, basestring) and not os.path.isfile(faff):
         # faff is not given; get it by running the affine; get T1w to PET space
-        faff, _ = reg_mr2pet(fpet, mridct, Cnt, outpath=outpath, fcomment=fcomment)
+        regdct = reg_mr2pet(fpet, mridct, Cnt, outpath=outpath, fcomment=fcomment)
+        faff = regdct['faff']
 
     # establish the output folder
     if outpath=='':        
@@ -629,15 +630,27 @@ def affine_niftyreg(
     if rmsk:
         f_rmsk = os.path.join(fimdir, 'rmask_'+os.path.basename(fref).split('.nii')[0]+'.nii.gz')
         imdct = imio.getnii(fref, output='all')
-        smoim = ndi.filters.gaussian_filter(imdct['im'],
-                                            imio.fwhm2sig(rfwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), mode='mirror')
+        #> permutation of axes used to get the image array (transpose)
+        trnsp = imdct['transpose']
+        smoim = ndi.filters.gaussian_filter(
+                    imdct['im'],
+                    imio.fwhm2sig(rfwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), 
+                    mode='mirror')
         thrsh = rthrsh*smoim.max()
         immsk = np.int8(smoim>thrsh)
         immsk = imfill(immsk)
-        imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_rmsk)
+        imio.array2nii( 
+                immsk,
+                imdct['affine'],
+                f_rmsk,
+                trnsp = (trnsp.index(0), trnsp.index(1), trnsp.index(2)),
+                flip = imdct['flip'])
+    
     if fmsk:
         f_fmsk = os.path.join(fimdir, 'fmask_'+os.path.basename(fflo).split('.nii')[0]+'.nii.gz')
         imdct = imio.getnii(fflo, output='all')
+        #> permutation of axes used to get the image array (transpose)
+        trnsp = imdct['transpose']
         smoim = ndi.filters.gaussian_filter(
                 imdct['im'],
                 imio.fwhm2sig(ffwhm, voxsize=abs(imdct['hdr']['pixdim'][1])),
@@ -646,7 +659,12 @@ def affine_niftyreg(
         thrsh = fthrsh*np.ptp(smoim) + np.min(smoim)
         immsk = np.int8(smoim>thrsh)
         immsk = imfill(immsk)
-        imio.array2nii( immsk[::-1,::-1,:], imdct['affine'], f_fmsk)
+        imio.array2nii(
+            immsk,
+            imdct['affine'],
+            f_fmsk,
+            trnsp = (trnsp.index(0), trnsp.index(1), trnsp.index(2)),
+            flip = imdct['flip'])
 
     # output in register with ref and text file for the affine transform
     if fname_aff!='':
@@ -692,8 +710,11 @@ def affine_niftyreg(
         cmd.append('-voff')
 
     call(cmd)
+
+    #> affine to Numpy array
+    aff = np.loadtxt(faff)
        
-    return faff, fout
+    return {'mat':aff, 'faff':faff, 'fout':fout} #faff, fout
 #-------------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------------

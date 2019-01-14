@@ -54,22 +54,42 @@ def getnii(fim, nan_replace=None, output='image'):
     import numbers
 
     nim = nib.load(fim)
+
+    dim = nim.header.get('dim')
+    dimno = dim[0]
+
     if output=='image' or output=='all':
         imr = nim.get_data()
         # replace NaNs if requested
         if isinstance(nan_replace, numbers.Number): imr[np.isnan(imr)]=nan_replace
-        # Flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
-        if len(nim.shape)==4:
-            imr  = np.transpose(imr[:,::-1,::-1,:], (3, 2, 1, 0))
-        elif len(nim.shape)==3:
-            imr  = np.transpose(imr[:,::-1,::-1], (2, 1, 0))
+        
+        #> get orientations from the affine
+        ornt = nib.orientations.axcodes2ornt(nib.aff2axcodes(nim.affine))
+        trnsp = tuple(np.int8(ornt[::-1,0]))
+        flip  = tuple(np.int8(ornt[:,1]))
+
+        #> flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
+        if dimno==4:
+            imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2],:], (3,)+trnsp)
+            #imr  = np.transpose(imr[:,::-1,::-1,:], (3, 2, 1, 0))
+        elif  dimno==3:
+            imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2]], trnsp)
+            #imr  = np.transpose(imr[:,::-1,::-1], (2, 1, 0))
+    
     if output=='affine' or output=='all':
-        A = nim.get_sform()
-        if not A[:3,:3].any():
-            A = nim.get_qform()
+        # A = nim.get_sform()
+        # if not A[:3,:3].any():
+        #     A = nim.get_qform()
+        A = nim.affine
 
     if output=='all':
-        out = {'im':imr, 'affine':A, 'dtype':nim.get_data_dtype(), 'shape':imr.shape, 'hdr':nim.header}
+        out = { 'im':imr,
+                'affine':A,
+                'dtype':nim.get_data_dtype(),
+                'shape':imr.shape,
+                'hdr':nim.header,
+                'transpose':trnsp,
+                'flip':flip}
     elif output=='image':
         out = imr
     elif output=='affine':
@@ -97,22 +117,30 @@ def getnii_descr(fim):
         rcndic[tmp[0]] = tmp[1]
     return rcndic
 
-def array2nii(im, A, fnii, descrip=''):
+def array2nii(im, A, fnii, descrip='', trnsp=(), flip=()):
     '''Store the numpy array 'im' to a NIfTI file 'fnii'.
     ----
     Arguments:
-        'im': image to be stored in NIfTI
-        'A': affine transformation
-        'fnii': NIfTI file name.
-        'descrip': the description given to the file
+        'im':       image to be stored in NIfTI
+        'A':        affine transformation
+        'fnii':     output NIfTI file name.
+        'descrip':  the description given to the file
+        'trsnp':    transpose/permute the dimensions.
+                    In NIfTI it has to be in this order: [x,y,z,t,...])
+        'flip':     flip tupple for flipping the direction of x,y,z axes. 
+                    (1: no flip, -1: flip)
     '''
 
-    if im.ndim==3:
-        im = np.transpose(im, (2, 1, 0))
-    elif im.ndim==4:
-        im = np.transpose(im, (3, 2, 1, 0))
+    #> permute the axis order in the image array
+    if trnsp==():
+        im = im.transpose()
     else:
-        raise StandardError('unrecognised image dimensions')
+        im = im.transpose(trnsp)
+
+    #> perform flip of x,y,z axes after transposition into proper NIfTI order
+    if flip!=() and len(flip)==3:
+        im = im[::-flip[0], ::-flip[1], ::-flip[2], ...]
+
 
     nii = nib.Nifti1Image(im, A)
     hdr = nii.header
@@ -165,7 +193,7 @@ def nii_gzip(imfile, outpath=''):
     with gzip.open(fout, 'wb') as f:
         f.write(d)
     return fout
-#================================================================================
+#===============================================================================
 
 def dcminfo(dcmvar, verbose=True):
     ''' Get basic info about the DICOM file/header.
