@@ -1120,6 +1120,7 @@ def coreg_spm(
         outpath='',
         fname_aff='',
         fcomment = '',
+        pickname='ref',
         costfun='nmi',
         sep = [4,2],
         tol = [ 0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
@@ -1129,7 +1130,8 @@ def coreg_spm(
         graphics = 1,
         visual = 0,
         del_uncmpr=True,
-        save_mat=True
+        save_arr = True,
+        save_txt = True,
     ):
 
     import matlab
@@ -1197,10 +1199,16 @@ def coreg_spm(
 
     imio.create_dir( os.path.join(opth, 'affine-spm') )
     if fname_aff == '':
-        faff = os.path.join(
-                opth,
-                'affine-spm',
-                'affine-spm-'+os.path.basename(imref).split('.nii')[0]+fcomment+'.npy')
+        if pickname=='ref':
+            faff = os.path.join(
+                    opth,
+                    'affine-spm',
+                    'affine-spm-'+os.path.basename(imref).split('.nii')[0]+fcomment+'.npy')
+        else:
+            faff = os.path.join(
+                    opth,
+                    'affine-spm',
+                    'affine-spm-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.npy')
     else:
         faff = os.path.join(
                 opth,
@@ -1208,8 +1216,11 @@ def coreg_spm(
                 fname_aff + '.npy')
 
     #> safe the affine transformation
-    np.save(faff, M)
-
+    if save_arr:
+        np.save(faff, M)
+    if save_txt:
+        np.savetxt(faff.split('.npy')[0]+'.txt', M)
+    
     return {'mat':M, 'faff':faff}
 
 
