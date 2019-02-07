@@ -178,7 +178,7 @@ SCTSCLEM = [float(SSE_IMZ)/SO_IMZ, float(SSE_IMY)/SO_IMY, float(SSE_IMX)/SO_IMX]
 #-------
 
 #> decay correction
-DCYCRR = True
+DCYCRR = False
 
 #--- Time of Flight ---
 #speed of light
