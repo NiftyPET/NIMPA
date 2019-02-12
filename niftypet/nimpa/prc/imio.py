@@ -134,6 +134,9 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
                     nimpa.getnii(filepath, output='all').
     '''
 
+    if not len(trnsp) in [3,4] and len(flip)!=3:
+        raise ValueError('e> number of flip and/or transpose elements is incorrect.')
+
     #---------------------------------------------------------------------------
     #> TRANSLATIONS and FLIPS
     #> get the same geometry as the input NIfTI file in the form of dictionary,
@@ -149,11 +152,11 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
 
         flip = storage_as['flip']
     
-    elif trnsp==():
-        im = im.transpose()
 
+    if trnsp==():
+        im = im.transpose()
     #> check if the image is 4D (dynamic) and modify as needed
-    if len(trnsp)==3 and im.ndim==4:
+    elif len(trnsp)==3 and im.ndim==4:
         trnsp = tuple([t+1 for t in trnsp] + [0])
         im = im.transpose(trnsp)
     else:
