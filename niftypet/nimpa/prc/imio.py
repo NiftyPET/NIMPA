@@ -134,7 +134,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
                     nimpa.getnii(filepath, output='all').
     '''
 
-    if not len(trnsp) in [3,4] and len(flip)!=3:
+    if not len(trnsp) in [0,3,4] and not len(flip) in [0,3]:
         raise ValueError('e> number of flip and/or transpose elements is incorrect.')
 
     #---------------------------------------------------------------------------
