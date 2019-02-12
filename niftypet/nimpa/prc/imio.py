@@ -71,10 +71,8 @@ def getnii(fim, nan_replace=None, output='image'):
         #> flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
         if dimno==4:
             imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2],:], (3,)+trnsp)
-            #imr  = np.transpose(imr[:,::-1,::-1,:], (3, 2, 1, 0))
         elif  dimno==3:
             imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2]], trnsp)
-            #imr  = np.transpose(imr[:,::-1,::-1], (2, 1, 0))
     
     if output=='affine' or output=='all':
         # A = nim.get_sform()
@@ -85,6 +83,7 @@ def getnii(fim, nan_replace=None, output='image'):
     if output=='all':
         out = { 'im':imr,
                 'affine':A,
+                'fim':fim,
                 'dtype':nim.get_data_dtype(),
                 'shape':imr.shape,
                 'hdr':nim.header,
@@ -117,7 +116,8 @@ def getnii_descr(fim):
         rcndic[tmp[0]] = tmp[1]
     return rcndic
 
-def array2nii(im, A, fnii, descrip='', trnsp=(), flip=()):
+
+def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
     '''Store the numpy array 'im' to a NIfTI file 'fnii'.
     ----
     Arguments:
@@ -129,18 +129,41 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=()):
                     In NIfTI it has to be in this order: [x,y,z,t,...])
         'flip':     flip tupple for flipping the direction of x,y,z axes. 
                     (1: no flip, -1: flip)
+        'storage_as': uses the flip and displacement as given by the following
+                    NifTI dictionary, obtained using
+                    nimpa.getnii(filepath, output='all').
     '''
 
+    #---------------------------------------------------------------------------
+    #> TRANSLATIONS and FLIPS
+    #> get the same geometry as the input NIfTI file in the form of dictionary,
+    #>>as obtained from getnii(..., output='all')
+
     #> permute the axis order in the image array
-    if trnsp==():
+    if isinstance(storage_as, dict) and 'transpose' in storage_as \
+            and 'flip' in storage_as:
+
+        trnsp = (storage_as['transpose'].index(0),
+                 storage_as['transpose'].index(1),
+                 storage_as['transpose'].index(2))
+
+        flip = storage_as['flip']
+    
+    elif trnsp==():
         im = im.transpose()
+
+    #> check if the image is 4D (dynamic) and modify as needed
+    if len(trnsp)==3 and im.ndim==4:
+        trnsp = tuple([t+1 for t in trnsp] + [0])
+        im = im.transpose(trnsp)
     else:
         im = im.transpose(trnsp)
+    
 
     #> perform flip of x,y,z axes after transposition into proper NIfTI order
     if flip!=() and len(flip)==3:
         im = im[::-flip[0], ::-flip[1], ::-flip[2], ...]
-
+    #---------------------------------------------------------------------------
 
     nii = nib.Nifti1Image(im, A)
     hdr = nii.header
@@ -149,6 +172,8 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=()):
     hdr['cal_min'] = np.min(im)
     hdr['descrip'] = descrip
     nib.save(nii, fnii)
+
+
 
 def orientnii(imfile):
     '''Get the orientation from NIfTI sform.  Not fully functional yet.'''
@@ -552,12 +577,14 @@ def dcmsort(folder, copy_series=False, verbose=False):
                 srs[s]['files'].append( os.path.join(srsdir, f) )
             else:
                 srs[s]['files'].append( os.path.join(folder, f) )
-    #------------------------------------------------------
+
+    return srs
+#-------------------------------------------------------------------------------
 
 
 
 
-#================================================================================
+#===============================================================================
 
 def niisort(fims):
     ''' Sort all input NIfTI images and check their shape.
