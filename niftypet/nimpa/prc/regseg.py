@@ -388,6 +388,7 @@ def resample_spm(
 
     #-start Matlab engine if not given
     if matlab_eng=='':
+        import matlab.engine
         eng = matlab.engine.start_matlab()
     else:
         eng = matlab_eng
