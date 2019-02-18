@@ -8,18 +8,18 @@ __copyright__ = "Copyright 2019"
 
 import sys
 import os
-import numpy as np
-
-import scipy.ndimage as ndi
+import shutil
 from subprocess import call
+
+import numpy as np
+import scipy.ndimage as ndi
+import SimpleITK as sitk
 
 import imio
 import prc
 
 
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-# I M A G E   R E G I S T R A T I O N
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
 
 def imfill(immsk):
     '''fill the empty patches of image mask 'immsk' '''
@@ -32,7 +32,178 @@ def imfill(immsk):
             immsk[iz,iy,ix0:ix1] = 1
     return immsk
 
-#-------------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------
+# Create object mask for the input image 
+#-------------------------------------------------------------------------------
+def create_mask(
+        fnii,
+        fimout = '',
+        outpath = '',
+        fill = 1,
+        dtype_fill = np.uint8,
+        
+        thrsh = 0.,
+        fwhm = 0.,):
+
+    ''' create mask over the whole image or over the threshold area'''
+    
+
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(fnii)
+            fimout = os.path.join(opth, fimout)
+
+    elif outpath=='':
+        opth = os.path.dirname(fnii)
+
+    else:
+        opth = outpath
+
+    #> output file name if not given
+    if fimout=='':
+        fniis = os.path.split(fnii)
+        fimout = os.path.join(opth, fniis[1].split('.nii')[0]+'_mask.nii.gz')
+
+    niidct = imio.getnii(fnii, output='all')
+    im = niidct['im']
+    hdr = niidct['hdr']
+
+    if im.ndim>3:
+        raise ValueError('The masking function only accepts 3-D images.')
+
+    #> generate output image
+    if thrsh>0.:
+        smoim = ndi.filters.gaussian_filter(
+                    im,
+                    imio.fwhm2sig(fwhm, voxsize=abs(hdr['pixdim'][1])), 
+                    mode='mirror')
+        thrsh = thrsh*smoim.max()
+        immsk = np.int8(smoim>thrsh)
+        immsk = imfill(immsk)
+
+        #> output image
+        imo = fill * immsk.astype(dtype_fill)
+
+    else:
+
+        imo = fill * np.ones(im.shape, dtype = dtype_fill)
+
+    #> save output image
+    imio.array2nii( 
+                imo,
+                niidct['affine'],
+                fimout,
+                trnsp = (niidct['transpose'].index(0),
+                         niidct['transpose'].index(1),
+                         niidct['transpose'].index(2)),
+                flip = niidct['flip'])
+
+    return {'fim':fimout, 'im':imo}
+#-------------------------------------------------------------------------------
+
+
+#  ____________________________________________________________________________
+# |                                                                            |
+# |                 M R   B I A S   C O R R E C T I O N                        |
+# |____________________________________________________________________________|
+
+def correct_bias_n4(
+        fmr,
+        fimout = '',
+        outpath = '',
+        fcomment = '_N4bias'):
+
+    ''' Correct for bias field in MR image(s) given in <fmr> as a string
+        (single file) or as a list of strings (multiple files).  
+    '''
+    if isinstance(fmr, basestring):
+        fins = [fmr]
+    elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):
+        fins = fmr
+        print 'i> multiple input files => ignoring the single output file name.'
+        fimout = ''
+    else:
+        raise OSError('could not decode the input of floating images.')
+
+
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(fmr)
+            fimout = os.path.join(opth, fimout)
+
+    elif outpath=='':
+        opth = os.path.dirname(fmr)
+
+    else:
+        opth = outpath
+
+    #> N4 bias correction specific folder
+    n4opth = os.path.join(opth, 'N4bias')
+
+    imio.create_dir(n4opth)
+
+    outdct = {}
+
+    for fin in fins:
+
+        print 'i> input for bias correction:\n', fin
+         
+        # split path
+        fspl = os.path.split(fin)
+        
+        # N4 bias correction file output paths
+        fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]+ fcomment +'.nii.gz')
+
+        #====================================
+        # Bias field correction for T1 and T2
+        #====================================
+        #> initialise the corrector
+        corrector = sitk.N4BiasFieldCorrectionImageFilter()
+        # numberFilltingLevels = 4
+
+        # create file masks first
+        if not os.path.exists(fn4):
+            im = sitk.ReadImage(fin)
+
+            #> create a object specific mask
+            fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
+            msk = sitk.OtsuThreshold(im, 0, 1, 200)
+            sitk.WriteImage(msk, fmsk)
+            
+            #> cast to 32-bit float
+            im = sitk.Cast( im, sitk.sitkFloat32 )
+
+            #-------------------------------------------
+            print 'i> correcting bias field for', fin 
+            n4out = corrector.Execute(im, msk)
+            sitk.WriteImage(n4out, fn4)
+            #-------------------------------------------
+        
+        else:
+            print '   N4 bias corrected file seems already existing.'
+
+        #> output to dictionary 
+        if not 'fim' in outdct: outdct['fim'] = []
+        outdct['fim'].append(fn4)
+
+        if not 'fmsk' in outdct: outdct['fmsk'] = []
+        outdct['fmsk'].append(fmsk)
+
+
+    return outdct
+
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# I M A G E   R E G I S T R A T I O N
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+
+#-------------------------------------------------------------------------------
 def affine_niftyreg(
     fref,
     fflo,
@@ -72,42 +243,11 @@ def affine_niftyreg(
 
     if rmsk:
         f_rmsk = os.path.join(fimdir, 'rmask_'+os.path.basename(fref).split('.nii')[0]+'.nii.gz')
-        imdct = imio.getnii(fref, output='all')
-        #> permutation of axes used to get the image array (transpose)
-        trnsp = imdct['transpose']
-        smoim = ndi.filters.gaussian_filter(
-                    imdct['im'],
-                    imio.fwhm2sig(rfwhm, voxsize=abs(imdct['hdr']['pixdim'][1])), 
-                    mode='mirror')
-        thrsh = rthrsh*smoim.max()
-        immsk = np.int8(smoim>thrsh)
-        immsk = imfill(immsk)
-        imio.array2nii( 
-                immsk,
-                imdct['affine'],
-                f_rmsk,
-                trnsp = (trnsp.index(0), trnsp.index(1), trnsp.index(2)),
-                flip = imdct['flip'])
+        create_mask(fnii, fimout = f_rmsk, thrsh = rthrsh, fwhm = rfwhm)
     
     if fmsk:
         f_fmsk = os.path.join(fimdir, 'fmask_'+os.path.basename(fflo).split('.nii')[0]+'.nii.gz')
-        imdct = imio.getnii(fflo, output='all')
-        #> permutation of axes used to get the image array (transpose)
-        trnsp = imdct['transpose']
-        smoim = ndi.filters.gaussian_filter(
-                imdct['im'],
-                imio.fwhm2sig(ffwhm, voxsize=abs(imdct['hdr']['pixdim'][1])),
-                mode='mirror'
-        )
-        thrsh = fthrsh*np.ptp(smoim) + np.min(smoim)
-        immsk = np.int8(smoim>thrsh)
-        immsk = imfill(immsk)
-        imio.array2nii(
-            immsk,
-            imdct['affine'],
-            f_fmsk,
-            trnsp = (trnsp.index(0), trnsp.index(1), trnsp.index(2)),
-            flip = imdct['flip'])
+        create_mask(fnii, fimout = f_fmsk, thrsh = fthrsh, fwhm = ffwhm)
 
     # output in register with ref and text file for the affine transform
     if fname_aff!='':
@@ -484,6 +624,7 @@ def coreg_vinci(
         fflo,
         vc = '',
         con = '',
+        vincipy_path = '',
         scheme_xml = '',
         outpath = '',
         fname_aff = '',
@@ -492,6 +633,7 @@ def coreg_vinci(
         flo_colourmap = 'Green',
         close_vinci = False,
         close_buff = True,
+        cleanup = True,
         ):
 
     if scheme_xml=='':
@@ -557,11 +699,18 @@ def coreg_vinci(
                 fname_aff.split('.')[0]+'.nii.gz')
     #---------------------------------------------------------------------------
 
-    path_vinci = '/home/pawel/vinci/python'
-    sys.path.append(path_vinci)
+    if vincipy_path=='':
+        try:
+            import resources
+            vincipy_path = resources.VINCIPATH
+        except:
+            raise NameError('e> could not import resources \
+                    or find variable VINCIPATH in resources.py')
+
+    sys.path.append(vincipy_path)
 
     try:
-        from VinciPy import *
+        from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_XML, Vinci_ImageT
     except ImportError:
         raise ImportError('e> could not import Vinci:\n \
                 check the variable VINCIPATH (path to Vinci) in resources.py')
@@ -601,6 +750,19 @@ def coreg_vinci(
     rsl.alignToRef(ref, reg_scheme, szRegistrationSummaryFile=faff)
     #---------------------------------------------------------------------------
 
+    #> find the weird folder name created and to be disposed of.
+    if cleanup:
+        #> get the folder name (going to rubbish)
+        del_dir = os.path.normpath(faff).split(os.sep)[1]
+        fflo_dir = os.path.split(fflo)[0]
+        del_dir = os.path.join(
+            os.path.split(fflo)[0],
+            os.path.normpath(faff).split(os.sep)[1])
+        if os.path.isdir(del_dir):
+            shutil.rmtree(del_dir)
+
+
+
     #> save the registered image
     rsl.saveYourselfAs(bUseOffsetRotation=True, szFullFileName=fout)
 
@@ -633,6 +795,7 @@ def resample_vinci(
         pickname = 'ref',
         vc = '',
         con = '',
+        vincipy_path = '',
         atlas_resample = False,
         atlas_ref_make = False,
         atlas_ref_del = False,
@@ -663,13 +826,11 @@ def resample_vinci(
         if pickname=='ref':
             fout = os.path.join(
                     opth,
-                    'affine-vinci'
                     'affine-ref-' \
                     +os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
         else:
             fout = os.path.join(
                     opth,
-                    'affine-vinci',
                     'affine-flo-' \
                     +os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
     else:
@@ -679,11 +840,18 @@ def resample_vinci(
     #---------------------------------------------------------------------------
 
 
-    path_vinci = '/home/pawel/vinci/python'
-    sys.path.append(path_vinci)
+    if vincipy_path=='':
+        try:
+            import resources
+            vincipy_path = resources.VINCIPATH
+        except:
+            raise NameError('e> could not import resources \
+                    or find variable VINCIPATH in resources.py')
+
+    sys.path.append(vincipy_path)
 
     try:
-        from VinciPy import *
+        from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_XML, Vinci_ImageT
     except ImportError:
         raise ImportError('e> could not import Vinci:\n \
                 check the variable VINCIPATH (path to Vinci) in resources.py')
@@ -753,8 +921,11 @@ def resample_vinci(
 
     #> close image buffers for reference and floating
     if close_buff:
+        ref.killYourself()
+        flo.killYourself()
         rsl.killYourself()
-        #ref.killYourself()
+        
+
 
     if close_vinci: con.CloseVinci(True)
 

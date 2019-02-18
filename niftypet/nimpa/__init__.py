@@ -15,12 +15,12 @@ if 'CONDA_DEFAULT_ENV' in os.environ:
 else:
 	env = ''
 # create the path for the resources files according to the OS platform
-if platform.system() == 'Linux' :
+if platform.system() in ['Linux', 'Darwin']:
 	path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
 elif platform.system() == 'Windows' :
 	path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
 else:
-	print 'e> unrecognised operating system!  Linux and Windows operating systems only are supported.'
+	print 'e> unrecognised operating system!'
 	
 sys.path.append(path_resources)
 try:
@@ -35,10 +35,12 @@ from dinf import gpuinfo, dev_info
 from prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
 from prc import coreg_spm, coreg_vinci, resample_spm, resample_vinci
 from prc import affine_fsl, resample_fsl
-from prc import affine_niftyreg, resample_niftyreg, reg_mr2pet, pet2pet_rigid, imfill
+from prc import affine_niftyreg, resample_niftyreg, reg_mr2pet, pet2pet_rigid
 from prc import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii, dcm2im
 from prc import orientnii, nii_ugzip, nii_gzip, niisort, dcmsort, dcminfo, dcmanonym
 from prc import dice_coeff, dice_coeff_multiclass
+from prc import imfill, create_mask
+from prc import correct_bias_n4
 
 from prc import motion_reg
 

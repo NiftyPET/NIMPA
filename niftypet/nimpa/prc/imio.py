@@ -61,7 +61,11 @@ def getnii(fim, nan_replace=None, output='image'):
     if output=='image' or output=='all':
         imr = nim.get_data()
         # replace NaNs if requested
-        if isinstance(nan_replace, numbers.Number): imr[np.isnan(imr)]=nan_replace
+        if isinstance(nan_replace, numbers.Number): imr[np.isnan(imr)]
+
+        imr = np.squeeze(imr)
+        if dimno!=imr.ndim and dimno==4:
+            dimno = imr.ndim
         
         #> get orientations from the affine
         ornt = nib.orientations.axcodes2ornt(nib.aff2axcodes(nim.affine))

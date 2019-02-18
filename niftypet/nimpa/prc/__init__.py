@@ -11,8 +11,8 @@ from regseg import coreg_spm, resample_spm, affine_niftyreg, resample_niftyreg
 from regseg import coreg_vinci, resample_vinci
 from regseg import motion_reg
 from regseg import dice_coeff, dice_coeff_multiclass
-from regseg import imfill
-
+from regseg import imfill, create_mask
+from regseg import correct_bias_n4
 
 # will be depreciated
 from prc import affine_fsl, resample_fsl
