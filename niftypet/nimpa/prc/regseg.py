@@ -243,11 +243,11 @@ def affine_niftyreg(
 
     if rmsk:
         f_rmsk = os.path.join(fimdir, 'rmask_'+os.path.basename(fref).split('.nii')[0]+'.nii.gz')
-        create_mask(fnii, fimout = f_rmsk, thrsh = rthrsh, fwhm = rfwhm)
+        create_mask(fref, fimout = f_rmsk, thrsh = rthrsh, fwhm = rfwhm)
     
     if fmsk:
         f_fmsk = os.path.join(fimdir, 'fmask_'+os.path.basename(fflo).split('.nii')[0]+'.nii.gz')
-        create_mask(fnii, fimout = f_fmsk, thrsh = fthrsh, fwhm = ffwhm)
+        create_mask(fflo, fimout = f_fmsk, thrsh = fthrsh, fwhm = ffwhm)
 
     # output in register with ref and text file for the affine transform
     if fname_aff!='':
