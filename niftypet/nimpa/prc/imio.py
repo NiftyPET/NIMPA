@@ -599,7 +599,7 @@ def niisort(fims):
     '''
     # number of NIfTI images in folder
     Nim = 0
-    # sorting list (if frame number is present in the form '_frm-dd', where d is a digit)
+    # sorting list (if frame number is present in the form '_frm<dd>', where d is a digit)
     sortlist = []
 
     # non dynamic frames input, assuming False (dynamic input)
@@ -608,7 +608,7 @@ def niisort(fims):
     for f in fims:
         if f.endswith('.nii') or f.endswith('.nii.gz'):
             Nim += 1
-            _match = re.search('(?<=_frm-)\d*', f)
+            _match = re.search('(?<=_frm)\d*', f)
             if _match:
                 sortlist.append(int(_match.group(0)))
             else:

@@ -314,6 +314,9 @@ def resample_niftyreg(
         verbose = True):
 
     # check if the executable exists:
+    # if executable=='' and 'RESPATH' in Cnt and os.path.isfile(Cnt['RESPATH']):
+    #     executable = Cnt['RESPATH']
+    
     if not os.path.isfile(executable):
         raise IOError('Incorrect path to executable file for registration.')
 
@@ -487,7 +490,9 @@ def coreg_spm(
     if save_txt:
         np.savetxt(faff.split('.npy')[0]+'.txt', M)
     
-    return {'affine':M, 'faff':faff, 'rotations':x[3:], 'translations':x[:3]}
+    return {'affine':M, 'faff':faff,
+            'rotations':x[3:], 'translations':x[:3],
+            'matlab_eng':eng}
 #===============================================================================
 
 
