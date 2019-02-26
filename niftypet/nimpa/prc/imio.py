@@ -602,24 +602,32 @@ def niisort(fims):
     # sorting list (if frame number is present in the form '_frm<dd>', where d is a digit)
     sortlist = []
 
-    # non dynamic frames input, assuming False (dynamic input)
-    ndf_flg = False
-
     for f in fims:
         if f.endswith('.nii') or f.endswith('.nii.gz'):
             Nim += 1
             _match = re.search('(?<=_frm)\d*', f)
             if _match:
-                sortlist.append(int(_match.group(0)))
+                frm = int(_match.group(0))
+                freelists = [frm not in l for l in sortlist]
+                listidx = [i for i,f in enumerate(freelists) if f]
+                if listidx:
+                    sortlist[listidx[0]].append(frm)
+                else:
+                    sortlist.append([frm])
             else:
-                sortlist.append(None)
-    notfrm = [e==None for e in sortlist]
-    if any(notfrm):
-        print 'w> only some images may be dynamic frames.'
-    if all(notfrm):
-        print 'w> none image is a dynamic frame.'
+                sortlist.append([None])
+
+    if len(sortlist)>1:
+        # if more than one dynamic set is given, the dynamic mode is cancelled.
+        dyn_flg = False
         sortlist = range(Nim)
-        ndf_flg = True
+    elif len(sortlist)==1:
+        dyn_flg = True
+        sortlist = sortlist[0]
+    else:
+        raise ValueError('e> niisort input error.')
+        
+    
     # number of frames (can be larger than the # images)
     Nfrm = max(sortlist)+1
     # sort the list according to the frame numbers
@@ -629,12 +637,12 @@ def niisort(fims):
     dtype = []
     _nii = []
     for i in range(Nim):
-        if not notfrm[i]:
+        if dyn_flg:
             _fims[sortlist[i]] = fims[i]
             _nii = nib.load(fims[i])
             dtype.append(_nii.get_data_dtype()) 
             shape.append(_nii.shape)
-        elif ndf_flg:
+        else:
             _fims[i] = fims[i]
             _nii = nib.load(fims[i])
             dtype.append(_nii.get_data_dtype()) 
