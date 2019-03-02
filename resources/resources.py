@@ -359,6 +359,7 @@ def get_mmr_constants():
 
 
         'BTP':0, #1:non parametric bootstrap, 2: parametric bootstrap (recommended)
+        'BTPRT':1.0, # Ratio of bootstrapped/original events (enables downsampling)
 
         'VERBOSE':False,
 
