@@ -31,16 +31,19 @@ except ImportError as ie:
     print '----------------------------'
 #===========================
 
-from dinf import gpuinfo, dev_info
+if platform.system() in ['Linux', 'Windows']:
+	from dinf import gpuinfo, dev_info
+	
 from prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
 from prc import coreg_spm, coreg_vinci, resample_spm, resample_vinci
 from prc import affine_fsl, resample_fsl
-from prc import affine_niftyreg, resample_niftyreg, reg_mr2pet, pet2pet_rigid
+from prc import affine_niftyreg, resample_niftyreg, pet2pet_rigid
 from prc import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii, dcm2im
 from prc import orientnii, nii_ugzip, nii_gzip, niisort, dcmsort, dcminfo, dcmanonym
+
 from prc import dice_coeff, dice_coeff_multiclass
 from prc import imfill, create_mask
-from prc import correct_bias_n4
+from prc import correct_bias_n4, pick_t1w
 
 from prc import motion_reg
 

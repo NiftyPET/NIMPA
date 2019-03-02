@@ -5,7 +5,8 @@ from prc import ct2mu
 from prc import nii_modify
 
 from imio import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii
-from imio import orientnii, nii_ugzip, nii_gzip, dcmsort, niisort, dcm2im, dcminfo, dcmanonym
+from imio import orientnii, nii_ugzip, nii_gzip, dcmsort, niisort, dcm2im, dcminfo
+from imio import dcmanonym, pick_t1w
 
 from regseg import coreg_spm, resample_spm, affine_niftyreg, resample_niftyreg
 from regseg import coreg_vinci, resample_vinci
@@ -16,4 +17,4 @@ from regseg import correct_bias_n4
 
 # will be depreciated
 from prc import affine_fsl, resample_fsl
-from prc import reg_mr2pet, pet2pet_rigid
+from prc import pet2pet_rigid

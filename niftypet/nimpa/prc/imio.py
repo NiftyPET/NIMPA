@@ -14,6 +14,9 @@ import datetime
 import re
 import shutil
 
+#> NiftyPET resources
+import resources as rs
+
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 
@@ -226,6 +229,37 @@ def nii_gzip(imfile, outpath=''):
         f.write(d)
     return fout
 #===============================================================================
+
+
+def pick_t1w(mri):
+    ''' Pick the MR T1w from the dictionary for MR->PET registration.
+    '''
+
+    if isinstance(mri, dict):
+        # check if NIfTI file is given
+        if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
+            ft1w = mri['T1N4']
+        # or another bias corrected
+        elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
+            ft1w = mri['T1bc']
+        elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
+            ft1w = mri['T1nii']
+        elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
+            # create file name for the converted NIfTI image
+            fnii = 'converted'
+            call( [rs.DCM2NIIX, '-f', fnii, mri['T1nii'] ] )
+            ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
+            ft1w = ft1nii[0]
+        else:
+            print 'e> disaster: could not find a T1w image!'
+            return None
+            
+    else:
+        ('e> no correct input found for the T1w image')
+        return None
+
+    return ft1w
+
 
 def dcminfo(dcmvar, verbose=True):
     ''' Get basic info about the DICOM file/header.

@@ -8,6 +8,7 @@ __copyright__ = "Copyright 2018"
 import numpy as np
 import sys
 import os
+import platform
 import shutil
 import scipy.ndimage as ndi
 import nibabel as nib
@@ -20,8 +21,12 @@ import multiprocessing
 
 from pkg_resources import resource_filename
 import imio
-import improc
+
 import regseg
+
+#> GPU routines only on Linux and Windows
+if platform.system() in ['Linux', 'Windows']:
+    import improc
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
@@ -697,84 +702,72 @@ def nii_modify(
 
 
 
+# #-------------------------------------------------------------------------------------
+# def reg_mr2pet(
+#         fpet,
+#         mri,
+#         Cnt,
+#         rigOnly = True,
+#         affDirect = False,
+#         maxit=5,
+#         outpath='',
+#         fcomment=''
+#     ):
+#     ''' MR to PET registration with optimal choice of registration parameters
+#     '''
 
-
-
-
-
-
-
-
-
-
-
-
-#-------------------------------------------------------------------------------------
-def reg_mr2pet(
-        fpet,
-        mri,
-        Cnt,
-        rigOnly = True,
-        affDirect = False,
-        maxit=5,
-        outpath='',
-        fcomment=''
-    ):
-    ''' MR to PET registration with optimal choice of registration parameters
-    '''
-
-    if isinstance(mri, dict):
-        # check if NIfTI file is given
-        if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
-            ft1w = mri['T1N4']
-        # or another bias corrected
-        elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
-            ft1w = mri['T1bc']
-        elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
-            ft1w = mri['T1nii']
-        elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
-            # create file name for the converted NIfTI image
-            fnii = 'converted'
-            call( [ Cnt['DCM2NIIX'], '-f', fnii, mri['T1nii'] ] )
-            ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
-            ft1w = ft1nii[0]
-        else:
-            print 'e> disaster: could not fine a T1w image!'
-            raise IOError('No correct path given to T1w image in the specified dictionary')
+#     if isinstance(mri, dict):
+#         # check if NIfTI file is given
+#         if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
+#             ft1w = mri['T1N4']
+#         # or another bias corrected
+#         elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
+#             ft1w = mri['T1bc']
+#         elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
+#             ft1w = mri['T1nii']
+#         elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
+#             # create file name for the converted NIfTI image
+#             fnii = 'converted'
+#             call( [ Cnt['DCM2NIIX'], '-f', fnii, mri['T1nii'] ] )
+#             ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
+#             ft1w = ft1nii[0]
+#         else:
+#             print 'e> disaster: could not fine a T1w image!'
+#             raise IOError('No correct path given to T1w image in the specified dictionary')
             
-    elif isinstance(mri, basestring):
-        if os.path.isfile(mri):
-            ft1w = mri
-        else:
-            raise IOError('No correct path given to T1w image in the specified string')
+#     elif isinstance(mri, basestring):
+#         if os.path.isfile(mri):
+#             ft1w = mri
+#         else:
+#             raise IOError('No correct path given to T1w image in the specified string')
 
-    else:
-        raise IOError('No correct input specified to T1w image')
+#     else:
+#         raise IOError('No correct input specified to T1w image')
 
-    if not os.path.isfile(fpet):
-        raise IOError('No correct input specified for the PET image')
+#     if not os.path.isfile(fpet):
+#         raise IOError('No correct input specified for the PET image')
 
-    # run the registration and return the results (file paths to affine trans. and the resampled image)
-    return regseg.affine_niftyreg(
-        fpet, ft1w,
-        executable = Cnt['REGPATH'],
-        outpath=outpath,
-        fcomment=fcomment,
-        omp=multiprocessing.cpu_count()/2,
-        rigOnly = rigOnly,
-        affDirect = affDirect,
-        maxit=maxit,
-        speed=True,
-        pi=50, pv=50,
-        smof=0., smor=0.,
-        rmsk=True,
-        fmsk=True,
-        rfwhm=15.,
-        rthrsh=0.05,
-        ffwhm = 15.,
-        fthrsh=0.05,
-        verbose=Cnt['VERBOSE'])
-#-------------------------------------------------------------------------------
+#     # run the registration and return the results (file paths to affine trans. and the resampled image)
+#     return regseg.affine_niftyreg(
+#         fpet, ft1w,
+#         executable = Cnt['REGPATH'],
+#         outpath=outpath,
+#         fcomment=fcomment,
+#         omp=multiprocessing.cpu_count()/2,
+#         rigOnly = rigOnly,
+#         affDirect = affDirect,
+#         maxit=maxit,
+#         speed=True,
+#         pi=50, pv=50,
+#         smof=0., smor=0.,
+#         rmsk=True,
+#         fmsk=True,
+#         rfwhm=15.,
+#         rthrsh=0.05,
+#         ffwhm = 15.,
+#         fthrsh=0.05,
+#         verbose=Cnt['VERBOSE'])
+# #-------------------------------------------------------------------------------
 
 
 
