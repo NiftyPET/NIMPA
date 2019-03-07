@@ -20,8 +20,8 @@ import re
 import multiprocessing
 
 from pkg_resources import resource_filename
-import imio
 
+import imio
 import regseg
 
 #> GPU routines only on Linux and Windows
@@ -390,10 +390,16 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         imgPWC[imgPWC<0] = 0
         for jr in range(0,m+1):
             imgPWC[imgSeg==jr] = np.mean( imgPWC[imgSeg==jr] )
-        # blur the piece-wise constant image
-        imgSmo = np.zeros(imgIn.shape, dtype=np.float32)
-        # convolution on GPU with separable kernel (x,y,z):
-        improc.convolve(imgSmo, imgPWC, krnl, Cnt)
+        
+        #> blur the piece-wise constant image using either:
+        #> (1) GPU convolution with a separable kernel (x,y,z), or
+        #> (2) CPU, Python-based convolution
+        if 'CCARCH' in Cnt and 'compute' in Cnt['CCARCH']:
+            imgSmo = np.zeros(imgIn.shape, dtype=np.float32)
+            improc.convolve(imgSmo, imgPWC, krnl, Cnt)
+        else:
+            imgSmo = ndi.convolve(imgPWC, krnl, mode='constant', cval=0.)
+        
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)
         imgCrr[imgSmo>0] = imgPWC[imgSmo>0] / imgSmo[imgSmo>0]
@@ -409,17 +415,18 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
 # G E T   P A R C E L L A T I O N S   F O R   P V C   A N D   R O I   E X T R A C T I O N
 # ------------------------------------------------------------------------------------------------------
 def pvc_iyang(
-    petin,
-    mridct,
-    Cnt,
-    pvcroi,
-    krnl,
-    itr=5,
-    tool='nifty',
-    faff='',
-    outpath='',
-    fcomment='',
-    store_img=False,
+        petin,
+        mridct,
+        Cnt,
+        pvcroi,
+        krnl,
+        itr=5,
+        tool='nifty',
+        faff='',
+        outpath='',
+        fcomment='',
+        store_img=False,
+        store_rois=False,
     ):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
         The PVC method uses iterative Yang method.
@@ -478,90 +485,138 @@ def pvc_iyang(
     if not os.path.isfile(mridct['T1lbl']):
         raise NameError('MissingLabels')
 
-    # path to labels of brain parcellations in NIfTI format
-    lbpth = os.path.split(mridct['T1lbl'])
+    #> output dictionary
+    outdct = {}
+
+    # establish the output folder
+    if outpath=='':        
+        prcl_dir = os.path.dirname(mridct['T1lbl'])
+        pvc_dir =  os.path.join(os.path.dirname(fpet), 'PVC')
+    else:
+        prcl_dir = outpath
+        pvc_dir =  os.path.join(os.path.dirname(fpet), 'PVC')
+
+    #> create folders
+    imio.create_dir(prcl_dir)
+    imio.create_dir(pvc_dir)
 
     #==================================================================
     #if affine transf. (faff) is given then take the T1 and resample it too.
     if isinstance(faff, basestring) and not os.path.isfile(faff):
         # faff is not given; get it by running the affine; get T1w to PET space
-        regdct = reg_mr2pet(fpet, mridct, Cnt, outpath=outpath, fcomment=fcomment)
+
+        ft1w = imio.pick_t1w(mridct)
+
+        if tool=='spm':
+            regdct = regseg.coreg_spm(
+                fpet,
+                ft1w,
+                fcomment = fcomment,
+                outpath=os.path.join(outpath,'PET', 'positioning')
+            )
+        elif tool=='nifty':
+            regdct = regseg.affine_niftyreg(
+                fpet,
+                ft1w,
+                outpath=os.path.join(outpath,'PET', 'positioning'),
+                fcomment = fcomment,
+                executable = Cnt['REGPATH'],
+                omp = multiprocessing.cpu_count()/2,
+                rigOnly = True,
+                affDirect = False,
+                maxit=5,
+                speed=True,
+                pi=50, pv=50,
+                smof=0, smor=0,
+                rmsk=True,
+                fmsk=True,
+                rfwhm=15., #millilitres
+                rthrsh=0.05,
+                ffwhm = 15., #millilitres
+                fthrsh=0.05,
+                verbose=verbose
+            )
         faff = regdct['faff']
 
-    # establish the output folder
-    if outpath=='':        
-        prcl_dir = os.path.dirname(mridct['T1lbl'])
-    else:
-        prcl_dir = outpath
-        imio.create_dir(prcl_dir)
-
     # resample the GIF T1/labels to upsampled PET
+    # file name of the parcellation (GIF-based) upsampled to PET
+    fgt1u = os.path.join(
+            prcl_dir,
+            os.path.basename(mridct['T1lbl']).split('.')[0]\
+            +'_registered_trimmed'+fcomment+'.nii.gz')
+        
     if tool=='nifty':
-        # file name of the parcellation (GIF-based) upsampled to PET
-        fgt1u = os.path.join(prcl_dir, os.path.basename(mridct['T1lbl']).split('.')[0]+'_registered_trimmed'+fcomment+'.nii.gz')
         if os.path.isfile( Cnt['RESPATH'] ):
             cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
                    '-trans', faff, '-res', fgt1u, '-inter', '0']
             if not Cnt['VERBOSE']: cmd.append('-voff')
             call(cmd)
         else:
-            print 'e> path to resampling executable is incorrect!'
-            sys.exit()
+            raise IOError('e> path to resampling executable is incorrect!')
         
     elif tool=='spm':
-        fgt1u = spm_resample(  fpet, mridct['T1lbl'], faff, 
-                                intrp=0, dirout=prcl_dir, r_prefix='r_trimmed_'+fcomment, 
-                                del_ref_uncmpr=True, del_flo_uncmpr=True, del_out_uncmpr=True)
+        fout = regseg.resample_spm(
+                    fpet,
+                    mridct['T1lbl'],
+                    faff,
+                    fimout = fgt1u,
+                    matlab_eng = regdct['matlab_eng'],
+                    intrp = 0.,
+                    del_ref_uncmpr = True,
+                    del_flo_uncmpr = True,
+                    del_out_uncmpr = True,
+            )
 
     #==================================================================
 
-    # Get the labels before resampling to PET space, so that the regions can be separated for the PET space
-    nilb = nib.load(mridct['T1lbl'])
-    A = nilb.get_sform()
-    imlb = nilb.get_data()
+    # Get the parcellation labels in the upsampled PET space
+    dprcl = imio.getnii(fgt1u, output='all')
+    prcl = dprcl['im']
 
-    # ===============================================================
-    # get the segmentation/parcellation for PVC
-    # create and reset the image for parcellation
-    imgroi = np.copy(imlb);  imgroi[:] = 0
-    # number of segments, without the background
+    #> path to parcellations in NIfTI format
+    prcl_pth = os.path.split(mridct['T1lbl'])
+
+    #---------------------------------------------------------------------------
+    #> get the parcellation specific for PVC based on the current parcellations
+    imgroi = prcl.copy();  imgroi[:] = 0
+    
+    #> number of segments, without the background
     nSeg = len(pvcroi)
-    # create the image of numbered parcellations/segmentations
+    
+    #> create the image of numbered parcellations
     for k in range(nSeg):
         for m in pvcroi[k]:
-            imgroi[imlb==m] = k+1
-    # create the NIfTI image
-    froi1 = os.path.join(prcl_dir, lbpth[1].split('.')[0][:8]+'_pvcroi_'+fcomment+'.nii.gz')
-    niiSeg = nib.Nifti1Image(imgroi, A)
-    niiSeg.header['cal_max'] = np.max(imgroi)
-    niiSeg.header['cal_min'] = 0.
-    nib.save(niiSeg, froi1)
-    if tool=='nifty':
-        froi2 = os.path.join(prcl_dir, lbpth[1].split('.')[0][:8]+'_pvcroi_registered_trimmed_'+fcomment+'.nii.gz')
-        if os.path.isfile( Cnt['RESPATH'] ):
-            cmd = [Cnt['RESPATH'], '-ref', fpet, '-flo', froi1, '-trans', faff,  '-res', froi2,  '-inter', '0']
-            if not Cnt['VERBOSE']: cmd.append('-voff')       
-            call(cmd)
-        else:
-            print 'e> path to resampling executable is incorrect!'
-            sys.exit()
-    elif tool=='spm':
-        froi2 = spm_resample(
-            fpet, froi1, faff, 
-            intrp=0, dirout=prcl_dir, r_prefix='r_'+fcomment+'pvcroi_registered_', 
-            del_ref_uncmpr=True, del_flo_uncmpr=True, del_out_uncmpr=True
-        )
-    # -----------------------------------
-    imgroi2 = imio.getnii(froi2)
+            imgroi[prcl==m] = k+1
+
+    #> save the PCV ROIs to a new NIfTI file
+    if store_rois:
+        froi = os.path.join(prcl_dir, prcl_pth[1].split('.nii')[0]+'_PVC-ROIs-inPET.nii.gz')
+        imio.array2nii(
+            imgroi,
+            dprcl['affine'],
+            froi,
+            trnsp = (dprcl['transpose'].index(0),
+                     dprcl['transpose'].index(1),
+                     dprcl['transpose'].index(2)),
+            flip = dprcl['flip'])
+        outdct['froi'] = froi
+    #---------------------------------------------------------------------------
+
+
+    #---------------------------------------------------------------------------
     # run iterative Yang PVC
-    imgpvc, m_a = iyang(im, krnl, imgroi2, Cnt, itr=itr)
-    outdct = {'im':imgpvc, 'froi':froi2, 'imroi':imgroi2, 'faff':faff}
+    imgpvc, m_a = iyang(im, krnl, imgroi, Cnt, itr=itr)
+    #---------------------------------------------------------------------------
+
+    outdct['im'] = imgpvc
+    outdct['imroi'] = imgroi
+    outdct['faff'] = faff
+
     if store_img:
-        fpvc = os.path.join( os.path.split(fpet)[0],
-                             os.path.split(fpet)[1].split('.')[0]+'_PVC'+fcomment+'.nii.gz')
+        fpvc = os.path.join( pvc_dir,
+                             os.path.split(fpet)[1].split('.nii')[0]+'_PVC'+fcomment+'.nii.gz')
         imio.array2nii( imgpvc[::-1,::-1,:], B, fpvc, descrip='pvc=iY')
         outdct['fpet'] = fpvc
-    # ===============================================================
 
     return outdct
 

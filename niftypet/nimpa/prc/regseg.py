@@ -639,6 +639,7 @@ def coreg_vinci(
         close_vinci = False,
         close_buff = True,
         cleanup = True,
+        save_res = False,
         ):
 
     if scheme_xml=='':
@@ -769,7 +770,8 @@ def coreg_vinci(
 
 
     #> save the registered image
-    rsl.saveYourselfAs(bUseOffsetRotation=True, szFullFileName=fout)
+    if save_res:
+        rsl.saveYourselfAs(bUseOffsetRotation=True, szFullFileName=fout)
 
     #> close image buffers for reference and floating
     if close_buff:
