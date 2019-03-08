@@ -540,7 +540,7 @@ def pvc_iyang(
                 rthrsh=0.05,
                 ffwhm = 15., #millilitres
                 fthrsh=0.05,
-                verbose=verbose
+                verbose=Cnt['VERBOSE']
             )
         faff = regdct['faff']
 
