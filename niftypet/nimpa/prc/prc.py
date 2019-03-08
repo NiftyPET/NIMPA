@@ -395,10 +395,16 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         #> (1) GPU convolution with a separable kernel (x,y,z), or
         #> (2) CPU, Python-based convolution
         if 'CCARCH' in Cnt and 'compute' in Cnt['CCARCH']:
-            imgSmo = np.zeros(imgIn.shape, dtype=np.float32)
-            improc.convolve(imgSmo, imgPWC, krnl, Cnt)
+
+            #> convert to dimensions of GPU processing [y,x,z]
+            imin_d = np.transpose(imgPWC, (1, 2, 0))
+            imout_d = np.zeros(imin_d.shape, dtype=np.float32)
+            improc.convolve(imout_d, imin_d, krnl, Cnt)
+            imgSmo = np.transpose(imout_d, (2,0,1))
         else:
-            imgSmo = ndi.convolve(imgPWC, krnl, mode='constant', cval=0.)
+            hxy = np.outer(krnl[1,:], krnl[2,:])
+            hxyz = np.multiply.outer(krnl[0,:], hxy)
+            imgSmo = ndi.convolve(imgPWC, hxyz, mode='constant', cval=0.)
         
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)
@@ -421,7 +427,7 @@ def pvc_iyang(
         pvcroi,
         krnl,
         itr=5,
-        tool='nifty',
+        tool='niftyreg',
         faff='',
         outpath='',
         fcomment='',
@@ -514,7 +520,7 @@ def pvc_iyang(
                 fcomment = fcomment,
                 outpath=os.path.join(outpath,'PET', 'positioning')
             )
-        elif tool=='nifty':
+        elif tool=='niftyreg':
             regdct = regseg.affine_niftyreg(
                 fpet,
                 ft1w,
@@ -545,7 +551,7 @@ def pvc_iyang(
             os.path.basename(mridct['T1lbl']).split('.')[0]\
             +'_registered_trimmed'+fcomment+'.nii.gz')
         
-    if tool=='nifty':
+    if tool=='niftyreg':
         if os.path.isfile( Cnt['RESPATH'] ):
             cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
                    '-trans', faff, '-res', fgt1u, '-inter', '0']
