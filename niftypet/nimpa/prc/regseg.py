@@ -465,12 +465,12 @@ def coreg_spm(
             faff = os.path.join(
                     opth,
                     'affine-spm',
-                    'affine-spm-'+os.path.basename(imref).split('.nii')[0]+fcomment+'.npy')
+                    'affine-ref-'+os.path.basename(imref).split('.nii')[0]+fcomment+'.npy')
         else:
             faff = os.path.join(
                     opth,
                     'affine-spm',
-                    'affine-spm-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.npy')
+                    'affine-flo-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.npy')
     
     else:
 
@@ -660,6 +660,8 @@ def coreg_vinci(
         opth = outpath
     imio.create_dir(opth)
 
+    imio.create_dir(os.path.join(opth, 'affine-vinci'))
+
     #> output floating and affine file names
     if fname_aff=='':
         if pickname=='ref':
@@ -680,7 +682,7 @@ def coreg_vinci(
             faff = os.path.join(
                     opth,
                     'affine-vinci',
-                    'affine-ref-' \
+                    'affine-flo-' \
                     +os.path.basename(fflo).split('.nii')[0]+fcomment+'.xml')
 
             fout = os.path.join(
@@ -938,6 +940,164 @@ def resample_vinci(
 
     return fout
     #return {'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
+
+
+
+
+
+#-------------------------------------------------------------------------------
+# FSL-FLIRT REGISTRATION (AFFINE/RIGID)
+#-------------------------------------------------------------------------------
+
+
+def affine_fsl(
+        fref,
+        fflo,
+        outpath='',
+        fname_aff='',
+        pickname = 'ref',
+        fcomment='',
+        executable='fsl5.0-flirt',
+        costfun='normmi',
+        dof=6,
+        hstbins=256,
+        verbose=True):
+
+    #---------------------------------------------------------------------------
+    #> output path
+    if outpath=='' and fname_aff!='' and os.path.isfile(fname_aff):
+        opth = os.path.dirname(fname_aff)
+        if opth=='':
+            opth = os.path.dirname(fflo)
+        fname_aff = os.path.basename(fname_aff)
+
+    elif outpath=='':
+        opth = os.path.dirname(fflo)
+    else:
+        opth = outpath
+    imio.create_dir(opth)
+
+    imio.create_dir(os.path.join(opth, 'affine-fsl'))
+
+    #> output floating and affine file names
+    if fname_aff=='':
+        
+        if pickname=='ref':
+            faff = os.path.join(
+                    opth,
+                    'affine-fsl',
+                    'affine-ref-' \
+                    +os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
+
+        else:
+            faff = os.path.join(
+                    opth,
+                    'affine-fsl',
+                    'affine-flo-' \
+                    +os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
+
+    else:
+
+        #> add '.xml' extension if not in the affine output file name
+        if not fname_aff.endswith('.txt'):
+            fname_aff += '.txt'
+
+        faff = os.path.join(
+                opth,
+                'affine-vinci',
+                fname_aff)
+    #---------------------------------------------------------------------------
+    
+    #> command with options for FSL-FLIRT registration
+    cmd = [ executable,
+            '-cost', costfun,
+            '-dof', str(dof),
+            '-omat', faff,
+            '-in', fflo,
+            '-ref', fref,
+            '-bins', str(hstbins)]
+
+    #> add verbose mode if requested
+    if isinstance(verbose, bool): verbose = int(verbose)
+    if verbose>0: cmd.extend(['-verbose', str(verbose)])
+
+    #> execute FSL-FLIRT command with the above options
+    call(cmd)
+
+    # convert to Numpy float
+    aff = np.loadtxt(faff)
+
+    return {'affine':aff, 'faff':faff}
+
+
+#-------------------------------------------------------------------------------
+# FSL RESAMPLING
+#-------------------------------------------------------------------------------
+def resample_fsl(
+        imref,
+        imflo,
+        faff,
+        outpath = '',
+        fimout = '',
+        pickname = 'ref',
+        fcomment = '',
+        intrp = 1,
+        executable = 'fsl5.0-flirt'):
+
+    print '==================================================================='
+    print ' F S L  resampling'
+
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(imflo)
+
+    elif outpath=='':
+        opth = os.path.dirname(imflo)
+    elif outpath!='':
+        opth = outpath
+    
+    imio.create_dir(opth)
+
+    #> the output naming
+    if '/' in fimout:
+        fout = fimout
+    elif fimout!='' and not os.path.isfile(fimout):
+        fout = os.path.join(opth, fimout)
+    elif pickname=='ref':
+        fout = os.path.join(opth, 'affine_ref-' \
+                + os.path.basename(imref).split('.nii')[0]+fcomment+'.nii.gz')
+    elif pickname=='flo':        
+        fout = os.path.join(opth, 'affine_flo-' \
+                + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
+
+    intrp = int(intrp)
+    if isinstance(intrp, (int, long)): intrp = str(intrp)
+    if intrp=='1':
+        interpolation = 'trilinear'
+    elif intrp=='0':
+        interpolation = 'nearestneighbour'
+
+    cmd = [ executable,
+            '-in', imflo,
+            '-ref', imref,
+            '-out', fout,
+            '-init', faff,
+            '-applyxfm',
+            '-interp', interpolation]
+    call(cmd)
+
+    print 'D O N E'
+    print '==================================================================='
+
+    return fout
+
+
+
+
+
+
 
 
 

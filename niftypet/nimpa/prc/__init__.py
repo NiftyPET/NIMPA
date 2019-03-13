@@ -14,7 +14,7 @@ from regseg import motion_reg
 from regseg import dice_coeff, dice_coeff_multiclass
 from regseg import imfill, create_mask
 from regseg import correct_bias_n4
+from regseg import affine_fsl, resample_fsl
 
 # will be depreciated
-from prc import affine_fsl, resample_fsl
 from prc import pet2pet_rigid
