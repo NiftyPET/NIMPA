@@ -15,20 +15,21 @@ from subprocess import call, Popen, PIPE
 import cudasetup as cs
 import install_tools as tls
 
-# check if git and cmake are installed
-chk = tls.check_depends()
-if not chk['cmake'] or not chk['git']:
-    print '-----------------'
-    print 'e> [cmake] and/or [git] are not installed but are required.'
-    print '-----------------'
-    sys.exit()
-
-if not 'Windows' in platform.system() and not 'Linux' in platform.system():
+if not platform.system() in ['Windows', 'Darwin', 'Linux']:
     print 'e> the operating system is not supported:', platform.system()
-    raise SystemError('Unknown Sysytem.')
+    raise SystemError('e> unknown operating system (OS).')
 
+# check if git, CMake and CUDA are installed
+chk = tls.check_depends()
 
-if chk['cuda']:
+if not chk['git']:
+    print '-----------------'
+    print 'e> [git] is not installed but is required.'
+    print '-----------------'
+    raise SystemError('e> git is missing but required.')
+
+#> check if CUDA and CMake are available to compile C/CUDA C code
+if chk['cuda'] and chk['cmake']:
     #----------------------------------------------------
     # select the supported GPU device and install resources.py
     print ' '
@@ -38,7 +39,6 @@ if chk['cuda']:
     #----------------------------------------------------
 else:
     gpuarch = ''
-
 
 
 #===============================================================
@@ -80,12 +80,16 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
     #-------------------------------------------
     # NiftyReg
     if not chck_tls['REGPATH'] or not chck_tls['RESPATH']:
-        # reply = tls.query_yesno('q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?')
-        # if reply:
-        #-------- Install NiftyReg -------------
-        print '---------------------------------------------'
-        print 'i> installing NiftyReg:'
-        Cnt = tls.install_tool('niftyreg', Cnt)
+
+        if gpuarch=='':
+            reply = tls.query_yesno('q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?')
+        else:
+            reply = True
+
+        if reply:
+            print '---------------------------------------------'
+            print 'i> installing NiftyReg:'
+            Cnt = tls.install_tool('niftyreg', Cnt)
     #-------------------------------------------
     
 else:
@@ -96,7 +100,7 @@ print 'i> installation of NiftyPET-tools done.'
 print '---------------------------------------'
 #===============================================================
 
-if chk['cuda']:
+if chk['cuda'] and gpuarch!='':
     #===============================================================
     print '---------------------------------'
     print 'i> CUDA compilation for NIMPA ...'
@@ -170,7 +174,10 @@ if chk['cuda']:
 print 'i> found those packages:'
 print find_packages(exclude=['docs'])
 
-with open('README.rst') as file:
+freadme = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'README.rst')
+print freadme
+
+with open(freadme) as file:
     long_description = file.read()
 
 #---- for setup logging -----
@@ -181,7 +188,7 @@ sys.stdout = log_file
 sys.stderr = log_file
 #----------------------------
 
-if platform.system() == 'Linux' :
+if platform.system() in ['Linux', 'Darwin'] :
     fex = '*.so'
 elif platform.system() == 'Windows' : 
     fex = '*.pyd'
@@ -189,14 +196,17 @@ elif platform.system() == 'Windows' :
 setup(
     name='nimpa',
     license = 'Apache 2.0',
-    version='1.1.7',
+    version='1.1.10',
     description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
     long_description=long_description,
     author='Pawel J. Markiewicz',
     author_email='p.markiewicz@ucl.ac.uk',
     url='https://github.com/pjmark/NIMPA',
     keywords='PET MR processing analysis',
-    install_requires=['pydicom>=1.0.2,<=1.2.2', 'nibabel>=2.2.1, <=2.3.1'],
+    install_requires=[
+        'pydicom>=1.0.2,<=1.2.2',
+        'nibabel>=2.2.1, <=2.3.1',
+        'SimpleITK>=1.1.0'],
     packages=find_packages(exclude=['docs']),
     package_data={
         'niftypet': ['auxdata/*'],

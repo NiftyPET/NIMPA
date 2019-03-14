@@ -42,9 +42,10 @@ def path_niftypet_local():
         path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
     elif platform.system() == 'Windows' :
         path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
+    elif platform.system() == 'Darwin':
+        path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
     else:
-        print 'e> only Linux and Windows operating systems are supported!'
-        return None
+        raise SystemError('e> the operating system is not recognised and therefore not supported!')
 
     return path_resources
 
@@ -118,8 +119,11 @@ def dev_setup():
     # create a build using cmake
     if platform.system()=='Windows':
         path_tmp_build = os.path.join(path_tmp_dinf, 'build')
-    elif platform.system()=='Linux':
+    elif platform.system() in ['Linux', 'Darwin']:
         path_tmp_build = os.path.join(path_tmp_dinf, 'build')
+    else:
+        print 'w> the operating system {} is not supported for GPU'.format(platform.system())
+        return ''
         
     os.makedirs(path_tmp_build)
     os.chdir(path_tmp_build)
@@ -130,19 +134,25 @@ def dev_setup():
         )
         subprocess.call(['cmake', '--build', './', '--config', 'Release'])
         path_tmp_build = os.path.join(path_tmp_build, 'Release')
-    elif platform.system()=='Linux':
+
+    elif platform.system() in ['Linux', 'Darwin']:
         subprocess.call(
             ['cmake', '../', '-DPYTHON_INCLUDE_DIRS='+pyhdr,
              '-DPYTHON_PREFIX_PATH='+prefix]
         )
         subprocess.call(['cmake', '--build', './'])
     else:
-        print 'e> only Linux and Windows operating systems are supported!'
-        return None
+        print 'e> This operating systems {} is not supported!'.format(platform.system())
+        return ''
     
     # imoprt the new module for device properties
     sys.path.insert(0, path_tmp_build)
-    import dinf
+    try:
+        import dinf
+    except ImportError:
+        print 'e> could not compile a CUDA C file--assuming no CUDA installation.'
+        return ''
+    
     # get the list of installed CUDA devices
     Ldev = dinf.dev_info(0)
     # extract the compute capability as a single number 
