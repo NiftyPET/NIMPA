@@ -785,6 +785,16 @@ def correct_bias_n4(
     ''' Correct for bias field in MR image(s) given in <fmr> as a string
         (single file) or as a list of strings (multiple files).  
     '''
+
+    if not 'SimpleITK' in sys.modules:
+        print  'e> the SimpleITK module is required for bias correction' \
+                +' functionality but the module does not seem to be installed.\n' \
+                +'   Install the module by:\n' \
+                +'   conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0\n' \
+                +'   or pip install SimpleITK'
+        return None
+
+
     if isinstance(fmr, basestring):
         fins = [fmr]
     elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):

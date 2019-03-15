@@ -19,7 +19,6 @@ import prc
 
 
 
-
 def imfill(immsk):
     '''fill the empty patches of image mask 'immsk' '''
 
