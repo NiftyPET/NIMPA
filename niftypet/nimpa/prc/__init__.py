@@ -3,6 +3,7 @@
 from prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
 from prc import ct2mu
 from prc import nii_modify
+from prc import correct_bias_n4
 
 from imio import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii
 from imio import orientnii, nii_ugzip, nii_gzip, dcmsort, niisort, dcm2im, dcminfo
@@ -13,7 +14,7 @@ from regseg import coreg_vinci, resample_vinci
 from regseg import motion_reg
 from regseg import dice_coeff, dice_coeff_multiclass
 from regseg import imfill, create_mask
-from regseg import correct_bias_n4
+
 from regseg import affine_fsl, resample_fsl
 
 # will be depreciated

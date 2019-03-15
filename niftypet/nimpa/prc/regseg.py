@@ -13,7 +13,6 @@ from subprocess import call
 
 import numpy as np
 import scipy.ndimage as ndi
-import SimpleITK as sitk
 
 import imio
 import prc
@@ -106,97 +105,6 @@ def create_mask(
 #-------------------------------------------------------------------------------
 
 
-#  ____________________________________________________________________________
-# |                                                                            |
-# |                 M R   B I A S   C O R R E C T I O N                        |
-# |____________________________________________________________________________|
-
-def correct_bias_n4(
-        fmr,
-        fimout = '',
-        outpath = '',
-        fcomment = '_N4bias'):
-
-    ''' Correct for bias field in MR image(s) given in <fmr> as a string
-        (single file) or as a list of strings (multiple files).  
-    '''
-    if isinstance(fmr, basestring):
-        fins = [fmr]
-    elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):
-        fins = fmr
-        print 'i> multiple input files => ignoring the single output file name.'
-        fimout = ''
-    else:
-        raise OSError('could not decode the input of floating images.')
-
-
-    #> output path
-    if outpath=='' and fimout!='':
-        opth = os.path.dirname(fimout)
-        if opth=='':
-            opth = os.path.dirname(fmr)
-            fimout = os.path.join(opth, fimout)
-
-    elif outpath=='':
-        opth = os.path.dirname(fmr)
-
-    else:
-        opth = outpath
-
-    #> N4 bias correction specific folder
-    n4opth = os.path.join(opth, 'N4bias')
-
-    imio.create_dir(n4opth)
-
-    outdct = {}
-
-    for fin in fins:
-
-        print 'i> input for bias correction:\n', fin
-         
-        # split path
-        fspl = os.path.split(fin)
-        
-        # N4 bias correction file output paths
-        fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]+ fcomment +'.nii.gz')
-
-        #====================================
-        # Bias field correction for T1 and T2
-        #====================================
-        #> initialise the corrector
-        corrector = sitk.N4BiasFieldCorrectionImageFilter()
-        # numberFilltingLevels = 4
-
-        # create file masks first
-        if not os.path.exists(fn4):
-            im = sitk.ReadImage(fin)
-
-            #> create a object specific mask
-            fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
-            msk = sitk.OtsuThreshold(im, 0, 1, 200)
-            sitk.WriteImage(msk, fmsk)
-            
-            #> cast to 32-bit float
-            im = sitk.Cast( im, sitk.sitkFloat32 )
-
-            #-------------------------------------------
-            print 'i> correcting bias field for', fin 
-            n4out = corrector.Execute(im, msk)
-            sitk.WriteImage(n4out, fn4)
-            #-------------------------------------------
-        
-        else:
-            print '   N4 bias corrected file seems already existing.'
-
-        #> output to dictionary 
-        if not 'fim' in outdct: outdct['fim'] = []
-        outdct['fim'].append(fn4)
-
-        if not 'fmsk' in outdct: outdct['fmsk'] = []
-        outdct['fmsk'].append(fmsk)
-
-
-    return outdct
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   R E G I S T R A T I O N

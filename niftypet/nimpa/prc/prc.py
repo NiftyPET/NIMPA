@@ -28,6 +28,14 @@ import regseg
 if platform.system() in ['Linux', 'Windows']:
     import improc
 
+try:
+    import SimpleITK as sitk
+except ImportError:
+    print 'w> install SimpleITK for bias correction functionality:'
+    print '   conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0'
+    print '   or: pip install SimpleITK'
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -763,73 +771,97 @@ def nii_modify(
 
 
 
-# #-------------------------------------------------------------------------------------
-# def reg_mr2pet(
-#         fpet,
-#         mri,
-#         Cnt,
-#         rigOnly = True,
-#         affDirect = False,
-#         maxit=5,
-#         outpath='',
-#         fcomment=''
-#     ):
-#     ''' MR to PET registration with optimal choice of registration parameters
-#     '''
+#  ____________________________________________________________________________
+# |                                                                            |
+# |                 M R   B I A S   C O R R E C T I O N                        |
+# |____________________________________________________________________________|
 
-#     if isinstance(mri, dict):
-#         # check if NIfTI file is given
-#         if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
-#             ft1w = mri['T1N4']
-#         # or another bias corrected
-#         elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
-#             ft1w = mri['T1bc']
-#         elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
-#             ft1w = mri['T1nii']
-#         elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
-#             # create file name for the converted NIfTI image
-#             fnii = 'converted'
-#             call( [ Cnt['DCM2NIIX'], '-f', fnii, mri['T1nii'] ] )
-#             ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
-#             ft1w = ft1nii[0]
-#         else:
-#             print 'e> disaster: could not fine a T1w image!'
-#             raise IOError('No correct path given to T1w image in the specified dictionary')
+def correct_bias_n4(
+        fmr,
+        fimout = '',
+        outpath = '',
+        fcomment = '_N4bias'):
+
+    ''' Correct for bias field in MR image(s) given in <fmr> as a string
+        (single file) or as a list of strings (multiple files).  
+    '''
+    if isinstance(fmr, basestring):
+        fins = [fmr]
+    elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):
+        fins = fmr
+        print 'i> multiple input files => ignoring the single output file name.'
+        fimout = ''
+    else:
+        raise OSError('could not decode the input of floating images.')
+
+
+    #> output path
+    if outpath=='' and fimout!='':
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = os.path.dirname(fmr)
+            fimout = os.path.join(opth, fimout)
+
+    elif outpath=='':
+        opth = os.path.dirname(fmr)
+
+    else:
+        opth = outpath
+
+    #> N4 bias correction specific folder
+    n4opth = os.path.join(opth, 'N4bias')
+
+    imio.create_dir(n4opth)
+
+    outdct = {}
+
+    for fin in fins:
+
+        print 'i> input for bias correction:\n', fin
+         
+        # split path
+        fspl = os.path.split(fin)
+        
+        # N4 bias correction file output paths
+        fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]+ fcomment +'.nii.gz')
+
+        #====================================
+        # Bias field correction for T1 and T2
+        #====================================
+        #> initialise the corrector
+        corrector = sitk.N4BiasFieldCorrectionImageFilter()
+        # numberFilltingLevels = 4
+
+        # create file masks first
+        if not os.path.exists(fn4):
+            im = sitk.ReadImage(fin)
+
+            #> create a object specific mask
+            fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
+            msk = sitk.OtsuThreshold(im, 0, 1, 200)
+            sitk.WriteImage(msk, fmsk)
             
-#     elif isinstance(mri, basestring):
-#         if os.path.isfile(mri):
-#             ft1w = mri
-#         else:
-#             raise IOError('No correct path given to T1w image in the specified string')
+            #> cast to 32-bit float
+            im = sitk.Cast( im, sitk.sitkFloat32 )
 
-#     else:
-#         raise IOError('No correct input specified to T1w image')
+            #-------------------------------------------
+            print 'i> correcting bias field for', fin 
+            n4out = corrector.Execute(im, msk)
+            sitk.WriteImage(n4out, fn4)
+            #-------------------------------------------
+        
+        else:
+            print '   N4 bias corrected file seems already existing.'
 
-#     if not os.path.isfile(fpet):
-#         raise IOError('No correct input specified for the PET image')
+        #> output to dictionary 
+        if not 'fim' in outdct: outdct['fim'] = []
+        outdct['fim'].append(fn4)
 
-#     # run the registration and return the results (file paths to affine trans. and the resampled image)
-#     return regseg.affine_niftyreg(
-#         fpet, ft1w,
-#         executable = Cnt['REGPATH'],
-#         outpath=outpath,
-#         fcomment=fcomment,
-#         omp=multiprocessing.cpu_count()/2,
-#         rigOnly = rigOnly,
-#         affDirect = affDirect,
-#         maxit=maxit,
-#         speed=True,
-#         pi=50, pv=50,
-#         smof=0., smor=0.,
-#         rmsk=True,
-#         fmsk=True,
-#         rfwhm=15.,
-#         rthrsh=0.05,
-#         ffwhm = 15.,
-#         fthrsh=0.05,
-#         verbose=Cnt['VERBOSE'])
-# #-------------------------------------------------------------------------------
+        if not 'fmsk' in outdct: outdct['fmsk'] = []
+        outdct['fmsk'].append(fmsk)
 
+
+    return outdct
 
 
 #-------------------------------------------------------------------------------------
@@ -981,71 +1013,6 @@ def mr2pet_rigid(
         sys.exit()
         
     return faff
-
-
-
-# #=======================================================================
-# # V I N I C I   R E G I S T R A T I O N
-# #=======================================================================
-
-# def coreg_vinci(imref, imflo, xmlparams='', xmlout=''):
-#     ''' Find rigid transformation between PET and MR using Vinci's MMM.
-#         Based on the RunMMMJob.py file provided by Vinci in
-#         .../vinci4/external/python.
-#         Arguments:
-#         xmlparams   parameters for registration job
-#         xmlout      the registration output and summary in XML format.
-
-#     '''
-
-#     #> get the NiftyPET folder
-#     tmp = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-#     niftypet_dir = os.path.dirname(os.path.dirname(tmp))
-
-#     #> add the Vinci to the Python path
-#     sys.path.append(os.path.join(niftypet_dir, 'ext_vinci'))
-
-#     import VinciPy as vp
-
-#     vbin = vp.Vinci_Bin.Vinci_Bin()
-#     con = vp.Vinci_Connect.Vinci_Connect(vbin)
-#     szVinciBinPath = con.StartMyVinci()
-
-#     vc = vp.Vinci_Core.Vinci_CoreCalc(con)
-#     vc.StdProject()
-
-#     #> open the xml registration parameters file
-#     f = open(xmlparams, 'rb')
-#     mmm_params = f.read()
-#     f.close()
-
-#     #> check scheme data file and remove possible XML comments at its beginning
-#     root = vp.Vinci_XML.ElementTree.fromstring(mmm_params)
-#     if root.tag != "MMM":
-#         sys.exit("scheme data file %s does not contain tag MMM\n"%szMMMTemplateFile)
-
-#     szSchemeFile = vp.Vinci_XML.ElementTree.tostring(root)
-#     #> bytes -> str
-#     szSchemeFile = szSchemeFile.decode("utf-8")
-
-#     ref = vp.Vinci_ImageT.newTemporary(vc, szFileName = imref)
-#     ref.setColorSettings(CTable="Rainbow4")
-
-#     rsl = vp.Vinci_ImageT.newTemporary(vc, szFileName = imflo)
-#     rsl.alignToRef(ref, szSchemeFile, szRegistrationSummaryFile = xmlout)
-
-#     #> close everything
-#     rsl.killYourself()  #close image buffer
-#     ref.killYourself()
-#     con.CloseVinci(True)
-
-
-
-
-
-
-
-
 
 
 

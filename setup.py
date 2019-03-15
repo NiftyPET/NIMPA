@@ -206,7 +206,8 @@ setup(
     install_requires=[
         'pydicom>=1.0.2,<=1.2.2',
         'nibabel>=2.2.1, <=2.3.1',
-        'SimpleITK>=1.1.0'],
+        #'SimpleITK>=1.2.0'
+        ],
     packages=find_packages(exclude=['docs']),
     package_data={
         'niftypet': ['auxdata/*'],
