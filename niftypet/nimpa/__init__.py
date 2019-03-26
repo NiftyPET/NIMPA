@@ -49,3 +49,5 @@ from prc import motion_reg
 
 from prc import ct2mu
 from prc import nii_modify
+
+from prc import dcm2nii

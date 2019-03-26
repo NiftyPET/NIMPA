@@ -13,6 +13,9 @@ import numpy as np
 import datetime
 import re
 import shutil
+import glob
+
+from subprocess import call
 
 #> NiftyPET resources
 import resources as rs
@@ -711,7 +714,67 @@ def niisort(fims):
 
 
 #================================================================================
+def dcm2nii(
+        dcmpth,
+        fimout = '',
+        fprefix = 'converted-from-DICOM_',
+        fcomment = '',
+        outpath = '',
+        timestamp = True,
+        executable = '',
+    ):
+    ''' Convert DICOM files in folder (indicated by <dcmpth>) using DCM2NIIX
+        third-party software.
+    '''
 
+    if executable=='':
+        try:
+            import resources
+            executable = resources.DCM2NIIX
+        except:
+            raise NameError('e> could not import resources \
+                    or find variable DCM2NIIX in resources.py')
+    elif not os.path.isfile(executable):
+        raise IOError('e> the executable is incorrect!')
+
+    if not os.path.isdir(dcmpth):
+        raise IOError('e> the provided DICOM path is not a folder!')
+
+    #> output path
+    if outpath=='' and fimout!='' and '/' in fname_aff:
+        opth = os.path.dirname(fimout)
+        if opth=='':
+            opth = dcmpth
+        fnii = os.path.basename(fimout)
+
+    elif outpath=='':
+        opth = dcmpth
+
+    else:
+        opth = outpath
+
+    create_dir(opth)
+
+    if fimout=='':
+        fimout = fprefix
+        if timestamp:
+            fimout += time_stamp(simple_ascii=True)
+
+
+    # convert the DICOM mu-map images to nii
+    call([executable, '-f', fimout, '-o', opth, dcmpth])
+
+    fniiout = glob.glob( os.path.join(opth, '*'+fimout+'*.nii*') )
+
+    if fniiout:
+        return fniiout[0]
+    else:
+        raise ValueError('e> could not get the output file!')
+
+
+
+
+#================================================================================
 def dcm2im(fpth):
     ''' Get the DICOM files from 'fpth' into an image with the affine transformation.
         fpth can be a list of DICOM files or a path (string) to the folder with DICOM files.

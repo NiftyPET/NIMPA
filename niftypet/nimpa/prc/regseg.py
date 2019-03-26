@@ -864,11 +864,21 @@ def affine_fsl(
         fname_aff='',
         pickname = 'ref',
         fcomment='',
-        executable='fsl5.0-flirt',
+        executable='',
         costfun='normmi',
         dof=6,
         hstbins=256,
         verbose=True):
+
+
+    if executable=='':
+        if 'FSLDIR' not in os.environ:
+            raise IOError('e> no FSL executable provided!')
+        else:
+            executable = os.path.join(os.environ['FSLDIR'], 'bin', 'flirt')
+
+    if not os.path.isfile(executable) or not call([executable, '-version'])==0:
+        raise IOError('e> no valid FSL executable provided!')
 
     #---------------------------------------------------------------------------
     #> output path
@@ -876,7 +886,7 @@ def affine_fsl(
         opth = os.path.dirname(fname_aff)
         if opth=='':
             opth = os.path.dirname(fflo)
-        fname_aff = os.path.basename(fname_aff)
+        fname_aff = os.path.basename(fname_aff) 
 
     elif outpath=='':
         opth = os.path.dirname(fflo)
@@ -949,7 +959,17 @@ def resample_fsl(
         pickname = 'ref',
         fcomment = '',
         intrp = 1,
-        executable = 'fsl5.0-flirt'):
+        executable = ''):
+
+
+    if executable=='':
+        if 'FSLDIR' not in os.environ:
+            raise IOError('e> no FSL executable provided!')
+        else:
+            executable = os.path.join(os.environ['FSLDIR'], 'bin', 'flirt')
+
+    if not os.path.isfile(executable) or not call([executable, '-version'])==0:
+        raise IOError('e> no valid FSL executable provided!')
 
     print '==================================================================='
     print ' F S L  resampling'
