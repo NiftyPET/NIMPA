@@ -85,7 +85,7 @@ def trimim( fims,
     if isinstance(fims, basestring) and os.path.isdir(fims):
         # list of input images (e.g., PET)
         fimlist = [os.path.join(fims,f) for f in os.listdir(fims) if f.endswith('.nii') or f.endswith('.nii.gz')]
-        imdic = imio.niisort(fimlist)
+        imdic = imio.niisort(fimlist, memlim=memlim)
         imin = imdic['im']
         imshape = imdic['shape']
         affine = imdic['affine']
@@ -106,7 +106,7 @@ def trimim( fims,
 
     # case when a list of input files is given
     elif isinstance(fims, list) and all([os.path.isfile(k) for k in fims]):
-        imdic = imio.niisort(fims)
+        imdic = imio.niisort(fims, memlim=memlim)
         imin = imdic['im']
         imshape = imdic['shape']
         affine = imdic['affine']

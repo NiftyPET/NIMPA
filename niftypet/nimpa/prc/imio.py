@@ -630,9 +630,15 @@ def dcmsort(folder, copy_series=False, verbose=False):
 
 #===============================================================================
 
-def niisort(fims, memlim=True):
+def niisort(
+        fims,
+        memlim=True):
     ''' Sort all input NIfTI images and check their shape.
         Output dictionary of image files and their properties.
+        Options:
+            memlim -- when processing large numbers of frames the memory may
+            not be large enough.  memlim causes that the output does not contain
+            all the arrays corresponding to the images.
     '''
     # number of NIfTI images in folder
     Nim = 0
