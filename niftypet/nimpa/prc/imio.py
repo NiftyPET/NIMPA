@@ -630,7 +630,7 @@ def dcmsort(folder, copy_series=False, verbose=False):
 
 #===============================================================================
 
-def niisort(fims):
+def niisort(fims, memlim=True):
     ''' Sort all input NIfTI images and check their shape.
         Output dictionary of image files and their properties.
     '''
@@ -694,23 +694,28 @@ def niisort(fims):
     if _nii and not len(_nii.shape)==3:
         raise ValueError('Input image(s) must be 3D.')
 
-    # get the images into an array
-    _imin = np.zeros((Nfrm,)+_nii.shape[::-1], dtype=_nii.get_data_dtype())
-    for i in range(Nfrm):
-        if i in sortlist:
-            imdic = getnii(_fims[i], output='all')
-            _imin[i,:,:,:] = imdic['im']
-            affine = imdic['affine']
-
-    # return a dictionary
-    return {'shape':_nii.shape[::-1],
+    out = {'shape':_nii.shape[::-1],
             'files':_fims, 
             'sortlist':sortlist,
-            #'im':_imin[:Nim-sum(notfrm),:,:,:],
-            'im':_imin[:Nfrm,:,:,:],
-            'affine':affine,
             'dtype':_nii.get_data_dtype(), 
             'N':Nim}
+
+    if memlim and Nfrm>50:
+        imdic = getnii(_fims[0], output='all')
+        affine = imdic['affine']
+    else:
+        # get the images into an array
+        _imin = np.zeros((Nfrm,)+_nii.shape[::-1], dtype=_nii.get_data_dtype())
+        for i in range(Nfrm):
+            if i in sortlist:
+                imdic = getnii(_fims[i], output='all')
+                _imin[i,:,:,:] = imdic['im']
+                affine = imdic['affine']
+        out['im'] = _imin[:Nfrm,:,:,:]
+
+    out['affine'] = affine
+
+    return out
 
 
 #================================================================================
@@ -722,10 +727,15 @@ def dcm2nii(
         outpath = '',
         timestamp = True,
         executable = '',
+        force = False,
     ):
     ''' Convert DICOM files in folder (indicated by <dcmpth>) using DCM2NIIX
         third-party software.
     '''
+
+    # skip conversion if the output already exists and not force is selected
+    if os.path.isfile(fimout) and not force:
+        return fimout
 
     if executable=='':
         try:
@@ -741,11 +751,11 @@ def dcm2nii(
         raise IOError('e> the provided DICOM path is not a folder!')
 
     #> output path
-    if outpath=='' and fimout!='' and '/' in fname_aff:
+    if outpath=='' and fimout!='' and '/' in fimout:
         opth = os.path.dirname(fimout)
         if opth=='':
             opth = dcmpth
-        fnii = os.path.basename(fimout)
+        fimout = os.path.basename(fimout)
 
     elif outpath=='':
         opth = dcmpth
@@ -759,6 +769,8 @@ def dcm2nii(
         fimout = fprefix
         if timestamp:
             fimout += time_stamp(simple_ascii=True)
+
+    fimout = fimout.split('.nii')[0]
 
 
     # convert the DICOM mu-map images to nii
@@ -785,7 +797,7 @@ def dcm2im(fpth):
     
     # case when given a folder path
     if isinstance(fpth, basestring) and os.path.isdir(fpth):
-        SZ0 = len([d for d in os.listdir(fpth) if d.endswith(".dcm")])
+        SZ0 = len([d for d in os.listdir(fpth) if d.endswith(ext)])
         # list of DICOM files
         fdcms = os.listdir(fpth)
         fdcms = [os.path.join(fpth,f) for f in fdcms if f.endswith(ext)]
