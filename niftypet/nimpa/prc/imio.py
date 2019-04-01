@@ -632,7 +632,9 @@ def dcmsort(folder, copy_series=False, verbose=False):
 
 def niisort(
         fims,
-        memlim=True):
+        memlim=True
+    ):
+
     ''' Sort all input NIfTI images and check their shape.
         Output dictionary of image files and their properties.
         Options:
