@@ -81,16 +81,22 @@ def trimim( fims,
     verbose: verbose mode [True/False]
     '''
 
+    using_multiple_files = False
+
     # case when input folder is given
     if isinstance(fims, basestring) and os.path.isdir(fims):
         # list of input images (e.g., PET)
         fimlist = [os.path.join(fims,f) for f in os.listdir(fims) if f.endswith('.nii') or f.endswith('.nii.gz')]
         imdic = imio.niisort(fimlist, memlim=memlim)
-        imin = imdic['im']
+        if not (imdic['N']>50 and memlim):
+            imin = imdic['im']
         imshape = imdic['shape']
         affine = imdic['affine']
         fldrin = fims
         fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files'] if f!=None]
+        # number of images/frames
+        Nim = imdic['N']
+        using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
     elif isinstance(fims, basestring) and os.path.isfile(fims) and (fims.endswith('nii') or fims.endswith('nii.gz')):
@@ -103,15 +109,22 @@ def trimim( fims,
         affine = imdic['affine']
         fldrin = os.path.dirname(fims)
         fnms = imin.shape[0] * [ os.path.basename(fims).split('.nii')[0] ]
+        # number of images/frames
+        Nim = imin.shape[0]
 
     # case when a list of input files is given
     elif isinstance(fims, list) and all([os.path.isfile(k) for k in fims]):
         imdic = imio.niisort(fims, memlim=memlim)
-        imin = imdic['im']
+        if not (imdic['N']>50 and memlim):
+            imin = imdic['im']
         imshape = imdic['shape']
         affine = imdic['affine']
+        imdtype = imdic['dtype']
         fldrin = os.path.dirname(fims[0])
         fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files']]
+        # number of images/frames
+        Nim = imdic['N']
+        using_multiple_files = True
 
     # case when an array [#frames, zdim, ydim, xdim].  Can be 3D or 4D
     elif isinstance(fims, (np.ndarray, np.generic)) and (fims.ndim==4 or fims.ndim==3):
@@ -128,12 +141,13 @@ def trimim( fims,
             fnms = imin.shape[0] * [ 'NIMPA' ]
         else:
             fnms = imin.shape[0] * [ fname ]
+        # number of images/frames
+        Nim = imin.shape[0]
 
     else:
         raise TypeError('Wrong data type input.')
 
-    # number of images/frames
-    Nim = imin.shape[0]
+    
 
     #-------------------------------------------------------
     # store images in this folder
@@ -168,7 +182,13 @@ def trimim( fims,
                 imsum += imscl[i,:,:,:]
         else:
             for i in range(Nim):
-                imsum += ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=0 )
+                if Nim>50 and using_multiple_files:
+                    imin_temp = imio.getnii(imdic['files'][i])
+                    imsum += ndi.interpolation.zoom(imin_temp, (scale, scale, scale), order=0 )
+                    if verbose:
+                        print 'i> image sum: read', imdic['files'][i]
+                else:
+                    imsum += ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=0 )
     else:
         imscl = imin
         imsum = np.sum(imin, axis=0)
@@ -288,7 +308,13 @@ def trimim( fims,
 
         # memory saving option, second time doing interpolation
         if memlim:
-            im = ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=int_order )
+            if Nim>50 and using_multiple_files:
+                    imin_temp = imio.getnii(imdic['files'][i])
+                    im = ndi.interpolation.zoom(imin_temp, (scale, scale, scale), order=int_order )
+                    if verbose:
+                        print 'i> image scaling:', imdic['files'][i]
+            else:
+                im = ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=int_order )
         else:
             im = imscl[i,:,:,:]
 
