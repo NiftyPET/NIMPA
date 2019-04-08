@@ -43,7 +43,8 @@ from prc import orientnii, nii_ugzip, nii_gzip, niisort, dcmsort, dcminfo, dcman
 
 from prc import dice_coeff, dice_coeff_multiclass
 from prc import imfill, create_mask
-from prc import correct_bias_n4, pick_t1w
+from prc import bias_field_correction
+from prc import pick_t1w
 
 from prc import motion_reg
 

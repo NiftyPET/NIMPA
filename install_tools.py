@@ -67,6 +67,7 @@ def query_yesno(question):
     while True:
         sys.stdout.write(question + prompt)
         choice = raw_input().lower()
+
         if choice == '':
             return True
         elif choice in valid:
@@ -255,9 +256,11 @@ def install_tool(app, Cnt):
         repo = repo_dcm
         sha1 = sha1_dcm
         path = os.path.join(path_tools, 'dcm2niix')
-        # avoid installing from source, instead download the full version:
-        Cnt = download_dcm2niix(Cnt, path)
-        return Cnt
+
+        if not Cnt['CMPL_DCM2NIIX']:
+            # avoid installing from source, instead download the full version:
+            Cnt = download_dcm2niix(Cnt, path)
+            return Cnt
 
     # Check if the source folder exists and delete it, if it does
     if os.path.isdir(path): shutil.rmtree(path)

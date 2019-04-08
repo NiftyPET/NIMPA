@@ -28,13 +28,14 @@ import regseg
 if platform.system() in ['Linux', 'Windows']:
     import improc
 
+sitk_flag = True
 try:
     import SimpleITK as sitk
 except ImportError:
-    print 'w> install SimpleITK for bias correction functionality:'
-    print '   conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0'
-    print '   or: pip install SimpleITK'
+    sitk_flag = False
 
+# possible extentions for DICOM files
+dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
@@ -802,14 +803,36 @@ def nii_modify(
 # |                 M R   B I A S   C O R R E C T I O N                        |
 # |____________________________________________________________________________|
 
-def correct_bias_n4(
+def bias_field_correction(
         fmr,
         fimout = '',
         outpath = '',
-        fcomment = '_N4bias'):
+        fcomment = '_N4bias',
+        executable = '',
+        exe_options = [],
+        sitk_image_mask = True,
+        verbose = False,):
 
     ''' Correct for bias field in MR image(s) given in <fmr> as a string
         (single file) or as a list of strings (multiple files).  
+
+        Output dictionary with the bias corrected file names.
+
+        Options:
+        - fimout:       The name (with path) of the output file.  It's 
+                        ignored when multiple files are given as input.  If
+                        given for a single file name, the <outpath> and
+                        <fcomment> options are ignored.
+        - outpath:      Path to the output folder
+        - fcomment:     A prefix comment to the file name
+        - executable:   The path to the executable, overrides the above
+                        choice of software;  if 'sitk' is given instead
+                        of the path, the Python module SimpleITK will be 
+                        used if it is available.
+        - exe_options:  Options for the executable in the form of a list of
+                        strings.
+        - sitk_image_mask:  Image masking will be used if SimpleITK is
+                            chosen.
     '''
 
     if not 'SimpleITK' in sys.modules:
@@ -820,71 +843,132 @@ def correct_bias_n4(
                 +'   or pip install SimpleITK'
         return None
 
-
-    if isinstance(fmr, basestring):
+    #---------------------------------------------------------------------------
+    # INPUT
+    #---------------------------------------------------------------------------
+    #> path to a single file 
+    if isinstance(fmr, basestring) and os.path.isfile(fmr):
         fins = [fmr]
+
+    #> list of file paths
     elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):
         fins = fmr
         print 'i> multiple input files => ignoring the single output file name.'
         fimout = ''
+
+    #> path to a folder
+    elif isinstance(fmr, basestring) and os.path.isdir(fmr):
+        fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
+        print 'i> multiple input files from input folder.'
+        fimout = ''
+
     else:
         raise OSError('could not decode the input of floating images.')
+    #---------------------------------------------------------------------------
 
 
+
+
+    #---------------------------------------------------------------------------
+    # OUTPUT
+    #---------------------------------------------------------------------------
     #> output path
     if outpath=='' and fimout!='':
         opth = os.path.dirname(fimout)
         if opth=='':
             opth = os.path.dirname(fmr)
             fimout = os.path.join(opth, fimout)
+        n4opth = opth
+        fcomment = ''
 
     elif outpath=='':
         opth = os.path.dirname(fmr)
+        #> N4 bias correction specific folder
+        n4opth = os.path.join(opth, 'N4bias')
 
     else:
         opth = outpath
-
-    #> N4 bias correction specific folder
-    n4opth = os.path.join(opth, 'N4bias')
+        #> N4 bias correction specific folder
+        n4opth = os.path.join(opth, 'N4bias')
 
     imio.create_dir(n4opth)
 
     outdct = {}
+    #---------------------------------------------------------------------------
+
+
 
     for fin in fins:
 
-        print 'i> input for bias correction:\n', fin
-         
-        # split path
-        fspl = os.path.split(fin)
+        if verbose:
+            print 'i> input for bias correction:\n', fin
         
-        # N4 bias correction file output paths
-        fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]+ fcomment +'.nii.gz')
-
-        #====================================
-        # Bias field correction for T1 and T2
-        #====================================
-        #> initialise the corrector
-        corrector = sitk.N4BiasFieldCorrectionImageFilter()
-        # numberFilltingLevels = 4
-
-        # create file masks first
-        if not os.path.exists(fn4):
-            im = sitk.ReadImage(fin)
-
-            #> create a object specific mask
-            fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
-            msk = sitk.OtsuThreshold(im, 0, 1, 200)
-            sitk.WriteImage(msk, fmsk)
+        if fimout=='':
+            # split path
+            fspl = os.path.split(fin)
             
-            #> cast to 32-bit float
-            im = sitk.Cast( im, sitk.sitkFloat32 )
+            # N4 bias correction file output paths
+            fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]\
+                                + fcomment +'.nii.gz')
+        else:
+            fn4 = fimout
 
-            #-------------------------------------------
-            print 'i> correcting bias field for', fin 
-            n4out = corrector.Execute(im, msk)
-            sitk.WriteImage(n4out, fn4)
-            #-------------------------------------------
+        if not os.path.exists(fn4):
+
+            if executable=='sitk':
+                #==============================================
+                # SimpleITK Bias field correction for T1 and T2
+                #==============================================
+                #> initialise the corrector
+                corrector = sitk.N4BiasFieldCorrectionImageFilter()
+                # numberFilltingLevels = 4
+
+                # read input file        
+                im = sitk.ReadImage(fin)
+
+                #> create a object specific mask
+                fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
+                msk = sitk.OtsuThreshold(im, 0, 1, 200)
+                sitk.WriteImage(msk, fmsk)
+                
+                #> cast to 32-bit float
+                im = sitk.Cast( im, sitk.sitkFloat32 )
+
+                #-------------------------------------------
+                print 'i> correcting bias field for', fin 
+                n4out = corrector.Execute(im, msk)
+                sitk.WriteImage(n4out, fn4)
+                #-------------------------------------------
+
+                if sitk_image_mask:
+                    if not 'fmsk' in outdct: outdct['fmsk'] = []
+                    outdct['fmsk'].append(fmsk)
+
+
+            elif os.path.basename(executable)=='N4BiasFieldCorrection' \
+                    and os.path.isfile(executable):
+                
+                cmd = [executable,  '-i', fin, '-o', fn4]
+            
+                if verbose and os.path.basename(executable)=='N4BiasFieldCorrection':
+                    cmd.extend(['-v', '1'])
+
+                cmd.extend(exe_options)
+                
+                call(cmd)
+
+                if 'command' not in outdct:
+                    outdct['command'] = []
+                outdct['command'].append(cmd)
+
+            elif os.path.isfile(executable):
+
+                cmd = [executable]
+                cmd.extend(exe_options)
+                call(cmd)
+
+                if 'command' not in outdct:
+                    outdct['command'] = cmd
         
         else:
             print '   N4 bias corrected file seems already existing.'
@@ -892,9 +976,6 @@ def correct_bias_n4(
         #> output to dictionary 
         if not 'fim' in outdct: outdct['fim'] = []
         outdct['fim'].append(fn4)
-
-        if not 'fmsk' in outdct: outdct['fmsk'] = []
-        outdct['fmsk'].append(fmsk)
 
 
     return outdct
