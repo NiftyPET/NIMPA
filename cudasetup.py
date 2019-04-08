@@ -159,15 +159,17 @@ def dev_setup():
     cclist = [int(str(e[2])+str(e[3])) for e in Ldev]
     # get the list of supported CUDA devices (with minimum compute capability)
     spprtd = [str(cc) for cc in cclist if cc>=mincc]
-    # best for the default CUDA device
-    i = [int(s) for s in spprtd]
-    devid = i.index(max(i))
-    #-----------------------------------------------------------------------------------
-    # form return list of compute capability numbers for which the software will be compiled
     ccstr = ''
-    for cc in spprtd:
-        ccstr += '-gencode=arch=compute_'+cc+',code=compute_'+cc+';'
-    #-----------------------------------------------------------------------------------
+    if spprtd:
+        # best for the default CUDA device
+        i = [int(s) for s in spprtd]
+        devid = i.index(max(i))
+        #-----------------------------------------------------------------------------------
+        # form return list of compute capability numbers for which the software will be compiled
+        
+        for cc in spprtd:
+            ccstr += '-gencode=arch=compute_'+cc+',code=compute_'+cc+';'
+        #-----------------------------------------------------------------------------------
 
     # remove the temporary path
     sys.path.remove(path_tmp_build)
