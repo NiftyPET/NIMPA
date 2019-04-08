@@ -244,7 +244,9 @@ def install_tool(app, Cnt):
         elif platform.system() == 'Windows' :
             path_tools = os.path.join( os.getenv('LOCALAPPDATA'), Cnt['DIRTOOLS'] )
         else:
+            print '\n=========================================================='
             print 'e> only Linux and Windows operating systems are supported!'
+            print '==========================================================\n'
             raise SystemError('OS not supported!')      
         Cnt['PATHTOOLS'] = path_tools
 
