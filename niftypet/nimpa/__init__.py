@@ -31,7 +31,7 @@ except ImportError as ie:
     print '----------------------------'
 #===========================
 
-if platform.system() in ['Linux', 'Windows']:
+if resources.CC_ARCH != '' and platform.system() in ['Linux', 'Windows']:
 	from dinf import gpuinfo, dev_info
 	
 from prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
