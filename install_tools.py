@@ -235,7 +235,7 @@ def install_tool(app, Cnt):
                 path_tools = input_path('Enter path for NiftyPET tools (registration, etc):')
             except:
                 print 'enter the intended PATHTOOLS in resources.py located in ~/.niftypet/'
-                raise ValueError('e> could not get the path for NiftyPET_tools')
+                raise ValueError('\n e> could not get the path for NiftyPET_tools \n')
         Cnt['PATHTOOLS'] = path_tools
 
     else:
