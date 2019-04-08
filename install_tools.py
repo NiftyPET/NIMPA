@@ -152,7 +152,8 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
         try:
             proc = Popen([Cnt['DCM2NIIX'], '-h'], stdout=PIPE)
             out = proc.stdout.read()
-            if dcm_ver in re.search('(?<=dcm2niiX version v)\d{1,2}.\d{1,2}.\d*', out).group(0):
+            ver_str = re.search('(?<=dcm2niiX version v)\d{1,2}.\d{1,2}.\d*', out)
+            if ver_str and dcm_ver ver_str.group(0):
                 output['DCM2NIIX'] = True
         except OSError:
             print 'e> dcm2niix either is NOT installed or is corrupt.'
