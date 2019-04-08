@@ -82,7 +82,10 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
     if not chck_tls['REGPATH'] or not chck_tls['RESPATH']:
 
         if gpuarch=='':
-            reply = tls.query_yesno('q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?')
+            try:
+                reply = tls.query_yesno('q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?')
+            except:
+                reply = True
         else:
             reply = True
 
