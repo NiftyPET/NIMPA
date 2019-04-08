@@ -837,9 +837,9 @@ def bias_field_correction(
                             chosen.
     '''
 
-    if not 'SimpleITK' in sys.modules:
-        print  'e> the SimpleITK module is required for bias correction' \
-                +' functionality but the module does not seem to be installed.\n' \
+    if executable=='sitk' and not 'SimpleITK' in sys.modules:
+        print  'e> if SimpleITK module is required for bias correction' \
+                +' it needs to be first installed.\n' \
                 +'   Install the module by:\n' \
                 +'   conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0\n' \
                 +'   or pip install SimpleITK'
