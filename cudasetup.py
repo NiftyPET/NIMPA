@@ -170,6 +170,8 @@ def dev_setup():
         for cc in spprtd:
             ccstr += '-gencode=arch=compute_'+cc+',code=compute_'+cc+';'
         #-----------------------------------------------------------------------------------
+    else:
+        devid = None
 
     # remove the temporary path
     sys.path.remove(path_tmp_build)
