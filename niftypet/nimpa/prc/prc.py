@@ -865,7 +865,7 @@ def bias_field_correction(
         fimout = ''
 
     else:
-        raise OSError('could not decode the input of floating images.')
+        raise ValueError('could not decode the input of floating images.')
     #---------------------------------------------------------------------------
 
 

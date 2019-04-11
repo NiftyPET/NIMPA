@@ -199,7 +199,7 @@ elif platform.system() == 'Windows' :
 setup(
     name='nimpa',
     license = 'Apache 2.0',
-    version='1.1.12',
+    version='1.1.13',
     description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
     long_description=long_description,
     author='Pawel J. Markiewicz',
