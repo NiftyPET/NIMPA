@@ -1,0 +1,7 @@
+*.py[co]
+*.so
+*.log
+/build/
+/dist/
+/nimpa.egg*/
+.DS_Store
