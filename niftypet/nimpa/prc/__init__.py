@@ -9,6 +9,8 @@ from imio import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2n
 from imio import orientnii, nii_ugzip, nii_gzip, dcmsort, niisort, dcm2im, dcminfo
 from imio import dcmanonym, pick_t1w, dcm2nii
 
+from regseg import realign_mltp_spm, resample_mltp_spm
+
 from regseg import coreg_spm, resample_spm, affine_niftyreg, resample_niftyreg
 from regseg import coreg_vinci, resample_vinci
 from regseg import motion_reg

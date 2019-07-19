@@ -10,6 +10,7 @@ import sys
 import os
 import shutil
 from subprocess import call
+import glob
 
 import numpy as np
 import scipy.ndimage as ndi
@@ -480,8 +481,15 @@ def resample_spm(
         shutil.copyfile(imflo, imflou)
 
     if isinstance(M, basestring):
-        M = np.load(M)
-        print 'i> matrix M given in the form of numpy file'
+        if os.path.basename(M).endswith('.txt'):
+            M = np.loadtxt(M)
+            print 'i> matrix M given in the form of text file'
+        elif os.path.basename(M).endswith('.npy'):
+            M = np.load(M)
+            print 'i> matrix M given in the form of NumPy file'
+        else:
+            raise IOError('e> unrecognised file extension for the affine.')
+            
     elif isinstance(M, (np.ndarray, np.generic)):
         print 'i> matrix M given in the form of Numpy array'
     else:
@@ -525,6 +533,248 @@ def resample_spm(
 
 #===============================================================================
 
+
+#===============================================================================
+# S P M realignment of multiple images through m-scripting (dynamic PET)
+#===============================================================================
+def realign_mltp_spm(
+        fims,
+        quality = 1.0,
+        fwhm = 6,
+        sep = 4,
+        rtm = 1,
+        interp = 2,
+        graph = 0,
+        outpath='',
+        fcomment='',
+        niicopy=False,
+        niisort=False):
+
+    '''
+        fims:   has to be a list of at least two files with the first one acting
+                as a reference.
+    '''
+
+    #> input folder
+    inpath = os.path.dirname(fims[0])
+
+    #> output folder
+    if outpath=='':
+        outpath = os.path.join(inpath, 'align')
+    else:
+        outpath = os.path.join(outpath, 'align')
+    
+    if fims[0][-3:]=='.gz' or niicopy:
+        tmpth = outpath #os.path.join(outpath, 'tmp')
+        rpth = tmpth
+    else:
+        tmpth = outpath
+        rpth = inpath
+
+    imio.create_dir(tmpth)
+
+    #> uncompress for SPM
+    fungz = []
+    for f in fims:
+        if f[-3:]=='.gz':
+            fun = imio.nii_ugzip(f, outpath=tmpth)
+        elif os.path.isfile(f) and f.endswith('nii'):
+            if niicopy:
+                fun = os.path.join(tmpth, os.path.basename(f).split('.nii')[0] + '_copy.nii')
+                shutil.copyfile(f, fun)
+            else:
+                fun = f
+        else:
+            print 'w> omitting file/folder:', f
+        fungz.append(fun)
+
+    if niisort:
+        niisrt = imio.niisort([os.path.join(tmpth,f) for f in os.listdir(tmpth) \
+                if os.path.isfile(os.path.join(tmpth,f))])
+        fsrt = niisrt['files']
+    else:
+        fsrt = fungz
+
+    P_input = [f+',1' for f in fsrt\
+        if f.endswith('nii') and f[0]!='r' and 'mean' not in f]
+
+    #> maximal number of characters per line (for Matlab array)
+    Pinmx = max([len(f) for f in P_input])
+
+    #> equalise the input char array
+    Pineq = [f.ljust(Pinmx) for f in P_input]
+
+    #---------------------------------------------------------------------------
+    #> MATLAB realign flags for SPM
+    flgs = []
+    pw = '\'\''
+
+    flgs.append('flgs.quality = '+str(quality))
+    flgs.append('flgs.fwhm = '+str(fwhm))
+    flgs.append('flgs.sep = '+str(sep))
+    flgs.append('flgs.rtm = '+str(rtm))
+    flgs.append('flgs.pw  = '+str(pw))
+    flgs.append('flgs.interp = '+str(interp))
+    flgs.append('flgs.graphics = '+str(graph))
+    flgs.append('flgs.wrap = [0 0 0]')
+
+    flgs.append('disp(flgs)')
+    #---------------------------------------------------------------------------
+
+    fscript = os.path.join(outpath,'pyauto_script_realign.m')
+
+    with open(fscript, 'w') as f:
+        f.write('% AUTOMATICALLY GENERATED MATLAB SCRIPT FOR SPM PET REALIGNMENT\n\n')
+
+        f.write('%> the following flags for PET image alignment are used:\n')
+        f.write("disp('m> SPM realign flags:');\n")
+        for item in flgs:
+            f.write("%s;\n" % item)
+
+        f.write('\n%> the following PET images will be aligned:\n')
+        f.write("disp('m> PET images for SPM realignment:');\n")
+
+        f.write('P{1,1} = [...\n')
+        for item in Pineq:
+            f.write("'%s'\n" % item)
+        f.write('];\n\n')
+        f.write('disp(P{1,1});\n')
+
+        f.write('spm_realign(P, flgs);')
+
+
+    cmd = ['matlab', '-nodisplay', '-nodesktop', '-r',  'run('+'\''+fscript+'\''+'); exit']
+    call(cmd)
+
+    fres = glob.glob(os.path.join(rpth, 'rp*.txt'))[0]
+    res = np.loadtxt(fres)
+
+    return {'fout':fres, 'outarray': res, 'P':Pineq, 'fims':fsrt}
+
+    
+
+#===============================================================================
+# S P M resampling of multiple images through m-scripting (dynamic PET)
+#===============================================================================
+
+def resample_mltp_spm(
+        fims,
+        ftr,
+        interp=1.,
+        which=1,
+        mask=0,
+        mean=0,
+        graph=0,
+        niisort=False,
+        prefix='r_',
+        outpath='',
+        fcomment='',
+        pickname='ref',
+        copy_input=False,
+        del_in_uncmpr=False,
+        del_out_uncmpr=False):
+
+    '''
+        fims:   has to be a list of at least two files with the first one acting
+                as a reference.
+    '''
+
+    if not isinstance(fims, list) and not isinstance(fims[0], basestring):
+        raise ValueError('e> unrecognised list of input images')
+
+    if not os.path.isfile(ftr):
+        raise IOError('e> cannot open the file with translations and rotations')
+
+    #> output path
+    if outpath=='':
+        opth = os.path.dirname(fims[0])
+    else:
+        opth = outpath
+
+    imio.create_dir(opth)
+
+    #> working file names (not touching the original ones)
+    _fims = []
+
+    #> decompress if necessary
+    for f in fims:
+        if not os.path.isfile(f) and not (f.endswith('nii') or f.endswith('nii.gz')):
+            raise IOError('e> could not open file:', f)
+
+        if f[-3:]=='.gz':
+            fugz = imio.nii_ugzip(f, outpath=os.path.join(opth,'copy'))
+        elif copy_input:
+            fnm = os.path.basename(f).split('.nii')[0] + '_copy.nii'
+            fugz = os.path.join(opth, 'copy', fnm)
+            shutil.copyfile(f, fugz)
+        else:
+            fugz = f
+
+        _fims.append(fugz)
+
+    if niisort:
+        niisrt = imio.niisort(_fims)
+        _fims = niisrt['files']
+
+
+    #> maximal number of characters per line (for Matlab array)
+    Pinmx = max([len(f) for f in _fims])
+
+    #> equalise the input char array
+    Pineq = [f.ljust(Pinmx) for f in _fims]
+
+    #---------------------------------------------------------------------------
+    #> SPM reslicing (resampling) flags
+    flgs = []
+
+    flgs.append('flgs.mask = '+str(mask))
+    flgs.append('flgs.mean = '+str(mean))
+
+    flgs.append('flgs.which = '+str(which))
+    flgs.append('flgs.interp = '+str(interp))
+    flgs.append('flgs.graphics = '+str(graph))
+    flgs.append('flgs.wrap = [0 0 0]')
+    flgs.append('flgs.prefix = '+"'"+prefix+"'")
+
+    flgs.append('disp(flgs)')
+    #---------------------------------------------------------------------------
+
+    fsrpt = os.path.join(opth,'pyauto_script_resampling.m')
+    with open(fsrpt, 'w') as f:
+        f.write('% AUTOMATICALLY GENERATED MATLAB SCRIPT FOR SPM RESAMPLING PET IMAGES\n\n')
+
+        f.write('%> the following flags for image reslicing are used:\n')
+        f.write("disp('m> SPM reslicing flags:');\n")
+        for item in flgs:
+            f.write("%s;\n" % item)
+
+        f.write('\n%> the following PET images will be aligned:\n')
+        f.write("disp('m> PET images for SPM reslicing:');\n")
+
+        f.write('P{1,1} = [...\n')
+        for item in Pineq:
+            f.write("'%s'\n" % item)
+        f.write('];\n\n')
+        f.write('disp(P{1,1});\n')
+
+        # f.write('\n%> the following PET images will be aligned using the translations and rotations in X:\n')
+        # f.write("X = dlmread('"+ftr+"');\n")
+        # f.write('for fi = 2:'+str(len(fims))+'\n')
+        # f.write("    VF = strcat(P{1,1}(fi,:),',1');\n")
+        # f.write('    M_ = zeros(4,4);\n')
+        # f.write('    M_(:,:) = spm_get_space(VF);\n')
+        # f.write('    M = spm_matrix(X(fi,:));\n')
+        # f.write('    spm_get_space(VF, M\M_(:,:));\n')
+        # f.write('end\n\n')
+
+        f.write('spm_reslice(P, flgs);\n')
+
+    cmd = ['matlab', '-nodisplay', '-nodesktop', '-r',  'run('+'\''+fsrpt+'\''+'); exit']
+    call(cmd)
+
+    if del_in_uncmpr:
+        for fpth in _fims:
+            os.remove(fpth)
 
 
 #===============================================================================

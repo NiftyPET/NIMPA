@@ -39,16 +39,31 @@ except ImportError:
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 
+niiext = ('nii.gz', 'nii', 'img', 'hdr')
+
+#>--------------------------
+def num(s):
+    ''' Converts the string to a float or integer number.
+    '''
+    try:
+        return int(s)
+    except ValueError:
+        return float(s)
+#>--------------------------
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-def trimim( fims, 
+def trimim( fims,
+
+            refim = '',
             affine=None,
             scale=2,
             divdim = 8**2,
-            int_order=0,
             fmax = 0.05,
+            
+            int_order=0,
             outpath='',
             fname='',
             fcomment='',
@@ -68,6 +83,8 @@ def trimim( fims,
     4. as a 3D or 4D image
     Parameters:
     -----------
+    refim:  Path to the reference image, which was already trimmed.
+            Needs the trimming parameters stored in the NIfTI header in 'descrip'. 
     affine: affine matrix, 4x4, for all the input images in case when images
             passed as a matrix (all have to have the same shape and data type)
     scale: the scaling factor for upsampling has to be greater than 1
@@ -89,7 +106,7 @@ def trimim( fims,
     # case when input folder is given
     if isinstance(fims, basestring) and os.path.isdir(fims):
         # list of input images (e.g., PET)
-        fimlist = [os.path.join(fims,f) for f in os.listdir(fims) if f.endswith('.nii') or f.endswith('.nii.gz')]
+        fimlist = [os.path.join(fims,f) for f in os.listdir(fims) if f.endswith(niiext)]
         imdic = imio.niisort(fimlist, memlim=memlim)
         if not (imdic['N']>50 and memlim):
             imin = imdic['im']
@@ -102,7 +119,7 @@ def trimim( fims,
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(fims, basestring) and os.path.isfile(fims) and (fims.endswith('nii') or fims.endswith('nii.gz')):
+    elif isinstance(fims, basestring) and os.path.isfile(fims) and fims.endswith(niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim==3:
@@ -150,6 +167,21 @@ def trimim( fims,
     else:
         raise TypeError('Wrong data type input.')
 
+
+    #> if using reference trimmed image:
+    ref_flag = False
+    if os.path.isfile(refim):
+        refdct = imio.getnii(refim, output='all')
+        nii_descrp = refdct['hdr']['descrip'].item()
+        if 'trim' in nii_descrp:
+            #> find all the numbers (int and floats)
+            parstr = re.findall(r'\d+\.*\d*', nii_descrp)
+            ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
+            ref_flag = True
+            print 'i> using the trimming parameters of the reference image.'
+        else:
+            print 'w> the reference image does not contain trimming info--using default.'
+
     
 
     #-------------------------------------------------------
@@ -187,11 +219,11 @@ def trimim( fims,
             for i in range(Nim):
                 if Nim>50 and using_multiple_files:
                     imin_temp = imio.getnii(imdic['files'][i])
-                    imsum += ndi.interpolation.zoom(imin_temp, (scale, scale, scale), order=0 )
+                    imsum += ndi.interpolation.zoom(imin_temp, (scale, scale, scale), order=int_order )
                     if verbose:
                         print 'i> image sum: read', imdic['files'][i]
                 else:
-                    imsum += ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=0 )
+                    imsum += ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=int_order )
     else:
         imscl = imin
         imsum = np.sum(imin, axis=0)
@@ -200,38 +232,39 @@ def trimim( fims,
     #imsum = ndi.filters.gaussian_filter(imsum, imio.fwhm2sig(4.0, voxsize=abs(affine[0,0])), mode='mirror')
     #-------------------------------------------------------
    
-    # find the object bounding indexes in x, y and z axes, e.g., ix0-ix1 for the x axis
-    qx = np.sum(imsum, axis=(0,1))
-    ix0 = np.argmax( qx>(fmax*np.nanmax(qx)) )
-    ix1 = ix0+np.argmin( qx[ix0:]>(fmax*np.nanmax(qx)) )
+    if not ref_flag:
+        # find the object bounding indexes in x, y and z axes, e.g., ix0-ix1 for the x axis
+        qx = np.sum(imsum, axis=(0,1))
+        ix0 = np.argmax( qx>(fmax*np.nanmax(qx)) )
+        ix1 = ix0+np.argmin( qx[ix0:]>(fmax*np.nanmax(qx)) )
 
-    qy = np.sum(imsum, axis=(0,2))
-    iy0 = np.argmax( qy>(fmax*np.nanmax(qy)) )
-    iy1 = iy0+np.argmin( qy[iy0:]>(fmax*np.nanmax(qy)) )
+        qy = np.sum(imsum, axis=(0,2))
+        iy0 = np.argmax( qy>(fmax*np.nanmax(qy)) )
+        iy1 = iy0+np.argmin( qy[iy0:]>(fmax*np.nanmax(qy)) )
 
-    qz = np.sum(imsum, axis=(1,2))
-    iz0 = np.argmax( qz>(fmax*np.nanmax(qz)) )
+        qz = np.sum(imsum, axis=(1,2))
+        iz0 = np.argmax( qz>(fmax*np.nanmax(qz)) )
 
-    # find the maximum voxel range for x and y axes
-    IX = ix1-ix0+1
-    IY = iy1-iy0+1
-    tmp = max(IX, IY)
-    #> get the range such that it is divisible by 
-    #> divdim (64 by default) for GPU execution
-    IXY = divdim * ((tmp+divdim-1)/divdim)
-    div = (IXY-IX)/2
-    # x
-    ix0 -= div
-    ix1 += (IXY-IX)-div
-    # y
-    div = (IXY-IY)/2
-    iy0 -= div
-    iy1 += (IXY-IY)-div
-    # z
-    tmp = (len(qz)-iz0+1)
-    IZ = divdim * ((tmp+divdim-1)/divdim)
-    iz0 -= IZ-tmp+1
-    
+        # find the maximum voxel range for x and y axes
+        IX = ix1-ix0+1
+        IY = iy1-iy0+1
+        tmp = max(IX, IY)
+        #> get the range such that it is divisible by 
+        #> divdim (64 by default) for GPU execution
+        IXY = divdim * ((tmp+divdim-1)/divdim)
+        div = (IXY-IX)/2
+        # x
+        ix0 -= div
+        ix1 += (IXY-IX)-div
+        # y
+        div = (IXY-IY)/2
+        iy0 -= div
+        iy1 += (IXY-IY)-div
+        # z
+        tmp = (len(qz)-iz0+1)
+        IZ = divdim * ((tmp+divdim-1)/divdim)
+        iz0 -= IZ-tmp+1
+        
     # save the trimming parameters in a dic
     trimpar = {'x':(ix0, ix1), 'y':(iy0, iy1), 'z':(iz0), 'fmax':fmax}
 
@@ -290,7 +323,7 @@ def trimim( fims,
     dctout = {'affine': A, 'trimpar':trimpar, 'imsum':imsumt}
 
     # NIfTI image description (to be stored in the header)
-    niidescr = 'trimm(x,y,z):' \
+    niidescr = 'trim(x,y,z):' \
                + str(trimpar['x'])+',' \
                + str(trimpar['y'])+',' \
                + str((trimpar['z'],)) \
@@ -470,6 +503,7 @@ def pvc_iyang(
         fcomment='',
         store_img=False,
         store_rois=False,
+        matlab_eng = ''
     ):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
         The PVC method uses iterative Yang method.
@@ -542,6 +576,9 @@ def pvc_iyang(
     #> create folders
     imio.create_dir(prcl_dir)
     imio.create_dir(pvc_dir)
+    if store_rois:
+        rois_dir = os.path.join(pvc_dir, 'ROIs')
+        imio.create_dir(rois_dir)
 
     #==================================================================
     #if affine transf. (faff) is given then take the T1 and resample it too.
@@ -557,6 +594,9 @@ def pvc_iyang(
                 fcomment = fcomment,
                 outpath=os.path.join(outpath,'PET', 'positioning')
             )
+            #> save Matlab engine for later resampling
+            matlab_eng = regdct['matlab_eng']
+
         elif tool=='niftyreg':
             regdct = regseg.affine_niftyreg(
                 fpet,
@@ -580,6 +620,12 @@ def pvc_iyang(
                 verbose=Cnt['VERBOSE']
             )
         faff = regdct['faff']
+    else:
+        if tool=='spm' and matlab_eng == '':
+            print 'i> starting Matlab for SPM...'
+            import matlab.engine
+            matlab_eng = matlab.engine.start_matlab()
+
 
     # resample the GIF T1/labels to upsampled PET
     # file name of the parcellation (GIF-based) upsampled to PET
@@ -603,7 +649,7 @@ def pvc_iyang(
                     mridct['T1lbl'],
                     faff,
                     fimout = fgt1u,
-                    matlab_eng = regdct['matlab_eng'],
+                    matlab_eng = matlab_eng,
                     intrp = 0.,
                     del_ref_uncmpr = True,
                     del_flo_uncmpr = True,
@@ -633,7 +679,7 @@ def pvc_iyang(
 
     #> save the PCV ROIs to a new NIfTI file
     if store_rois:
-        froi = os.path.join(prcl_dir, prcl_pth[1].split('.nii')[0]+'_PVC-ROIs-inPET.nii.gz')
+        froi = os.path.join(rois_dir, prcl_pth[1].split('.nii')[0]+'_PVC-ROIs-inPET.nii.gz')
         imio.array2nii(
             imgroi,
             dprcl['affine'],

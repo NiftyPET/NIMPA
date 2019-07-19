@@ -39,7 +39,7 @@ def time_stamp(simple_ascii=False):
     return nowstr
 
 #---------------------------------------------------------------
-def fwhm2sig (fwhm, voxsize=2.0):
+def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2*(2*np.log(2))**.5)
 
 
@@ -350,7 +350,7 @@ def dcminfo(dcmvar, verbose=True):
         out = ['raw', 'physio', scanner_id]
 
     else:
-        out = ['unknown', cmmnt]
+        out = ['unknown', str(cmmnt.lower())]
 
     return out
 
@@ -679,24 +679,24 @@ def niisort(
     _fims = ['Blank']*Nfrm
     # list of NIfTI image shapes and data types used
     shape = []
-    dtype = []
+    datype = []
     _nii = []
     for i in range(Nim):
         if dyn_flg:
             _fims[sortlist[i]] = fims[i]
             _nii = nib.load(fims[i])
-            dtype.append(_nii.get_data_dtype()) 
+            datype.append(_nii.get_data_dtype()) 
             shape.append(_nii.shape)
         else:
             _fims[i] = fims[i]
             _nii = nib.load(fims[i])
-            dtype.append(_nii.get_data_dtype()) 
+            datype.append(_nii.get_data_dtype()) 
             shape.append(_nii.shape)
 
     # check if all images are of the same shape and data type
     if _nii and not shape.count(_nii.shape)==len(shape):
         raise ValueError('Input images are of different shapes.')
-    if _nii and not dtype.count(_nii.get_data_dtype())==len(dtype):
+    if _nii and not datype.count(_nii.get_data_dtype())==len(datype):
         raise TypeError('Input images are of different data types.')
     # image shape must be 3D
     if _nii and not len(_nii.shape)==3:

@@ -35,6 +35,8 @@ if resources.CC_ARCH != '' and platform.system() in ['Linux', 'Windows']:
 	from dinf import gpuinfo, dev_info
 	
 from prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
+
+from prc import realign_mltp_spm, resample_mltp_spm
 from prc import coreg_spm, coreg_vinci, resample_spm, resample_vinci
 from prc import affine_fsl, resample_fsl
 from prc import affine_niftyreg, resample_niftyreg, pet2pet_rigid
