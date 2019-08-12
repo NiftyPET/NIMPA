@@ -175,7 +175,7 @@ def trimim( fims,
         nii_descrp = refdct['hdr']['descrip'].item()
         if 'trim' in nii_descrp:
             #> find all the numbers (int and floats)
-            parstr = re.findall(r'\d+\.*\d*', nii_descrp)
+            parstr = re.findall(r'-*\d+\.*\d*', nii_descrp)
             ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
             ref_flag = True
             print 'i> using the trimming parameters of the reference image.'
@@ -809,7 +809,7 @@ def nii_modify(
     else:
         fout = os.path.join(
                 opth,
-                fimout.split('.')[0]+'.nii.gz')
+                fimout.split('.nii')[0]+'.nii.gz')
     #---------------------------------------------------------------------------
 
 

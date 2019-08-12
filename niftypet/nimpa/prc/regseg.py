@@ -1002,7 +1002,7 @@ def resample_vinci(
     else:
         fout = os.path.join(
                 opth,
-                fimout.split('.')[0]+'.nii.gz')
+                fimout.split('.nii')[0]+'.nii.gz')
     #---------------------------------------------------------------------------
 
 
