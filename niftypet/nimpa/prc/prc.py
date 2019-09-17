@@ -175,7 +175,7 @@ def trimim( fims,
         nii_descrp = refdct['hdr']['descrip'].item()
         if 'trim' in nii_descrp:
             #> find all the numbers (int and floats)
-            parstr = re.findall(r'-*\d+\.*\d*', nii_descrp)
+            parstr = re.findall(r'\d+\.*\d*', nii_descrp)
             ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
             ref_flag = True
             print 'i> using the trimming parameters of the reference image.'
@@ -503,7 +503,7 @@ def pvc_iyang(
         fcomment='',
         store_img=False,
         store_rois=False,
-        matlab_eng = ''
+        matlab_eng = '',
     ):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
         The PVC method uses iterative Yang method.
@@ -554,120 +554,138 @@ def pvc_iyang(
         im = imdct['im']
         B = imdct['affine']
         fpet = petin
+    else:
+        raise IOError('e> unrecognised input PET file')
     
     if im.ndim!=3:
         raise IndexError('Only 3D images are expected in this method of partial volume correction.')
 
-    # check if brain parcellations exist in NIfTI format
-    if not os.path.isfile(mridct['T1lbl']):
-        raise NameError('MissingLabels')
+    #> avoid registration if the provided parcellation is already in PET space
+    #> it is assumed so if the parcellation is given as a file path and no affine is given
+    noreg = False
+    if isinstance(mridct, basestring) and os.path.isfile(mridct):
+        prcl_dir = os.path.dirname(mridct)
+        tmpdct = imio.getnii(mridct, output='all')
+        if faff=='' and tmpdct['shape']==imdct['shape']:
+            fprcu = mridct
+            fprc  = mridct
+            noreg = True
+
+    elif isinstance(mridct, dict) and os.path.isfile(mridct['T1lbl']):
+        fprc = mridct['T1lbl']
+        prcl_dir = os.path.dirname(fprc)
+
+    else:
+        raise NameError('e> missing labels/parcellations')
+
+
+    # establish the output folder
+    if outpath=='':
+        oprcl = os.path.join(prcl_dir, 'pre-processed')
+        opvc =  os.path.join(os.path.dirname(fpet), 'PVC')
+    else:
+        oprcl = os.path.join(outpath, 'pre-processed')
+        opvc =  os.path.join(outpath, 'PVC')
+        
+    #> create folders
+    if not noreg:
+        imio.create_dir(oprcl)
+    imio.create_dir(opvc)
+    if store_rois:
+        orois = os.path.join(opvc, 'ROIs')
+        imio.create_dir(orois)
 
     #> output dictionary
     outdct = {}
 
-    # establish the output folder
-    if outpath=='':        
-        prcl_dir = os.path.dirname(mridct['T1lbl'])
-        pvc_dir =  os.path.join(os.path.dirname(fpet), 'PVC')
-    else:
-        prcl_dir = outpath
-        pvc_dir =  os.path.join(os.path.dirname(fpet), 'PVC')
-
-    #> create folders
-    imio.create_dir(prcl_dir)
-    imio.create_dir(pvc_dir)
-    if store_rois:
-        rois_dir = os.path.join(pvc_dir, 'ROIs')
-        imio.create_dir(rois_dir)
-
     #==================================================================
     #if affine transf. (faff) is given then take the T1 and resample it too.
-    if isinstance(faff, basestring) and not os.path.isfile(faff):
-        # faff is not given; get it by running the affine; get T1w to PET space
+    if not noreg:
+        if isinstance(faff, basestring) and not os.path.isfile(faff):
+            # faff is not given; get it by running the affine; get T1w to PET space
 
-        ft1w = imio.pick_t1w(mridct)
+            ft1w = imio.pick_t1w(mridct)
 
-        if tool=='spm':
-            regdct = regseg.coreg_spm(
-                fpet,
-                ft1w,
-                fcomment = fcomment,
-                outpath=os.path.join(outpath,'PET', 'positioning')
-            )
-            #> save Matlab engine for later resampling
-            matlab_eng = regdct['matlab_eng']
-
-        elif tool=='niftyreg':
-            regdct = regseg.affine_niftyreg(
-                fpet,
-                ft1w,
-                outpath=os.path.join(outpath,'PET', 'positioning'),
-                fcomment = fcomment,
-                executable = Cnt['REGPATH'],
-                omp = multiprocessing.cpu_count()/2,
-                rigOnly = True,
-                affDirect = False,
-                maxit=5,
-                speed=True,
-                pi=50, pv=50,
-                smof=0, smor=0,
-                rmsk=True,
-                fmsk=True,
-                rfwhm=15., #millilitres
-                rthrsh=0.05,
-                ffwhm = 15., #millilitres
-                fthrsh=0.05,
-                verbose=Cnt['VERBOSE']
-            )
-        faff = regdct['faff']
-    else:
-        if tool=='spm' and matlab_eng == '':
-            print 'i> starting Matlab for SPM...'
-            import matlab.engine
-            matlab_eng = matlab.engine.start_matlab()
-
-
-    # resample the GIF T1/labels to upsampled PET
-    # file name of the parcellation (GIF-based) upsampled to PET
-    fgt1u = os.path.join(
-            prcl_dir,
-            os.path.basename(mridct['T1lbl']).split('.')[0]\
-            +'_registered_trimmed'+fcomment+'.nii.gz')
-        
-    if tool=='niftyreg':
-        if os.path.isfile( Cnt['RESPATH'] ):
-            cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
-                   '-trans', faff, '-res', fgt1u, '-inter', '0']
-            if not Cnt['VERBOSE']: cmd.append('-voff')
-            call(cmd)
-        else:
-            raise IOError('e> path to resampling executable is incorrect!')
-        
-    elif tool=='spm':
-        fout = regseg.resample_spm(
+            if tool=='spm':
+                regdct = regseg.coreg_spm(
                     fpet,
-                    mridct['T1lbl'],
-                    faff,
-                    fimout = fgt1u,
-                    matlab_eng = matlab_eng,
-                    intrp = 0.,
-                    del_ref_uncmpr = True,
-                    del_flo_uncmpr = True,
-                    del_out_uncmpr = True,
-            )
+                    ft1w,
+                    fcomment = fcomment,
+                    outpath=os.path.join(outpath,'PET', 'positioning')
+                )
+                #> save Matlab engine for later resampling
+                matlab_eng = regdct['matlab_eng']
 
+            elif tool=='niftyreg':
+                regdct = regseg.affine_niftyreg(
+                    fpet,
+                    ft1w,
+                    outpath=os.path.join(outpath,'PET', 'positioning'),
+                    fcomment = fcomment,
+                    executable = Cnt['REGPATH'],
+                    omp = multiprocessing.cpu_count()/2,
+                    rigOnly = True,
+                    affDirect = False,
+                    maxit=5,
+                    speed=True,
+                    pi=50, pv=50,
+                    smof=0, smor=0,
+                    rmsk=True,
+                    fmsk=True,
+                    rfwhm=15., #millilitres
+                    rthrsh=0.05,
+                    ffwhm = 15., #millilitres
+                    fthrsh=0.05,
+                    verbose=Cnt['VERBOSE']
+                )
+            faff = regdct['faff']
+        else:
+            if tool=='spm' and matlab_eng == '':
+                print 'i> starting Matlab for SPM...'
+                import matlab.engine
+                matlab_eng = matlab.engine.start_matlab()
+
+
+        # resample the T1/labels to upsampled PET
+        # file name of the parcellation (e.g., GIF-based) upsampled to PET
+        fprcu = os.path.join(
+                oprcl,
+                os.path.basename(mridct['T1lbl']).split('.')[0]\
+                +'_registered_trimmed'+fcomment+'.nii.gz')
+            
+        if tool=='niftyreg':
+            if os.path.isfile( Cnt['RESPATH'] ):
+                cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
+                       '-trans', faff, '-res', fprcu, '-inter', '0']
+                if not Cnt['VERBOSE']: cmd.append('-voff')
+                call(cmd)
+            else:
+                raise IOError('e> path to resampling executable is incorrect!')
+            
+        elif tool=='spm':
+            fout = regseg.resample_spm(
+                        fpet,
+                        mridct['T1lbl'],
+                        faff,
+                        fimout = fprcu,
+                        matlab_eng = matlab_eng,
+                        intrp = 0.,
+                        del_ref_uncmpr = True,
+                        del_flo_uncmpr = True,
+                        del_out_uncmpr = True,
+                )
     #==================================================================
 
-    # Get the parcellation labels in the upsampled PET space
-    dprcl = imio.getnii(fgt1u, output='all')
-    prcl = dprcl['im']
+    #> get the parcellation labels in the upsampled PET space
+    prcdct = imio.getnii(fprcu, output='all')
+    prcu = prcdct['im']
 
     #> path to parcellations in NIfTI format
-    prcl_pth = os.path.split(mridct['T1lbl'])
+    prcl_pth = os.path.split(fprc)
 
     #---------------------------------------------------------------------------
     #> get the parcellation specific for PVC based on the current parcellations
-    imgroi = prcl.copy();  imgroi[:] = 0
+    imgroi = prcu.copy();  imgroi[:] = 0
     
     #> number of segments, without the background
     nSeg = len(pvcroi)
@@ -675,19 +693,19 @@ def pvc_iyang(
     #> create the image of numbered parcellations
     for k in range(nSeg):
         for m in pvcroi[k]:
-            imgroi[prcl==m] = k+1
+            imgroi[prcu==m] = k+1
 
     #> save the PCV ROIs to a new NIfTI file
     if store_rois:
-        froi = os.path.join(rois_dir, prcl_pth[1].split('.nii')[0]+'_PVC-ROIs-inPET.nii.gz')
+        froi = os.path.join(orois, prcl_pth[1].split('.nii')[0]+'_PVC-ROIs-inPET.nii.gz')
         imio.array2nii(
             imgroi,
-            dprcl['affine'],
+            prcdct['affine'],
             froi,
-            trnsp = (dprcl['transpose'].index(0),
-                     dprcl['transpose'].index(1),
-                     dprcl['transpose'].index(2)),
-            flip = dprcl['flip'])
+            trnsp = (prcdct['transpose'].index(0),
+                     prcdct['transpose'].index(1),
+                     prcdct['transpose'].index(2)),
+            flip = prcdct['flip'])
         outdct['froi'] = froi
     #---------------------------------------------------------------------------
 
@@ -699,10 +717,11 @@ def pvc_iyang(
 
     outdct['im'] = imgpvc
     outdct['imroi'] = imgroi
-    outdct['faff'] = faff
+    if not noreg:
+        outdct['faff'] = faff
 
     if store_img:
-        fpvc = os.path.join( pvc_dir,
+        fpvc = os.path.join( opvc,
                              os.path.split(fpet)[1].split('.nii')[0]+'_PVC'+fcomment+'.nii.gz')
         imio.array2nii( imgpvc[::-1,::-1,:], B, fpvc, descrip='pvc=iY')
         outdct['fpet'] = fpvc
@@ -809,7 +828,7 @@ def nii_modify(
     else:
         fout = os.path.join(
                 opth,
-                fimout.split('.nii')[0]+'.nii.gz')
+                fimout.split('.')[0]+'.nii.gz')
     #---------------------------------------------------------------------------
 
 
