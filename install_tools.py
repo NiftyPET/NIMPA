@@ -76,10 +76,15 @@ def query_yesno(question):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-def input_path(question, default=os.path.expanduser('~')):
+def input_path(question, default=os.path.expanduser('~'), name=''):
+    """
+    Will not prompt if `name in os.environ`
+    """
     while True:
         question += '['+default+']:'
-        path = raw_input(question)
+        path = os.environ.get(name, None)
+        if path is None:
+            path = raw_input(question)
         if path == '':
             return default
         elif os.path.isdir(path):
@@ -233,7 +238,7 @@ def install_tool(app, Cnt):
             path_tools = os.path.join(dircore, Cnt['DIRTOOLS'])
         else:
             try:
-                path_tools = input_path('Enter path for NiftyPET tools (registration, etc):')
+                path_tools = input_path('Enter path for NiftyPET tools (registration, etc):', name='PATHTOOLS')
             except:
                 print 'enter the intended PATHTOOLS in resources.py located in ~/.niftypet/'
                 raise ValueError('\n e> could not get the path for NiftyPET_tools \n')
