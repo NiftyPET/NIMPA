@@ -211,6 +211,7 @@ setup(
         'nibabel>=2.2.1, <=2.3.1',
         #'SimpleITK>=1.2.0'
         ],
+    python_requires='<3.0.0',
     packages=find_packages(exclude=['docs']),
     package_data={
         'niftypet': ['auxdata/*'],
