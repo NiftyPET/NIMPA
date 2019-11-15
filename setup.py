@@ -204,7 +204,7 @@ setup(
     long_description=long_description,
     author='Pawel J. Markiewicz',
     author_email='p.markiewicz@ucl.ac.uk',
-    url='https://github.com/pjmark/NIMPA',
+    url='https://github.com/NiftyPET/NIMPA',
     keywords='PET MR processing analysis',
     install_requires=[
         'pydicom>=1.0.2,<=1.2.2',
