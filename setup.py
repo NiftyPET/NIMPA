@@ -10,13 +10,13 @@ from setuptools import setup, find_packages
 import os
 import sys
 import platform
-from subprocess import call, Popen, PIPE
+from subprocess import Popen, PIPE
 
 import cudasetup as cs
 import install_tools as tls
 
-if not platform.system() in ['Windows', 'Darwin', 'Linux']:
-    print 'e> the operating system is not supported:', platform.system()
+if platform.system() not in ['Windows', 'Darwin', 'Linux']:
+    print('e> the operating system is not supported:', platform.system())
     raise SystemError('e> unknown operating system (OS).')
 
 # check if git, CMake and CUDA are installed
