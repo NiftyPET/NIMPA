@@ -74,8 +74,8 @@ def getnii(fim, nan_replace=None, output='image'):
             dimno = imr.ndim
         
         #> get orientations from the affine
-        ornt = nib.orientations.axcodes2ornt(nib.aff2axcodes(nim.affine))
-        trnsp = tuple(np.int8(ornt[::-1,0]))
+        ornt = nib.io_orientation(nim.affine)
+        trnsp = tuple(2-np.int8(ornt[:,0]))
         flip  = tuple(np.int8(ornt[:,1]))
 
         #> flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
