@@ -1,6 +1,12 @@
 #ifndef CONVOLUTIONSEPARABLE_H
 #define CONVOLUTIONSEPARABLE_H
 
+// for logging
+#define LOGDEBUG 10
+#define LOGINFO 20
+#define LOGWARNING 30
+
+
 #define KERNEL_RADIUS 8
 #define KERNEL_LENGTH (2*KERNEL_RADIUS + 1)
 
@@ -18,7 +24,7 @@
 
 struct Cnst {
 	char DEVID; 	// device (GPU) ID.  allows choosing the device on which to perform calculations 
-	bool VERBOSE;
+	char LOG;		// logging
 };
 
 #define HANDLE_ERROR(err) (HandleError( err, __FILE__, __LINE__ ))

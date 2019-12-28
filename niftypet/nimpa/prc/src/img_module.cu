@@ -1,3 +1,14 @@
+/*----------------------------------------------------------------------
+CUDA C extension for Python
+Provides fast image-based operations on the GPUs
+
+author: Pawel Markiewicz
+Copyrights: 2019
+----------------------------------------------------------------------*/
+
+#define PY_SSIZE_T_CLEAN
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION //NPY_API_VERSION
+
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <stdlib.h>
@@ -5,40 +16,42 @@
 #include "conv.h"
 
 
-//=== PYTHON STUFF ===
-
-//--- Docstrings
-static char module_docstring[] =
-"This module provides GPU routines for (mostly PET) image processing.";
-static char rsmpl_docstring[] =
-"Does rigid body transformation with very fine sampling.";
-static char conv_docstring[] =
-"Fast 3D image convolution with separable kernel.";
-//---
+//=== START PYTHON INIT ===
 
 //--- Available functions
 static PyObject *img_resample(PyObject *self, PyObject *args);
 static PyObject *img_convolve(PyObject *self, PyObject *args);
-
-/* Module specification */
-static PyMethodDef module_methods[] = {
-	{ "resample", img_resample,   METH_VARARGS, rsmpl_docstring },
-	{ "convolve", img_convolve,   METH_VARARGS, conv_docstring },
-	{ NULL, NULL, 0, NULL }
-};
 //---
 
-//--- Initialize the module
-PyMODINIT_FUNC initimproc(void)  //it HAS to be init______ and then the name of the shared lib.
-{
-	PyObject *m = Py_InitModule3("improc", module_methods, module_docstring);
-	if (m == NULL)
-		return;
+//> Module Method Table
+static PyMethodDef improc_methods[] = {
+	{"resample", img_resample, METH_VARARGS,
+	 "Does rigid body transformation with very fine sampling."},
+	{"convolve", img_convolve, METH_VARARGS,
+	 "Fast 3D image convolution with separable kernel."},
+	{NULL, NULL, 0, NULL} // Sentinel
+};
 
-	/* Load NumPy functionality. */
+//> Module Definition Structure
+static struct PyModuleDef improc_module = {
+	PyModuleDef_HEAD_INIT,
+	"mmr_lmproc",   //> name of module
+	//> module documentation, may be NULL
+	"This module provides GPU routines for image processing (mostly PET).",
+	-1,       	//> the module keeps state in global variables.
+	improc_methods
+};
+
+//> Initialization function
+PyMODINIT_FUNC PyInit_improc(void) {
+
+	Py_Initialize();
+
+	//> load NumPy functionality
 	import_array();
+
+	return PyModule_Create(&improc_module);
 }
-//=======================
 
 
 //======================================================================================
@@ -68,11 +81,11 @@ static PyObject *img_resample(PyObject *self, PyObject *args)
 	PyObject* pd_vxsoz = PyDict_GetItemString(o_Cim, "VXSOz");
 	Cim.VXSOz = (float)PyFloat_AsDouble(pd_vxsoz);
 	PyObject* pd_vxnox = PyDict_GetItemString(o_Cim, "VXNOx");
-	Cim.VXNOx = (short)PyInt_AS_LONG(pd_vxnox);
+	Cim.VXNOx = (short)PyLong_AsLong(pd_vxnox);
 	PyObject* pd_vxnoy = PyDict_GetItemString(o_Cim, "VXNOy");
-	Cim.VXNOy = (short)PyInt_AS_LONG(pd_vxnoy);
+	Cim.VXNOy = (short)PyLong_AsLong(pd_vxnoy);
 	PyObject* pd_vxnoz = PyDict_GetItemString(o_Cim, "VXNOz");
-	Cim.VXNOz = (short)PyInt_AS_LONG(pd_vxnoz);
+	Cim.VXNOz = (short)PyLong_AsLong(pd_vxnoz);
 	PyObject* pd_offox = PyDict_GetItemString(o_Cim, "OFFOx");
 	Cim.OFFOx = (float)PyFloat_AsDouble(pd_offox);
 	PyObject* pd_offoy = PyDict_GetItemString(o_Cim, "OFFOy");
@@ -87,11 +100,11 @@ static PyObject *img_resample(PyObject *self, PyObject *args)
 	PyObject* pd_vxsrz = PyDict_GetItemString(o_Cim, "VXSRz");
 	Cim.VXSRz = (float)PyFloat_AsDouble(pd_vxsrz);
 	PyObject* pd_vxnrx = PyDict_GetItemString(o_Cim, "VXNRx");
-	Cim.VXNRx = (short)PyInt_AS_LONG(pd_vxnrx);
+	Cim.VXNRx = (short)PyLong_AsLong(pd_vxnrx);
 	PyObject* pd_vxnry = PyDict_GetItemString(o_Cim, "VXNRy");
-	Cim.VXNRy = (short)PyInt_AS_LONG(pd_vxnry);
+	Cim.VXNRy = (short)PyLong_AsLong(pd_vxnry);
 	PyObject* pd_vxnrz = PyDict_GetItemString(o_Cim, "VXNRz");
-	Cim.VXNRz = (short)PyInt_AS_LONG(pd_vxnrz);
+	Cim.VXNRz = (short)PyLong_AsLong(pd_vxnrz);
 	PyObject* pd_offrx = PyDict_GetItemString(o_Cim, "OFFRx");
 	Cim.OFFRx = (float)PyFloat_AsDouble(pd_offrx);
 	PyObject* pd_offry = PyDict_GetItemString(o_Cim, "OFFRy");
@@ -99,8 +112,10 @@ static PyObject *img_resample(PyObject *self, PyObject *args)
 	PyObject* pd_offrz = PyDict_GetItemString(o_Cim, "OFFRz");
 	Cim.OFFRz = (float)PyFloat_AsDouble(pd_offrz);
 
-	PyObject *p_A = PyArray_FROM_OTF(o_A, NPY_FLOAT32, NPY_IN_ARRAY);
-	PyObject *p_imo = PyArray_FROM_OTF(o_imo, NPY_FLOAT32, NPY_IN_ARRAY);
+	PyArrayObject *p_A = NULL;
+	p_A = (PyArrayObject *)PyArray_FROM_OTF(o_A, NPY_FLOAT32, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *p_imo = NULL;
+	p_imo = (PyArrayObject *)PyArray_FROM_OTF(o_imo, NPY_FLOAT32, NPY_ARRAY_IN_ARRAY);
 
 
 	/* If that didn't work, throw an exception. */
@@ -137,7 +152,7 @@ static PyObject *img_resample(PyObject *self, PyObject *args)
 	Py_DECREF(p_A);
 	Py_DECREF(p_imo);
 
-	return PyArray_Return(p_imr); //tuple_out;
+	return PyArray_Return(p_imr);
 }
 
 
@@ -165,18 +180,22 @@ static PyObject *img_convolve(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, "OOOO", &o_imo, &o_imi, &o_krnl, &o_mmrcnst))
 		return NULL;
 
-	PyObject *p_imo = PyArray_FROM_OTF(o_imo, NPY_FLOAT32, NPY_IN_ARRAY);
-	PyObject *p_imi = PyArray_FROM_OTF(o_imi, NPY_FLOAT32, NPY_IN_ARRAY);
-	PyObject *p_krnl = PyArray_FROM_OTF(o_krnl, NPY_FLOAT32, NPY_IN_ARRAY);
+	PyArrayObject *p_imo=NULL;
+	p_imo = (PyArrayObject *)PyArray_FROM_OTF(o_imo, NPY_FLOAT32, NPY_ARRAY_INOUT_ARRAY2);
+	PyArrayObject *p_imi=NULL;
+	p_imi = (PyArrayObject *)PyArray_FROM_OTF(o_imi, NPY_FLOAT32, NPY_ARRAY_IN_ARRAY);
+	PyArrayObject *p_krnl=NULL;
+	p_krnl = (PyArrayObject *)PyArray_FROM_OTF(o_krnl, NPY_FLOAT32, NPY_ARRAY_IN_ARRAY);
 
-	PyObject* pd_verbose = PyDict_GetItemString(o_mmrcnst, "VERBOSE");
-	Cnt.VERBOSE = (bool)PyInt_AS_LONG(pd_verbose);
+	PyObject* pd_log = PyDict_GetItemString(o_mmrcnst, "LOG");
+	Cnt.LOG = (char)PyLong_AsLong(pd_log);
 	PyObject* pd_devid = PyDict_GetItemString(o_mmrcnst, "DEVID");
-	Cnt.DEVID = (char)PyInt_AS_LONG(pd_devid);
+	Cnt.DEVID = (char)PyLong_AsLong(pd_devid);
 
 
 	/* If that didn't work, throw an exception. */
 	if (p_imo == NULL || p_imi == NULL || p_krnl == NULL) {
+		PyArray_DiscardWritebackIfCopy(p_imo);
 		Py_XDECREF(p_imo);
 		Py_XDECREF(p_imi);
 		Py_XDECREF(p_krnl);
@@ -190,14 +209,14 @@ static PyObject *img_convolve(PyObject *self, PyObject *args)
 	int Nvk = (int)PyArray_DIM(p_imi, 0);
 	int Nvj = (int)PyArray_DIM(p_imi, 1);
 	int Nvi = (int)PyArray_DIM(p_imi, 2);
-	if (Cnt.VERBOSE == 1) printf("ic> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
+	if (Cnt.LOG <= LOGINFO) printf("i> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
 
 	int Nkr = (int)PyArray_DIM(p_krnl, 1);
-	if (Cnt.VERBOSE == 1) printf("ic> kernel size [voxels]: %d\n", Nkr);
+	if (Cnt.LOG <=LOGINFO) printf("i> kernel size [voxels]: %d\n", Nkr);
 	// for (int i=0; i<KERNEL_LENGTH; i++) printf("k[%d]=%f\n", i, krnl[i]);
 
 	if (Nkr != KERNEL_LENGTH) {
-		printf("ic> wrong kernel size.\n");
+		if (Cnt.LOG <=LOGWARNING) printf("w> wrong kernel size.\n");
 		return Py_None;
 	}
 
@@ -210,7 +229,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args)
 	//=================================================================
 
 
-
+	PyArray_ResolveWritebackIfCopy(p_imo);
 	Py_DECREF(p_imo);
 	Py_DECREF(p_imi);
 	Py_DECREF(p_krnl);

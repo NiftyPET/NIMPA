@@ -1,10 +1,10 @@
 ''' 
-install tools for NiftyPET including:
+Install tools for NiftyPET including:
 * NiftyReg
 * dcm2niix
 '''
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018"
+__copyright__   = "Copyright 2019"
 
 
 import os
@@ -13,13 +13,27 @@ import multiprocessing
 import platform
 import shutil
 import glob
-from subprocess import call, Popen, PIPE
+from subprocess import run, PIPE
 import re
 import cudasetup as cs
 
+#-------------------------------------------------------------------------------
+import logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
+#> console handler
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n%(message)s')
+ch.setFormatter(formatter)
+# ch.setLevel(logging.ERROR)
+log.addHandler(ch)
+#-------------------------------------------------------------------------------
+
+
 if 'DISPLAY' in os.environ:
-    from Tkinter import Tk
-    from tkFileDialog import askdirectory
+    from tkinter import Tk
+    from tkinter.filedialog import askdirectory
 
 # -----------------------------------
 #> NiftyReg git repository
@@ -66,7 +80,7 @@ def query_yesno(question):
     prompt = ' [Y/n]: '
     while True:
         sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
+        choice = input().lower()
 
         if choice == '':
             return True
@@ -84,39 +98,39 @@ def input_path(question, default=os.path.expanduser('~'), name=''):
         question += '['+default+']:'
         path = os.environ.get(name, None)
         if path is None:
-            path = raw_input(question)
+            path = input(question)
         if path == '':
             return default
         elif os.path.isdir(path):
             return path
         else:
-            print 'e> the provided path is not valid: '+str(path)
+            log.error('the provided path is not valid: '+str(path))
             
 #-----------------------------------------------------------------------------------------------------
 def check_depends():
-    print 'i> checking if [CUDA], [git] and [cmake] are installed...'
+    log.info('checking if [CUDA], [git] and [cmake] are installed...')
 
     outdct = {'cuda':True, 'git':True, 'cmake':True}
 
     #-check if CUDA is installed
     try:
-        out = call(['nvcc', '--version'])
+        out = run(['nvcc', '--version'])
     except OSError:
-        print 'e> CUDA (nvcc) does not seem to be installed;'
+        log.error('CUDA (nvcc) does not seem to be installed!')
         outdct['cuda'] = False
 
     #-check if git is installed
     try:
-        out = call(['git', '--version'])
+        out = run(['git', '--version'])
     except OSError:
-        print 'e> git does not seem to be installed;  for help, visit: https://git-scm.com/download/'
+        log.error('git does not seem to be installed;  for help, visit: https://git-scm.com/download/')
         outdct['git'] = False
 
     #-check if cmake is installed
     try:
-        out = call(['cmake', '--version'])
+        out = run(['cmake', '--version'])
     except OSError:
-        print 'e> cmake does not seem to be installed;  for help, visit: https://cmake.org/download/'
+        log.error('cmake does not seem to be installed;  for help, visit: https://cmake.org/download/')
         outdct['cmake'] = False
 
     return outdct
@@ -135,33 +149,33 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
     # niftyreg reg_resample first
     if 'RESPATH' in chcklst and 'RESPATH' in Cnt:
         try:
-            proc = Popen([Cnt['RESPATH'], '--version'], stdout=PIPE)
-            out = proc.stdout.read()
+            p = run([Cnt['RESPATH'], '--version'], stdout=PIPE)
+            out = p.stdout.decode('utf-8')
             if reg_ver in out:
                 output['RESPATH'] = True
         except OSError:
-            print 'e> NiftyReg (reg_resample) either is NOT installed or is corrupt.'
+            log.error('NiftyReg (reg_resample) either is NOT installed or is corrupt.')
     
     # niftyreg reg_aladin
     if 'REGPATH' in chcklst and 'REGPATH' in Cnt:
         try:
-            proc = Popen([Cnt['REGPATH'], '--version'], stdout=PIPE)
-            out = proc.stdout.read()
+            p = run([Cnt['REGPATH'], '--version'], stdout=PIPE)
+            out = p.stdout.decode('utf-8')
             if reg_ver in out:
                 output['REGPATH'] = True
         except OSError:
-            print 'e> NiftyReg (reg_aladin) either is NOT installed or is corrupt.'
+            log.error('NiftyReg (reg_aladin) either is NOT installed or is corrupt.')
 
     # dcm2niix
     if 'DCM2NIIX' in chcklst and 'DCM2NIIX' in Cnt:
         try:
-            proc = Popen([Cnt['DCM2NIIX'], '-h'], stdout=PIPE)
-            out = proc.stdout.read()
+            p = run([Cnt['DCM2NIIX'], '-h'], stdout=PIPE)
+            out = p.stdout.decode('utf-8')
             ver_str = re.search('(?<=dcm2niiX version v)\d{1,2}.\d{1,2}.\d*', out)
             if ver_str and dcm_ver in ver_str.group(0):
                 output['DCM2NIIX'] = True
         except OSError:
-            print 'e> dcm2niix either is NOT installed or is corrupt.'
+            log.error('dcm2niix either is NOT installed or is corrupt.')
 
     # hdw mu-map list
     if 'HMUDIR' in chcklst and 'HMUDIR' in Cnt:
@@ -175,10 +189,12 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
     return output
 #--------------------------------------------------------------------
 def download_dcm2niix(Cnt, path):
-    print '================================================='
-    print 'i> dcm2niix will be installed directly from:'
-    print '   https://github.com/rordenlab/dcm2niix/releases'
-    print '================================================='
+    log.info('''\
+        \r==============================================================
+        \rdcm2niix will be installed directly from:
+        \rhttps://github.com/rordenlab/dcm2niix/releases
+        \r==============================================================
+        ''')
 
     #-create the installation folder
     if not os.path.isdir(path):
@@ -187,19 +203,19 @@ def download_dcm2niix(Cnt, path):
     if not os.path.isdir(binpath):
         os.mkdir(binpath)
 
-    import urllib, zipfile
+    import urllib.request, urllib.parse, urllib.error, zipfile
     if platform.system()=='Windows':
-        urllib.urlretrieve(
+        urllib.request.urlretrieve(
             http_dcm_win,
             os.path.join(path, 'dcm2niix.zip')
         )
     elif platform.system()=='Linux':
-        urllib.urlretrieve(
+        urllib.request.urlretrieve(
             http_dcm_lin,
             os.path.join(path, 'dcm2niix.zip')
         )
     elif platform.system()=='Darwin':
-        urllib.urlretrieve(
+        urllib.request.urlretrieve(
             http_dcm_mac,
             os.path.join(path, 'dcm2niix.zip')
         )
@@ -230,7 +246,7 @@ def install_tool(app, Cnt):
         path_tools = Cnt['PATHTOOLS']
     elif ('PATHTOOLS' not in Cnt or Cnt['PATHTOOLS']!=''):
         if 'DISPLAY' in os.environ and platform.system() in ['Linux', 'Windows']:
-            print '>>>>> DISPLAY', os.environ['DISPLAY']
+            log.info('DISPLAY: {}'.format(os.environ['DISPLAY']))
             Tk().withdraw()
             dircore = askdirectory(title='choose a place for NiftyPET tools', initialdir=os.path.expanduser('~'))
             Tk().destroy()
@@ -240,8 +256,8 @@ def install_tool(app, Cnt):
             try:
                 path_tools = input_path('Enter path for NiftyPET tools (registration, etc):', name='PATHTOOLS')
             except:
-                raise ValueError('\n e> could not get the path for NiftyPET_tools \n\
-                   enter manually the intended PATHTOOLS in resources.py located in ~/.niftypet/')
+                log.warning('manually enter the intended PATHTOOLS in resources.py located in ~/.niftypet/')
+                raise ValueError('\n e> could not get the path for NiftyPET_tools \n')
         Cnt['PATHTOOLS'] = path_tools
 
     else:
@@ -250,9 +266,12 @@ def install_tool(app, Cnt):
         elif platform.system() == 'Windows' :
             path_tools = os.path.join( os.getenv('LOCALAPPDATA'), Cnt['DIRTOOLS'] )
         else:
-            print '\n=========================================================='
-            print 'e> only Linux and Windows operating systems are supported!'
-            print '==========================================================\n'
+            log.error('''\
+                \r=============================================================
+                \ronly Linux and Windows operating systems are supported 
+                \rfor the additional tools installation!
+                \r=============================================================
+                ''')
             raise SystemError('OS not supported!')      
         Cnt['PATHTOOLS'] = path_tools
 
@@ -281,10 +300,10 @@ def install_tool(app, Cnt):
     os.chdir(path)
 
     # clone the git repository
-    call(['git', 'clone', repo, dirsrc])
+    run(['git', 'clone', repo, dirsrc])
     os.chdir(dirsrc)
-    print 'i> checking out the specific git version of the software...'
-    call(['git', 'checkout', sha1])
+    log.info('checking out the specific git version of the software...')
+    run(['git', 'checkout', sha1])
     os.chdir('../')
 
     # create the building folder
@@ -299,15 +318,15 @@ def install_tool(app, Cnt):
             '-DBUILD_ALL_DEP=ON',
             '-DCMAKE_INSTALL_PREFIX='+path,
             '-G', Cnt['MSVC_VRSN']]
-        call(cmd)
-        call(['cmake', '--build', './', '--config', 'Release', '--target', 'install'])
+        run(cmd)
+        run(['cmake', '--build', './', '--config', 'Release', '--target', 'install'])
     elif platform.system() in ['Linux', 'Darwin']:
         cmd = ['cmake', '../'+dirsrc,
             '-DBUILD_ALL_DEP=ON',
             '-DCMAKE_INSTALL_PREFIX='+path]
         if Cnt['CMAKE_TLS_PAR']!='': cmd.append(Cnt['CMAKE_TLS_PAR'])
-        call(cmd)
-        call(
+        run(cmd)
+        run(
             ['cmake', '--build', './',
             '--config', 'Release',
             '--target', 'install',
@@ -322,25 +341,25 @@ def install_tool(app, Cnt):
             Cnt['RESPATH'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'reg_resample*'))[0]
             Cnt['REGPATH'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'reg_aladin*'))[0]
         except IndexError:
-            print 'e> NiftyReg has NOT been successfully installed.'
+            log.error('NiftyReg has NOT been successfully installed.')
             raise SystemError('Failed Installation (NiftyReg)')
         # updated the file resources.py
         Cnt = update_resources(Cnt)
         # check the installation:
         chck_niftyreg = check_version(Cnt, chcklst=['RESPATH','REGPATH'])
-        if not all([chck_niftyreg[k] for k in chck_niftyreg.keys()]):
-            print 'e> NiftyReg has NOT been successfully installed.'
+        if not all([chck_niftyreg[k] for k in chck_niftyreg]):
+            log.error('NiftyReg has NOT been successfully installed.')
             raise SystemError('Failed Installation (NiftyReg)')
 
     elif app=='dcm2niix':
         try:
             Cnt['DCM2NIIX'] = glob.glob(os.path.join(os.path.join(path,'bin'), 'dcm2niix*'))[0]
         except IndexError:
-            print 'e> dcm2niix has NOT been successfully installed.'
+            log.error('dcm2niix has NOT been successfully installed.')
             Cnt = download_dcm2niix(Cnt, path)
         # check the installation:
         if not check_version(Cnt, chcklst=['DCM2NIIX']):
-            print 'e> dcm2niix has NOT been successfully compiled from github.'
+            log.error('dcm2niix has NOT been successfully compiled from github.')
             Cnt = download_dcm2niix(Cnt, path)
     return Cnt
     

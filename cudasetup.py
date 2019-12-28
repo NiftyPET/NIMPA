@@ -16,6 +16,20 @@ import numpy as np
 import platform
 import shutil
 
+#-------------------------------------------------------------------------------
+import logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
+#> console handler
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n> %(message)s')
+ch.setFormatter(formatter)
+# ch.setLevel(logging.ERROR)
+log.addHandler(ch)
+#-------------------------------------------------------------------------------
+
+
 # get Python prefix
 prefix = sys.prefix
 
@@ -34,7 +48,7 @@ def path_niftypet_local():
     # if using conda put the resources in the folder with the environment name
     if 'CONDA_DEFAULT_ENV' in os.environ:
         env = os.environ['CONDA_DEFAULT_ENV']
-        print 'i> conda environment found:', env
+        log.info('install> conda environment found: {}'.format(env))
     else:
         env = ''
     # create the path for the resources files according to the OS platform
@@ -61,18 +75,18 @@ def find_cuda():
         cuda_path = None
     
     if cuda_path is None:
-        print 'w> nvcc compiler could not be found from the PATH!'
+        log.warning('nvcc compiler could not be found from the PATH!')
         return None
 
     # serach for the CUDA library path
     lcuda_path = os.path.join(cuda_path, 'lib64')
-    if 'LD_LIBRARY_PATH' in os.environ.keys():
+    if 'LD_LIBRARY_PATH' in os.environ:
         if lcuda_path in os.environ['LD_LIBRARY_PATH'].split(os.pathsep):
-            print 'i> found CUDA lib64 in LD_LIBRARY_PATH:   ', lcuda_path
+            log.info('found CUDA lib64 in LD_LIBRARY_PATH: {}'.format(lcuda_path))
     elif os.path.isdir(lcuda_path):
-        print 'i> found CUDA lib64 in :   ', lcuda_path
+        log.info('found CUDA lib64 in : {}'.format(lcuda_path))
     else:
-        print 'w> folder for CUDA library (64-bit) could not be found!'
+        log.warning('folder for CUDA library (64-bit) could not be found!')
 
 
     return cuda_path, lcuda_path
@@ -90,17 +104,22 @@ def dev_setup():
         try:
             import resources
         except ImportError as ie:
-            print '----------------------------'
-            print 'e> Import Error: NiftyPET''s resources file <resources.py> could not be imported.  It should be in ''~/.niftypet/resources.py'' but likely it does not exists.'
-            print '----------------------------'
+            log.error('''\
+            \r--------------------------------------------------------------------------
+            \rNiftyPET resources file <resources.py> could not be imported.
+            \rIt should be in ~/.niftypet/resources.py (Linux) or 
+            \rin //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
+            \rbut likely it does not exists.
+            \r--------------------------------------------------------------------------
+            ''')
     else:
-        print 'e> resources file not found/installed.'
+        log.error('resources file not found/installed.')
         return None
 
     # get all constants and check if device is already chosen
     Cnt = resources.get_setup()
     if 'CCARCH' in Cnt and 'DEVID' in Cnt:
-        print 'i> using this CUDA architecture(s):', Cnt['CCARCH']
+        log.info('using this CUDA architecture(s): {}'.format(Cnt['CCARCH']))
         return Cnt['CCARCH']
 
     # get the current locations
@@ -122,7 +141,7 @@ def dev_setup():
     elif platform.system() in ['Linux', 'Darwin']:
         path_tmp_build = os.path.join(path_tmp_dinf, 'build')
     else:
-        print 'w> the operating system {} is not supported for GPU'.format(platform.system())
+        log.warning('the operating system {} is not supported for GPU'.format(platform.system()))
         return ''
         
     os.makedirs(path_tmp_build)
@@ -142,7 +161,7 @@ def dev_setup():
         )
         subprocess.call(['cmake', '--build', './'])
     else:
-        print 'e> This operating systems {} is not supported!'.format(platform.system())
+        log.error('This operating systems {} is not supported!'.format(platform.system()))
         return ''
     
     # imoprt the new module for device properties
@@ -150,7 +169,7 @@ def dev_setup():
     try:
         import dinf
     except ImportError:
-        print 'e> could not compile a CUDA C file--assuming no CUDA installation.'
+        log.error('could not compile a CUDA C file--assuming no CUDA installation.')
         return ''
     
     # get the list of installed CUDA devices
@@ -206,13 +225,13 @@ def resources_setup():
     '''
     This function checks CUDA devices, selects some and installs resources.py
     '''
-    print 'i> installing file <resources.py> into home directory if it does not exist.'
+    log.info('installing file <resources.py> into home directory if it does not exist.')
     path_current = os.path.dirname( os.path.realpath(__file__) )
     # path to the install version of resources.py.
     path_install = os.path.join(path_current, 'resources')
     # get the path to the local resources.py (on Linux machines it is in ~/.niftypet)
     path_resources = path_niftypet_local()
-    print path_current
+    log.info('current path: {}'.format(path_current))
 
     # flag for the resources file if already installed (initially assumed not)
     flg_resources = False
@@ -224,19 +243,23 @@ def resources_setup():
         if os.path.isfile(os.path.join(path_install,'resources.py')):
             shutil.copyfile( os.path.join(path_install,'resources.py'), os.path.join(path_resources,'resources.py') )
         else:
-            print 'e> could not fine file <resources.py> to be installed!'
             raise IOError('could not find <resources.py')
     else:
-        print 'i> <resources.py> should be already in the local NiftyPET folder.', path_resources
+        log.info('<resources.py> should be already in the local NiftyPET folder:\n  {}'.format(path_resources))
         # set the flag that the resources file is already there
         flg_resources = True
         sys.path.append(path_resources)
         try:
             import resources
         except ImportError as ie:
-            print '----------------------------'
-            print 'e> Import Error: NiftyPET''s resources file <resources.py> could not be imported.  It should be in ''~/.niftypet/resources.py'' but likely it does not exists.'
-            print '----------------------------'
+            log.error('''\
+            \r--------------------------------------------------------------------------
+            \rNiftyPET resources file <resources.py> could not be imported.
+            \rIt should be in ~/.niftypet/resources.py (Linux) or 
+            \rin //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
+            \rbut likely it does not exists.
+            \r--------------------------------------------------------------------------
+            ''')
 
     # find available GPU devices, select one or more and output the compilation flags
     gpuarch = dev_setup()

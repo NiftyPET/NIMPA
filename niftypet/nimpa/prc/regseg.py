@@ -1,5 +1,5 @@
 """ NIMPA: functions for neuro image processing and analysis.
-	Includes functions relating to image registration/segmentation.
+    Includes functions relating to image registration/segmentation.
     
 """
 __author__    = "Pawel Markiewicz"
@@ -15,9 +15,21 @@ import glob
 import numpy as np
 import scipy.ndimage as ndi
 
-import imio
-import prc
+from . import imio
+from . import prc
 
+#-------------------------------------------------------------------------------
+import logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
+#> console handler
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n>  %(message)s')
+ch.setFormatter(formatter)
+# ch.setLevel(logging.ERROR)
+log.addHandler(ch)
+#-------------------------------------------------------------------------------
 
 
 def imfill(immsk):
@@ -254,7 +266,7 @@ def resample_niftyreg(
         fout = os.path.join(opth, 'affine_flo-' \
                 + os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
 
-    if isinstance(intrp, (int, long)): intrp = str(intrp)
+    if isinstance(intrp, int): intrp = str(intrp)
     
     cmd = [executable,
        '-ref', fref,
@@ -279,6 +291,8 @@ def coreg_spm(
         imref,
         imflo,
         matlab_eng='',
+        fwhm_ref = 0,
+        fwhm_flo = 0,
         outpath='',
         fname_aff='',
         fcomment = '',
@@ -308,7 +322,7 @@ def coreg_spm(
 
     # add path to SPM matlab file
     spmpth = resource_filename(__name__, 'spm')
-    print 'PATH: ' + spmpth
+    log.info('adding SPM to PATH: ' + spmpth)
     eng.addpath(spmpth, nargout=0)
 
     #> output path
@@ -331,6 +345,15 @@ def coreg_spm(
         imrefu = os.path.join(opth, fnm)
         shutil.copyfile(imref, imrefu)
     
+    if fwhm_ref>0:
+        smodct = prc.smoothim(imrefu, fwhm_ref)
+        
+        #> delete the previous version (non-smoothed)
+        os.remove(imrefu)
+        imrefu = smodct['fim']
+
+        log.info('smoothed the reference image with FWHM={} and saved to\n{}'.format(fwhm_ref,imrefu))
+
     #> floating
     if imflo[-3:]=='.gz': 
         imflou = imio.nii_ugzip(imflo, outpath=opth)
@@ -338,6 +361,15 @@ def coreg_spm(
         fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
         imflou = os.path.join(opth, fnm)
         shutil.copyfile(imflo, imflou)
+
+    if fwhm_flo>0:
+        smodct = prc.smoothim(imflou, fwhm_flo)
+        #> delete the previous version (non-smoothed)
+        os.remove(imflou)
+        imflou = smodct['fim']
+
+        log.info('smoothed the floating image with FWHM={} and saved to\n{}'.format(fwhm_ref,imrefu))
+
 
     # run the matlab SPM coregistration
     Mm, xm = eng.coreg_spm_m(
@@ -396,7 +428,8 @@ def coreg_spm(
     if save_arr:
         np.save(faff, M)
     if save_txt:
-        np.savetxt(faff.split('.npy')[0]+'.txt', M)
+        faff = faff.split('.npy')[0]+'.txt'
+        np.savetxt(faff, M)
     
     return {'affine':M, 'faff':faff,
             'rotations':x[3:], 'translations':x[:3],
@@ -415,6 +448,7 @@ def resample_spm(
         imflo,
         M,
         matlab_eng='',
+        fwhm = 0,
         intrp=1.,
         which=1,
         mask=0,
@@ -430,11 +464,13 @@ def resample_spm(
     ):
 
 
-    print '====================================================================='
-    print ' S P M  inputs:'
-    print '> ref:', imref
-    print '> flo:', imflo
-    print '====================================================================='
+    log.info('''\
+        \r======================================================================
+        \r S P M  inputs:
+        \r > ref:' {}
+        \r > flo:' {}
+        \r======================================================================
+    '''.format(imref, imflo))
 
     import matlab
     from pkg_resources import resource_filename
@@ -480,18 +516,18 @@ def resample_spm(
         imflou = os.path.join(opth, fnm)
         shutil.copyfile(imflo, imflou)
 
-    if isinstance(M, basestring):
+    if isinstance(M, str):
         if os.path.basename(M).endswith('.txt'):
             M = np.loadtxt(M)
-            print 'i> matrix M given in the form of text file'
+            log.info('matrix M given in the form of text file')
         elif os.path.basename(M).endswith('.npy'):
             M = np.load(M)
-            print 'i> matrix M given in the form of NumPy file'
+            log.info('matrix M given in the form of NumPy file')
         else:
             raise IOError('e> unrecognised file extension for the affine.')
             
     elif isinstance(M, (np.ndarray, np.generic)):
-        print 'i> matrix M given in the form of Numpy array'
+       log.info('matrix M given in the form of Numpy array')
     else:
         raise IOError('The form of affine matrix not recognised.')
 
@@ -528,6 +564,12 @@ def resample_spm(
                 + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
     # change the file name
     os.rename(fim+'.gz', fout)
+
+    if fwhm>0:
+        smodct = prc.smoothim(fout, fwhm)
+        log.info('smoothed the resampled image with FWHM={} and saved to\n{}'.format(fwhm, smodct['fim']))
+
+
 
     return fout
 
@@ -585,7 +627,7 @@ def realign_mltp_spm(
             else:
                 fun = f
         else:
-            print 'w> omitting file/folder:', f
+            log.warning('omitting file/folder: {}'.format(f))
         fungz.append(fun)
 
     if niisort:
@@ -679,7 +721,7 @@ def resample_mltp_spm(
                 as a reference.
     '''
 
-    if not isinstance(fims, list) and not isinstance(fims[0], basestring):
+    if not isinstance(fims, list) and not isinstance(fims[0], str):
         raise ValueError('e> unrecognised list of input images')
 
     if not os.path.isfile(ftr):
@@ -1002,7 +1044,7 @@ def resample_vinci(
     else:
         fout = os.path.join(
                 opth,
-                fimout.split('.nii')[0]+'.nii.gz')
+                fimout.split('.')[0]+'.nii.gz')
     #---------------------------------------------------------------------------
 
 
@@ -1221,8 +1263,11 @@ def resample_fsl(
     if not os.path.isfile(executable) or not call([executable, '-version'])==0:
         raise IOError('e> no valid FSL executable provided!')
 
-    print '==================================================================='
-    print ' F S L  resampling'
+    log.info('''\
+        \r===================================================================
+        \rF S L  resampling...
+        \r===================================================================
+        ''')
 
     #> output path
     if outpath=='' and fimout!='':
@@ -1250,7 +1295,7 @@ def resample_fsl(
                 + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
 
     intrp = int(intrp)
-    if isinstance(intrp, (int, long)): intrp = str(intrp)
+    if isinstance(intrp, int): intrp = str(intrp)
     if intrp=='1':
         interpolation = 'trilinear'
     elif intrp=='0':
@@ -1265,16 +1310,14 @@ def resample_fsl(
             '-interp', interpolation]
     call(cmd)
 
-    print 'D O N E'
-    print '==================================================================='
+
+    log.info('''\
+        \r===================================================================
+        \rF S L  resampling done.
+        \r===================================================================
+        ''')
 
     return fout
-
-
-
-
-
-
 
 
 
@@ -1296,7 +1339,7 @@ def motion_reg(
         trn_thresh = 1.):
 
     
-    if isinstance(flo, basestring):
+    if isinstance(flo, str):
         flolst = [flo]
     elif isinstance(flo, list) and all([os.path.isfile(f) for f in flo]):
         flolst = flo
@@ -1330,12 +1373,12 @@ def motion_reg(
             del_uncmpr=True)
 
         if any((np.abs(M['rotations'])*180/np.pi) > rot_thresh):
-            print 'i> at least one rotation is above the threshold of', rot_thresh
-            print '   ', M['rotations']*180/np.pi
+            log.warning('''at least one rotation is above the threshold of {}, and is:
+                \r {}'''.format(rot_thresh, M['rotations']*180/np.pi))
             motion_rot = True
         if any(np.abs(M['translations']) > trn_thresh):
-            print 'i> at least one translation is above the threshold of', rot_thresh
-            print '   ', M['translations']
+            log.warning('''at least one translation is above the threshold of {}, and is:
+                \r {}'''.format(trn_thresh, M['translations']))
             motion_trn = True
 
         lstout.append({
@@ -1345,14 +1388,6 @@ def motion_reg(
             })
 
     return lstout
-
-    #     dctout[os.path.basename(flolst[i])] = {
-    #         'regout':M, 
-    #         'trans_mo':motion_trn,
-    #         'rotat_mo':motion_rot,
-    #     }
-    # return dctout
-
 
 
 
@@ -1374,7 +1409,7 @@ def dice_coeff(im1, im2, val=1):
         Outputs a float number representing the Dice score.
     '''
 
-    if isinstance(im1, basestring) and isinstance(im2, basestring) \
+    if isinstance(im1, str) and isinstance(im2, str) \
     and os.path.isfile(im1) and os.path.basename(im1).endswith(('nii', 'nii.gz')) \
     and os.path.isfile(im2) and os.path.basename(im2).endswith(('nii', 'nii.gz')):
         imn1 = imio.getnii(im1, output='image')
@@ -1386,11 +1421,11 @@ def dice_coeff(im1, im2, val=1):
         raise TypeError('Unrecognised or Mismatched Images.')
 
     # a single value corresponding to one ROI
-    if isinstance(val, (int, long)):
+    if isinstance(val, int):
         imv1 = (imn1 == val)
         imv2 = (imn2 == val)
     # multiple values in list corresponding to a composite ROI
-    elif isinstance(val, list) and all([isinstance(v, (int, long)) for v in val]):
+    elif isinstance(val, list) and all([isinstance(v, int) for v in val]):
         imv1 = (imn1==val[0])
         imv2 = (imn2==val[0])
         for v in val[1:]:
@@ -1422,7 +1457,7 @@ def dice_coeff_multiclass(im1, im2, roi2ind):
         Outputs a float number representing the Dice score.
     '''
 
-    if isinstance(im1, basestring) and isinstance(im2, basestring) \
+    if isinstance(im1, str) and isinstance(im2, str) \
     and os.path.isfile(im1) and os.path.basename(im1).endswith(('nii', 'nii.gz')) \
     and os.path.isfile(im2) and os.path.basename(im2).endswith(('nii', 'nii.gz')):
         imn1 = imio.getnii(im1, output='image')
@@ -1437,9 +1472,9 @@ def dice_coeff_multiclass(im1, im2, roi2ind):
         raise ValueError('Shape Mismatch: Input images must have the same shape.')
 
     out = {}
-    for k in roi2ind.keys():
+    for k in roi2ind:
 
-    	# multiple values in list corresponding to a composite ROI
+        # multiple values in list corresponding to a composite ROI
         imv1 = (imn1==roi2ind[k][0])
         imv2 = (imn2==roi2ind[k][0])
         for v in roi2ind[k][1:]:
@@ -1447,9 +1482,9 @@ def dice_coeff_multiclass(im1, im2, roi2ind):
             imv1 += (imn1==v)
             imv2 += (imn2==v)
 
-	    #-compute Dice coefficient
-    	intrsctn = np.logical_and(imv1, imv2)
-    	out[k] = 2. * intrsctn.sum() / (imv1.sum() + imv2.sum())
+        #-compute Dice coefficient
+        intrsctn = np.logical_and(imv1, imv2)
+        out[k] = 2. * intrsctn.sum() / (imv1.sum() + imv2.sum())
 
     return out
 

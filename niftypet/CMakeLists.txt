@@ -10,16 +10,7 @@ find_package(CUDA REQUIRED)
 find_package(PythonInterp)
 find_package(PythonLibs)
 
-# find_library(PYTHON_LIBRARY
-#               NAMES python27 libpython2.7.so
-#               PATHS ${PYTHON_PREFIX_PATH}/libs/
-#               ${PYTHON_PREFIX_PATH}/lib/
-#             )
-# set(PYTHON_LIBRARIES)
-# set(PYTHON_INCLUDE_DIRS)
-
 set(PYTHON_PREFIX_PATH)
-
 
 add_subdirectory(${CMAKE_PROJECT_NAME}/dinf)
 add_subdirectory(${CMAKE_PROJECT_NAME}/prc)

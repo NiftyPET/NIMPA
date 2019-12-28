@@ -1,40 +1,62 @@
 #!/usr/bin/env python
-"""Compile CUDA source code and setup Python package 'nimpa' for package 'niftypet'."""
+"""Compile CUDA source code and setup Python 3 package 'nimpa' for namespace 'niftypet'."""
 
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018"
-# ---------------------------------------------------------------------------------
+__copyright__   = "Copyright 2019"
+# ------------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
 
 import os
 import sys
 import platform
-from subprocess import Popen, PIPE
+from subprocess import run, PIPE
 
 import cudasetup as cs
 import install_tools as tls
 
-if platform.system() not in ['Windows', 'Darwin', 'Linux']:
-    print('e> the operating system is not supported:', platform.system())
-    raise SystemError('e> unknown operating system (OS).')
+#-------------------------------------------------------------------------------
+import logging
+log = logging.getLogger('NIMPA')
+log.setLevel(logging.INFO)
+
+#> console handler
+ch = logging.StreamHandler()
+formatter = logging.Formatter(
+    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s'
+    )
+ch.setFormatter(formatter)
+log.addHandler(ch)
+#-------------------------------------------------------------------------------
+
+
+if not platform.system() in ['Windows', 'Darwin', 'Linux']:
+    log.error('''\
+        \rthe operating system is not supported: {}
+        \ronly Linux, Windows and macOS are supported.
+        '''.format(platform.system()))
+    raise SystemError('unknown operating system (OS).')
 
 # check if git, CMake and CUDA are installed
 chk = tls.check_depends()
 
 if not chk['git']:
-    print '-----------------'
-    print 'e> [git] is not installed but is required.'
-    print '-----------------'
-    raise SystemError('e> git is missing but required.')
+    log.error('''\
+        \r--------------------------------------------------------------
+        \rGit is not installed but is required for tools installation.
+        \r--------------------------------------------------------------
+        ''')
+    raise SystemError('Git is missing.')
 
 #> check if CUDA and CMake are available to compile C/CUDA C code
 if chk['cuda'] and chk['cmake']:
     #----------------------------------------------------
     # select the supported GPU device and install resources.py
-    print ' '
-    print '---------------------------------------------'
-    print 'i> setting up CUDA ...'
+    log.info('''
+        \r--------------------------------------------------------------
+        \rSetting up CUDA ...
+        \r--------------------------------------------------------------
+        ''')
     gpuarch = cs.resources_setup()
     #----------------------------------------------------
 else:
@@ -43,9 +65,11 @@ else:
 
 #===============================================================
 # First install third party apps for NiftyPET tools
-print ' '
-print '---------------------------------------------'
-print 'i> setting up NiftyPET tools ...'
+log.info('''
+    \r--------------------------------------------------------------
+    \rSetting up NiftyPET tools ...
+    \r--------------------------------------------------------------
+    ''')
 
 #get the local path to NiftyPET resources.py
 path_resources = cs.path_niftypet_local()
@@ -55,10 +79,15 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
     try:
         import resources
     except ImportError as ie:
-        print '---------------------------------------------------------------------------------'
-        print 'e> Import Error: NiftyPET''s resources file <resources.py> could not be imported.'
-        print '---------------------------------------------------------------------------------'
-        raise SystemError('Missing resources file')
+        log.info('''
+            \r------------------------------------------------------------------
+            \rNiftyPET resources file <resources.py> could not be imported.
+            \rIt should be in ~/.niftypet/resources.py (Linux) or 
+            \rin //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
+            \rbut likely it does not exists.
+            \r------------------------------------------------------------------
+            ''')
+        raise SystemError('Missing resource file')
     # get the current setup, if any
     Cnt = resources.get_setup()
     # check the installation of tools
@@ -71,9 +100,11 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
     if not chck_tls['DCM2NIIX']:
         # reply = tls.query_yesno('q> the latest compatible version of dcm2niix seems to be missing.\n   Do you want to install it?')
         # if reply:
-        #-------- Install dmc2niix -------------
-        print '---------------------------------------------'
-        print 'i> installing dcm2niix:'
+        log.info('''
+            \r--------------------------------------------------------------
+            \rInstalling dcm2niix ...
+            \r--------------------------------------------------------------
+            ''')
         Cnt = tls.install_tool('dcm2niix', Cnt)
     #---------------------------------------
     
@@ -90,24 +121,34 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
             reply = True
 
         if reply:
-            print '---------------------------------------------'
-            print 'i> installing NiftyReg:'
+            log.info('''
+                \r--------------------------------------------------------------
+                \rInstalling NiftyReg ...
+                \r--------------------------------------------------------------
+                ''')
             Cnt = tls.install_tool('niftyreg', Cnt)
     #-------------------------------------------
     
 else:
     raise SystemError('Missing file: resources.py')
 
-print '---------------------------------------'
-print 'i> installation of NiftyPET-tools done.'
-print '---------------------------------------'
+log.info('''
+    \r--------------------------------------------------------------
+    \rInstallation of NiftyPET-tools is done.
+    \r--------------------------------------------------------------
+    ''')
 #===============================================================
 
+
+#===============================================================
+#>CUDA installation
 if chk['cuda'] and gpuarch!='':
-    #===============================================================
-    print '---------------------------------'
-    print 'i> CUDA compilation for NIMPA ...'
-    print '---------------------------------'
+    
+    log.info('''
+        \r--------------------------------------------------------------
+        \rCUDA compilation for NIMPA ...
+        \r--------------------------------------------------------------
+        ''')
 
     path_current = os.path.dirname( os.path.realpath(__file__) )
     path_build = os.path.join(path_current, 'build')
@@ -135,38 +176,47 @@ if chk['cuda'] and gpuarch!='':
     cmakelog = ['py_cmake_config.log', 'py_cmake_build.log'] 
     # run commands with logging
     for ci in range(len(cmd)):
+
+        p = run(cmd[ci], stdout=PIPE, stderr=PIPE)
+
+        stdout = p.stdout.decode('utf-8')
+        stderr = p.stderr.decode('utf-8')
+
         with open(cmakelog[ci], 'w') as f:
-            p = Popen(cmd[ci], stdout=PIPE, stderr=PIPE)
-            for c in iter(lambda: p.stdout.read(1), ''):
-                sys.stdout.write(c)
-                f.write(c)
-        # get the pipes outputs
-        stdout, stderr = p.communicate()
+            f.write(stdout)
+
+        
+
         ei = stderr.find('error')
         if ei>=0:
-            errstr.append(stderr[ei:ei+40]+'...')
+            errstr.append(stderr[ei:ei+60]+'...')
         else:
             errstr.append('_')
 
-        if stderr:
-            print 'c>-------- reports -----------'
-            print stderr+'c>------------ end ---------------'
+        if p.stderr:
+            log.warning('''\n
+            \r---------- process warnings/errors ------------\n
+            \r{}
+            \r--------------------- end ---------------------
+            '''.format(stderr))
 
-        print ' '
-        print stdout
+        log.info('''\n
+        \r---------- compilation output ------------\n
+        \r{}
+        \r------------------- end ------------------
+        '''.format(stdout))
 
 
-    print ' '
-    print '--- error report ---'
+    log.info('\n------------- error report -------------')
     for ci in range(len(cmd)):
         if errstr[ci] != '_':
-            print 'e> found error(s) in ', ' '.join(cmd[ci]), '>>', errstr[ci]
-            print ' '
-    print '--- end ---'
+            log.error(' found error(s) in ' + ' '.join(cmd[ci]) + ' >> ' + errstr[ci])
+    log.info('------------------ end -----------------\n')
 
     # come back from build folder
     os.chdir(path_current)
-    #===============================================================
+#===============================================================
+
 
 
 
@@ -174,11 +224,13 @@ if chk['cuda'] and gpuarch!='':
 # PYTHON SETUP
 #===============================================================
 
-print 'i> found those packages:'
-print find_packages(exclude=['docs'])
+log.info('''found those packages:\n{}'''.format(find_packages(exclude=['docs'])))
 
 freadme = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'README.rst')
-print freadme
+log.info('''\
+    \rUsing this README file:
+    {}
+    '''.format(freadme))
 
 with open(freadme) as file:
     long_description = file.read()
@@ -199,19 +251,18 @@ elif platform.system() == 'Windows' :
 setup(
     name='nimpa',
     license = 'Apache 2.0',
-    version='1.1.19',
+    version='2.0.0',
     description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
     long_description=long_description,
     author='Pawel J. Markiewicz',
     author_email='p.markiewicz@ucl.ac.uk',
-    url='https://github.com/NiftyPET/NIMPA',
+    url='https://github.com/pjmark/NIMPA',
     keywords='PET MR processing analysis',
     install_requires=[
         'pydicom>=1.0.2,<=1.2.2',
         'nibabel>=2.2.1, <=2.3.1',
         #'SimpleITK>=1.2.0'
         ],
-    python_requires='<3.0.0',
     packages=find_packages(exclude=['docs']),
     package_data={
         'niftypet': ['auxdata/*'],

@@ -1,7 +1,7 @@
 """image input/output functionalities."""
 
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018"
+__copyright__   = "Copyright 2019"
 #-------------------------------------------------------------------------------
 
 
@@ -15,13 +15,27 @@ import re
 import shutil
 import glob
 
-from subprocess import call
+from subprocess import run
 
 #> NiftyPET resources
 import resources as rs
 
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
+
+
+#-------------------------------------------------------------------------------
+import logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
+#> console handler
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n>  %(message)s')
+ch.setFormatter(formatter)
+# ch.setLevel(logging.ERROR)
+log.addHandler(ch)
+#-------------------------------------------------------------------------------
 
 
 #---------------------------------------------------------------
@@ -78,6 +92,15 @@ def getnii(fim, nan_replace=None, output='image'):
         trnsp = tuple(2-np.int8(ornt[:,0]))
         flip  = tuple(np.int8(ornt[:,1]))
 
+        #> voxel size
+        voxsize = nim.header.get('pixdim')[1:nim.header.get('dim')[0]+1]
+        #> rearrange voxel size according to the orientation
+        voxsize = voxsize[np.array(trnsp)]
+
+        #> dimensions
+        dims = dim[1:nim.header.get('dim')[0]+1]
+        dims = dims[np.array(trnsp)]
+
         #> flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
         if dimno==4:
             imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2],:], (3,)+trnsp)
@@ -97,6 +120,8 @@ def getnii(fim, nan_replace=None, output='image'):
                 'dtype':nim.get_data_dtype(),
                 'shape':imr.shape,
                 'hdr':nim.header,
+                'voxsize':voxsize,
+                'dims':dims,
                 'transpose':trnsp,
                 'flip':flip}
     elif output=='image':
@@ -118,7 +143,6 @@ def getnii_descr(fim):
     rcndic = {}
     
     if rcnlst[0]=='':
-        # print 'w> no description in the NIfTI header'
         return rcndic
     
     for ci in range(len(rcnlst)):
@@ -200,7 +224,7 @@ def orientnii(imfile):
         for i in range(3):
             niixyz[i] = np.argmax(abs(A[i,:-1]))
             niiorient.append( strorient[ niixyz[i] ] )
-        print niiorient
+        log.info('NIfTI orientation:\n{}'.format(niiorient))
 
 def nii_ugzip(imfile, outpath=''):
     '''Uncompress *.gz file'''
@@ -250,11 +274,11 @@ def pick_t1w(mri):
         elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
             # create file name for the converted NIfTI image
             fnii = 'converted'
-            call( [rs.DCM2NIIX, '-f', fnii, mri['T1nii'] ] )
+            run( [rs.DCM2NIIX, '-f', fnii, mri['T1nii'] ] )
             ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
             ft1w = ft1nii[0]
         else:
-            print 'e> disaster: could not find a T1w image!'
+            log.info('e> disaster: could not find a T1w image!')
             return None
             
     else:
@@ -268,9 +292,9 @@ def dcminfo(dcmvar, verbose=True):
     ''' Get basic info about the DICOM file/header.
     '''
 
-    if isinstance(dcmvar, basestring):
+    if isinstance(dcmvar, str):
         if verbose:
-            print 'i> provided DICOM file:', dcmvar
+            log.info('i> provided DICOM file: {}'.format(dcmvar))
         dhdr = dcm.dcmread(dcmvar)
     elif isinstance(dcmvar, dict):
         dhdr = dcmvar
@@ -279,7 +303,7 @@ def dcminfo(dcmvar, verbose=True):
 
     dtype   = dhdr[0x08, 0x08].value
     if verbose:
-        print '   Image Type:', dtype
+        log.info('   Image Type: {}'.format(dtype))
 
     #-------------------------------------------
     #> scanner ID
@@ -301,24 +325,24 @@ def dcminfo(dcmvar, verbose=True):
     if [0x29, 0x1108] in dhdr:
         csatype = dhdr[0x29, 0x1108].value
         if verbose:
-            print '   CSA Data Type:', csatype
+            log.info('   CSA Data Type: {}'.format(csatype))
 
     #> DICOM comment or on MR parameters
     cmmnt   = ''
     if [0x20, 0x4000] in dhdr:
         cmmnt = dhdr[0x0020, 0x4000].value
         if verbose:
-            print '   Comments:', cmmnt
+            log.info('   Comments: {}'.format(cmmnt))
 
     #> MR parameters (echo time, etc) 
     TR = 0
     TE = 0
     if [0x18, 0x80] in dhdr:
         TR = float(dhdr[0x18, 0x80].value)
-        if verbose: print '   TR:', TR
+        if verbose: log.info('   TR: {}'.format(TR))
     if [0x18, 0x81] in dhdr:
         TE = float(dhdr[0x18, 0x81].value)
-        if verbose: print '   TE:', TE
+        if verbose: log.info('   TE: {}'.format(TE))
 
 
     #> check if it is norm file
@@ -431,18 +455,18 @@ def dcmanonym(
     '''
 
     #> check if a single DICOM file
-    if isinstance(dcmpth, basestring) and os.path.isfile(dcmpth):
+    if isinstance(dcmpth, str) and os.path.isfile(dcmpth):
         dcmlst = [dcmpth]
         if verbose:
-            print 'i> recognised the input argument as a single DICOM file.'
+            log.info('recognised the input argument as a single DICOM file.')
 
     #> check if a folder containing DICOM files
-    elif isinstance(dcmpth, basestring) and os.path.isdir(dcmpth):
+    elif isinstance(dcmpth, str) and os.path.isdir(dcmpth):
         dircontent = os.listdir(dcmpth)
         #> create a list of DICOM files inside the folder
         dcmlst = [os.path.join(dcmpth,d) for d in dircontent if os.path.isfile(os.path.join(dcmpth,d)) and d.endswith(dcmext)]
         if verbose:
-            print 'i> recognised the input argument as the folder containing DICOM files.'
+            log.info('recognised the input argument as the folder containing DICOM files.')
 
     #> check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
@@ -450,13 +474,13 @@ def dcmanonym(
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
         if verbose:
-            print 'i> recognised the input argument as the list of DICOM file paths.'
+            log.info('recognised the input argument as the list of DICOM file paths.')
 
     #> check if dictionary of data input <datain>
     elif isinstance(dcmpth, dict) and 'corepath' in dcmpth:
         dcmlst = list_dcm_datain(dcmpth)
         if verbose:
-            print 'i> recognised the input argument as the dictionary of scanner data.'
+            log.info('recognised the input argument as the dictionary of scanner data.')
 
     else:
         raise IOError('Unrecognised input!')
@@ -471,8 +495,11 @@ def dcmanonym(
         #> get the basic info about the DICOM file
         dcmtype = dcminfo(dhdr, verbose=False)
         if verbose:
-            print '-------------------------------'
-            print 'i> the DICOM file is for:', dcmtype
+            log.info('''\
+            \r--------------------------------------------------
+            \rDICOM file is for: {}
+            \r--------------------------------------------------
+            '''.format(dcmtype))
 
         #> anonymise mMR data.
         if 'mmr' in dcmtype:
@@ -491,7 +518,7 @@ def dcmanonym(
             
             idx = [m.start() for m in re.finditer(r'([Pp]atients{0,1}[Nn]ame)', csa)]
             if idx and verbose:
-                print '   > found sensitive information deep in DICOM headers:', dcmtype
+                log.info('DICOM> found sensitive information deep in the headers: {}'.format(dcmtype))
 
 
             #> run the anonymisation    
@@ -501,8 +528,10 @@ def dcmanonym(
                 ci = i - iupdate
 
                 if displayonly:
-                    print '   > sensitive info:'
-                    print '    ', csa[ci:ci+strlen]
+                    log.info('''\
+                        \rDICOM> sensitive info:
+                        \r     {}
+                    '''.format(csa[ci:ci+strlen]))
                     continue
 
                 rplcmnt = re.sub( r'(\{\s*\"{1,2}\W*\w+\W*\w+\W*\"{1,2}\s*\})',
@@ -511,7 +540,7 @@ def dcmanonym(
                 )
                 #> update string
                 csa = csa[:ci] + rplcmnt + csa[ci+strlen:]
-                print '   > removed sensitive information.'
+                log.info('DICOM> removed sensitive information.')
                 #> correct for the number of removed letters
                 iupdate = strlen-len(rplcmnt)
 
@@ -523,29 +552,35 @@ def dcmanonym(
         #> Patient's name
         if [0x010,0x010] in dhdr:
             if displayonly:
-                print '   > sensitive info:', dhdr[0x010,0x010].name
-                print '    ', dhdr[0x010,0x010].value
+                log.info('''\
+                    \rDICOM> sensitive info: {}
+                    \r     > {}
+                    '''.format(dhdr[0x010,0x010].name, dhdr[0x010,0x010].value))
             else:
                 dhdr[0x010,0x010].value = patient
-                if verbose: print '   > anonymised patients name'
+                if verbose: log.info('DICOM> anonymised patients name')
 
         #> date of birth
         if [0x010,0x030] in dhdr:
             if displayonly:
-                print '   > sensitive info:', dhdr[0x010,0x030].name
-                print '    ', dhdr[0x010,0x030].value
+                log.info('''\
+                \rDICOM> sensitive info: {}
+                \r     > {}
+                '''.format(dhdr[0x010,0x030].name,  dhdr[0x010,0x030].value))
             else:
                 dhdr[0x010,0x030].value = dob
-                if verbose: print '   > anonymised date of birh'
+                if verbose: log.info('   > anonymised date of birth')
 
         #> physician's name
         if [0x008, 0x090] in dhdr:
             if displayonly:
-                print '   > sensitive info:',  dhdr[0x008,0x090].name
-                print '    ', dhdr[0x008,0x090].value
+                log.info('''\
+                \rDICOM> sensitive info: {}
+                \r     > {}
+                '''.format(dhdr[0x008,0x090].name, dhdr[0x008,0x090].value))
             else:
                 dhdr[0x008,0x090].value = physician
-                if verbose: print '   > anonymised physician name'
+                if verbose: log.info('   > anonymised physician name')
 
         dhdr.save_as(dcmf)
 
@@ -588,15 +623,18 @@ def dcmsort(folder, copy_series=False, verbose=False):
             std_time = dhdr[0x0008, 0x0030].value[:6]
 
             if verbose:
-                print 'series desciption:', srs_dcrp
-                print 'series time:', srs_time
-                print 'study  time:', std_time
-                print '---------------------------------------------------'
+                log.info('''\
+                    --------------------------------------
+                    DICOM series desciption: {}
+                    DICOM series time: {}
+                    DICOM study  time: {}
+                    --------------------------------------
+                    '''.format(srs_dcrp,srs_time , std_time))
 
             #----------
             # series for any category (can be multiple scans within the same category)
             recognised_series = False
-            srs_k = srs.keys()
+            srs_k = list(srs.keys())
             for s in srs_k:
                 if  np.array_equal(srs[s]['imorient'],  ornt) and \
                     np.array_equal(srs[s]['imsize'],    imsz) and \
@@ -665,7 +703,7 @@ def niisort(
     if len(sortlist)>1:
         # if more than one dynamic set is given, the dynamic mode is cancelled.
         dyn_flg = False
-        sortlist = range(Nim)
+        sortlist = list(range(Nim))
     elif len(sortlist)==1:
         dyn_flg = True
         sortlist = sortlist[0]
@@ -782,7 +820,7 @@ def dcm2nii(
 
 
     # convert the DICOM mu-map images to nii
-    call([executable, '-f', fimout, '-o', opth, dcmpth])
+    run([executable, '-f', fimout, '-o', opth, dcmpth])
 
     fniiout = glob.glob( os.path.join(opth, '*'+fimout+'*.nii*') )
 
@@ -804,7 +842,7 @@ def dcm2im(fpth):
     ext = ('dcm', 'DCM', 'ima', 'IMA') 
     
     # case when given a folder path
-    if isinstance(fpth, basestring) and os.path.isdir(fpth):
+    if isinstance(fpth, str) and os.path.isdir(fpth):
         SZ0 = len([d for d in os.listdir(fpth) if d.endswith(ext)])
         # list of DICOM files
         fdcms = os.listdir(fpth)
@@ -820,7 +858,7 @@ def dcm2im(fpth):
         raise NameError('Unrecognised input for DICOM files.')
 
     if SZ0<1:
-        print 'e> no DICOM images in the specified path.'
+        log.error('No DICOM images in the specified path.')
         raise IOError('Input DICOM images not recognised')
 
     # pick single DICOM header
@@ -863,7 +901,7 @@ def dcm2im(fpth):
             R[c,:] = np.array([float(f) for f in dhdr[0x28,0x30].value])
             S[c,:] = float(dhdr[0x18,0x50].value)
         else:
-            print 'e> could not read all the DICOM tags.'
+            log.error('could not read all the DICOM tags.')
             return {'im':[], 'affine':[], 'shape':[], 'orient':ornt, 'sruid':sruid}
             
         if [0x28,0x1053] in dhdr and [0x28,0x1052] in dhdr:
@@ -875,11 +913,11 @@ def dcm2im(fpth):
 
     #check if orientation/resolution is the same for all slices
     if np.sum(Orn-Orn[0,:]) > 1e-6:
-        print 'e> varying orientation for slices'
+        log.error('varying orientation for slices')
     else:
         Orn = Orn[0,:]
     if np.sum(R-R[0,:]) > 1e-6:
-        print 'e> varying resolution for slices'
+        log.error('varying resolution for slices')
     else:
         R = R[0,:]
 
