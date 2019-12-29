@@ -18,22 +18,30 @@ from subprocess import run
 import datetime
 import re
 import multiprocessing
+from pkg_resources import resource_filename
+
 
 #-------------------------------------------------------------------------------
+# LOGGING
+#-------------------------------------------------------------------------------
 import logging
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 
 #> console handler
 ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n>  %(message)s')
+formatter = logging.Formatter(
+    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s'
+    )
 ch.setFormatter(formatter)
-# ch.setLevel(logging.ERROR)
-log.addHandler(ch)
+logging.getLogger(__name__).addHandler(ch)
+
+def get_logger(name):
+    return logging.getLogger(name)
+
+#> default log level (10-debug, 20-info, ...)
+log_default = logging.WARNING
 #-------------------------------------------------------------------------------
 
 
-from pkg_resources import resource_filename
 from . import imio
 from . import regseg
 import resources as rs
@@ -125,7 +133,8 @@ def trimim( fims,
             store_img=False,
             imdtype=np.float32,
             memlim=False,
-            verbose=False):
+            verbose=False,
+            Cnt=None):
     '''
     Trim and upsample PET image(s), e.g., for GPU execution,
     PVC correction, ROI sampling, etc.
@@ -154,13 +163,22 @@ def trimim( fims,
     verbose: verbose mode [True/False]
     '''
 
-    if verbose>1:
-        log.setLevel(verbose)
-    elif verbose is True:
+    #> check if the dictionary of constant is given
+    if Cnt is None:
+        Cnt = {}
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+
+    if 'LOG' not in Cnt and verbose>=1:
         log.setLevel(logging.INFO)
+    elif 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
 
-
-    using_multiple_files = False
+    
+    sing_multiple_files = False
 
     # case when input folder is given
     if isinstance(fims, str) and os.path.isdir(fims):
@@ -508,6 +526,15 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
     imgSeg: segmentation into regions starting with 0 (e.g., background) and then next integer numbers
     itr: number of iteration (default 5)
     '''
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+    if 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
+
     dim = imgIn.shape
     m = np.int32(np.max(imgSeg))
     m_a = np.zeros(( m+1, itr ), dtype=np.float32)
@@ -520,7 +547,8 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
 
     # iterative Yang algorithm:
     for i in range(0, itr):
-        if Cnt['VERBOSE']: log.info('PVC Yang iteration = {}'.format(i))
+        if Cnt['VERBOSE']: 
+            log.info('PVC Yang iteration = {}'.format(i))
         # piece-wise constant image
         imgPWC = imgOut
         imgPWC[imgPWC<0] = 0
@@ -609,6 +637,11 @@ def pvc_iyang(
                 possible (needs Matlab engine and more validation)
         itr:    number of iterations used by the PVC.  5-10 should be enough (5 default)
     '''
+
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+    log.setLevel(Cnt['LOG'])
 
     # get all the input image properties
     if isinstance(petin, dict):
@@ -942,7 +975,8 @@ def bias_field_correction(
         executable = '',
         exe_options = [],
         sitk_image_mask = True,
-        verbose = False,):
+        verbose = False,
+        Cnt=None):
 
     ''' Correct for bias field in MR image(s) given in <fmr> as a string
         (single file) or as a list of strings (multiple files).  
@@ -965,6 +999,23 @@ def bias_field_correction(
         - sitk_image_mask:  Image masking will be used if SimpleITK is
                             chosen.
     '''
+
+
+    #> check if the dictionary of constant is given
+    if Cnt is None:
+        Cnt = {}
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+
+    if 'LOG' not in Cnt and verbose>=1:
+        log.setLevel(logging.INFO)
+    elif 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
+
 
     if executable=='sitk' and not 'SimpleITK' in sys.modules:
         log.error('''\
@@ -1180,6 +1231,17 @@ def mr2pet_rigid(
         pi=50, pv=50,
         smof=0, smor=0):
 
+
+    
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+
+    if 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
+
     # create output path if given
     if outpath!='':
         imio.create_dir(outpath)
@@ -1256,8 +1318,7 @@ def mr2pet_rigid(
         log.info('Executing command:\n{}'.format(cmd))
         run(cmd)
     else:
-        log.info('path to registration executable is incorrect!')
-        sys.exit()
+        raise IOError('path to registration executable is incorrect!')
         
     return faff
 

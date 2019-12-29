@@ -25,16 +25,23 @@ dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 
 
 #-------------------------------------------------------------------------------
+# LOGGING
+#-------------------------------------------------------------------------------
 import logging
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 
 #> console handler
 ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n>  %(message)s')
+formatter = logging.Formatter(
+    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s'
+    )
 ch.setFormatter(formatter)
-# ch.setLevel(logging.ERROR)
-log.addHandler(ch)
+logging.getLogger(__name__).addHandler(ch)
+
+def get_logger(name):
+    return logging.getLogger(name)
+
+#> default log level (10-debug, 20-info, ...)
+log_default = logging.WARNING
 #-------------------------------------------------------------------------------
 
 
@@ -212,8 +219,20 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
 
 
 
-def orientnii(imfile):
+def orientnii(imfile, Cnt=None):
     '''Get the orientation from NIfTI sform.  Not fully functional yet.'''
+
+    #> check if the dictionary of constant is given
+    if Cnt is None:
+        Cnt = {}
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+    if 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
     strorient = ['L-R', 'S-I', 'A-P']
     niiorient = []
     niixyz = np.zeros(3,dtype=np.int8)
@@ -225,6 +244,8 @@ def orientnii(imfile):
             niixyz[i] = np.argmax(abs(A[i,:-1]))
             niiorient.append( strorient[ niixyz[i] ] )
         log.info('NIfTI orientation:\n{}'.format(niiorient))
+
+    return niiorient
 
 def nii_ugzip(imfile, outpath=''):
     '''Uncompress *.gz file'''
@@ -278,19 +299,31 @@ def pick_t1w(mri):
             ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
             ft1w = ft1nii[0]
         else:
-            log.info('e> disaster: could not find a T1w image!')
-            return None
+            raise IOError('could not find a T1w image!')
             
     else:
-        ('e> no correct input found for the T1w image')
-        return None
+        raise IOError('incorrect input given for the T1w image')
 
     return ft1w
 
 
-def dcminfo(dcmvar, verbose=True):
+def dcminfo(dcmvar, verbose=True, Cnt=None):
     ''' Get basic info about the DICOM file/header.
     '''
+
+    if Cnt is None:
+        Cnt = {}
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+
+    if 'LOG' not in Cnt and verbose>=1:
+        log.setLevel(logging.INFO)
+    elif 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
 
     if isinstance(dcmvar, str):
         if verbose:
@@ -442,7 +475,8 @@ def dcmanonym(
         patient='anonymised',
         physician='anonymised',
         dob='19800101',
-        verbose=True):
+        verbose=True,
+        Cnt=None):
 
     ''' Anonymise DICOM file(s)
         Arguments:
@@ -452,35 +486,47 @@ def dcmanonym(
         > physician:the name of the referring physician.
         > dob:      patient's date of birth.
         > verbose:  display processing output.
+        > Cnt:      dictionary of constants (containing logging variable)
     '''
+
+    #> check if the dictionary of constant is given
+    if Cnt is None:
+        Cnt = {}
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+
+    if 'LOG' not in Cnt and verbose>=1:
+        log.setLevel(logging.INFO)
+    elif 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
 
     #> check if a single DICOM file
     if isinstance(dcmpth, str) and os.path.isfile(dcmpth):
         dcmlst = [dcmpth]
-        if verbose:
-            log.info('recognised the input argument as a single DICOM file.')
+        log.info('recognised the input argument as a single DICOM file.')
 
     #> check if a folder containing DICOM files
     elif isinstance(dcmpth, str) and os.path.isdir(dcmpth):
         dircontent = os.listdir(dcmpth)
         #> create a list of DICOM files inside the folder
         dcmlst = [os.path.join(dcmpth,d) for d in dircontent if os.path.isfile(os.path.join(dcmpth,d)) and d.endswith(dcmext)]
-        if verbose:
-            log.info('recognised the input argument as the folder containing DICOM files.')
+        log.info('recognised the input argument as the folder containing DICOM files.')
 
     #> check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
         if not all([os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth]):
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
-        if verbose:
-            log.info('recognised the input argument as the list of DICOM file paths.')
+        log.info('recognised the input argument as the list of DICOM file paths.')
 
     #> check if dictionary of data input <datain>
     elif isinstance(dcmpth, dict) and 'corepath' in dcmpth:
         dcmlst = list_dcm_datain(dcmpth)
-        if verbose:
-            log.info('recognised the input argument as the dictionary of scanner data.')
+        log.info('recognised the input argument as the dictionary of scanner data.')
 
     else:
         raise IOError('Unrecognised input!')
@@ -494,12 +540,11 @@ def dcmanonym(
 
         #> get the basic info about the DICOM file
         dcmtype = dcminfo(dhdr, verbose=False)
-        if verbose:
-            log.info('''\
-            \r--------------------------------------------------
-            \rDICOM file is for: {}
-            \r--------------------------------------------------
-            '''.format(dcmtype))
+        log.info('''\
+        \r--------------------------------------------------
+        \rDICOM file is for: {}
+        \r--------------------------------------------------
+        '''.format(dcmtype))
 
         #> anonymise mMR data.
         if 'mmr' in dcmtype:
@@ -589,9 +634,23 @@ def dcmanonym(
 #================================================================================
 
 
-def dcmsort(folder, copy_series=False, verbose=False):
+def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
     ''' Sort out the DICOM files in the folder according to the recorded series.
     '''
+
+    #> check if the dictionary of constant is given
+    if Cnt is None:
+        Cnt = {}
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+    if 'LOG' not in Cnt and verbose>=1:
+        log.setLevel(logging.INFO)
+    elif 'LOG' in Cnt:
+        log.setLevel(Cnt['LOG'])
+    else:
+        log.setLevel(log_default)
+
 
     # list files in the input folder
     files = os.listdir(folder)
@@ -622,14 +681,13 @@ def dcmsort(folder, copy_series=False, verbose=False):
             srs_time = dhdr[0x0008, 0x0031].value[:6]
             std_time = dhdr[0x0008, 0x0030].value[:6]
 
-            if verbose:
-                log.info('''\
-                    --------------------------------------
-                    DICOM series desciption: {}
-                    DICOM series time: {}
-                    DICOM study  time: {}
-                    --------------------------------------
-                    '''.format(srs_dcrp,srs_time , std_time))
+            log.info('''\
+                --------------------------------------
+                DICOM series desciption: {}
+                DICOM series time: {}
+                DICOM study  time: {}
+                --------------------------------------
+                '''.format(srs_dcrp,srs_time , std_time))
 
             #----------
             # series for any category (can be multiple scans within the same category)
@@ -837,6 +895,10 @@ def dcm2im(fpth):
     ''' Get the DICOM files from 'fpth' into an image with the affine transformation.
         fpth can be a list of DICOM files or a path (string) to the folder with DICOM files.
     '''
+
+    #> set the logger and its level of verbose
+    log = get_logger(__name__)
+    log.setLevel(log_default)
 
     # possible DICOM file extensions
     ext = ('dcm', 'DCM', 'ima', 'IMA') 
