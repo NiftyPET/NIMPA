@@ -50,7 +50,7 @@ from .prc import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2n
 from .prc import orientnii, nii_ugzip, nii_gzip, niisort, dcmsort, dcminfo, dcmanonym
 
 from .prc import dice_coeff, dice_coeff_multiclass
-from .prc import imfill, create_mask
+from .prc import imfill, create_mask, centre_mass_img 
 from .prc import bias_field_correction
 from .prc import pick_t1w
 

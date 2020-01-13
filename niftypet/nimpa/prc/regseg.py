@@ -394,8 +394,8 @@ def coreg_spm(
 
     # delete the uncompressed files
     if del_uncmpr:
-        if imref[-3:]=='.gz': os.remove(imrefu)
-        if imflo[-3:]=='.gz': os.remove(imflou)
+        os.remove(imrefu)
+        os.remove(imflou)
 
     imio.create_dir( os.path.join(opth, 'affine-spm') )
 

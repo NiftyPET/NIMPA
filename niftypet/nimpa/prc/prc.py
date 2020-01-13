@@ -5,20 +5,22 @@ __author__    = "Pawel Markiewicz"
 __copyright__ = "Copyright 2018"
 #-------------------------------------------------------------------------------
 
-import numpy as np
+
 import sys
 import os
 import platform
 import shutil
-import scipy.ndimage as ndi
-import nibabel as nib
-
-from collections import namedtuple
-from subprocess import run
 import datetime
 import re
 import multiprocessing
+from subprocess import run
 from pkg_resources import resource_filename
+from collections import namedtuple
+from tqdm.auto import trange
+
+import numpy as np
+import scipy.ndimage as ndi
+import nibabel as nib
 
 
 #-------------------------------------------------------------------------------
@@ -149,7 +151,8 @@ def trimim( fims,
             Needs the trimming parameters stored in the NIfTI header in 'descrip'. 
     affine: affine matrix, 4x4, for all the input images in case when images
             passed as a matrix (all have to have the same shape and data type)
-    scale: the scaling factor for upsampling has to be greater than 1
+    scale:  the scaling factor for upsampling has to be greater than 1.  It can be a scalar or
+            a vector/tuple with elements for each image dimension.
     divdim: image divisor, i.e., the dimensions are a multiple of this number (default 64)
     int_order: interpolation order (0-nearest neighbour, 1-linear, as in scipy)
     fmax: fraction of the max image value used for finding image borders for trimming
@@ -167,6 +170,7 @@ def trimim( fims,
     if Cnt is None:
         Cnt = {}
 
+    #-------------------------------------------
     #> set the logger and its level of verbose
     log = get_logger(__name__)
 
@@ -176,6 +180,7 @@ def trimim( fims,
         log.setLevel(Cnt['LOG'])
     else:
         log.setLevel(log_default)
+    #-------------------------------------------
 
     
     sing_multiple_files = False
@@ -273,42 +278,62 @@ def trimim( fims,
     #-------------------------------------------------------
     # scale is preferred to be integer
     try:
-        scale = int(scale)
+        scale = np.int8(scale)
     except ValueError:
-        raise ValueError('e> scale has to be an integer.')
-    # scale factor as the inverse of scale
-    sf = 1/float(scale)
+        raise ValueError('scale has to be an integer or array of integers.')
+
+    #> check if scale is given as scalar of array.
+    #> if scalar, change it to an array.
+    if isinstance(scale, np.int8):
+        scale = scale*np.ones(3, dtype=np.int8)
+
+    #> scale factor as the inverse of scale
+    sf = 1/np.float64(scale)
     if verbose:
         log.info(' upsampling scale {}, giving resolution scale factor {} for {} images.'.format(scale, sf, Nim))
     #-------------------------------------------------------
 
     #-------------------------------------------------------
     # scaled input image and get a sum image as the base for trimming
-    if scale>1:
-        newshape = (scale*imshape[0], scale*imshape[1], scale*imshape[2])
+    if any(scale>1):
+        newshape = (scale[0]*imshape[0], scale[1]*imshape[1], scale[2]*imshape[2])
         imsum = np.zeros(newshape, dtype=imdtype)
         if not memlim:
             imscl = np.zeros((Nim,)+newshape, dtype=imdtype)
-            for i in range(Nim):
-                imscl[i,:,:,:] = ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=int_order )
-                imsum += imscl[i,:,:,:]
+            with trange(
+                Nim, desc="loading-scaling",
+                disable=log.getEffectiveLevel() > logging.INFO,
+                leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+                for i in pbar:
+                    imscl[i,:,:,:] = ndi.interpolation.zoom(
+                        imin[i,:,:,:], tuple(scale), order=int_order )
+                    imsum += imscl[i,:,:,:]
         else:
-            for i in range(Nim):
-                if Nim>50 and using_multiple_files:
-                    imin_temp = imio.getnii(imdic['files'][i])
-                    imsum += ndi.interpolation.zoom(imin_temp, (scale, scale, scale), order=int_order )
-                    if verbose:
-                        log.info(' image sum: read', imdic['files'][i])
-                else:
-                    imsum += ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=int_order )
+            with trange(
+                Nim, desc="loading-scaling",
+                disable=log.getEffectiveLevel() > logging.INFO,
+                leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+                for i in pbar:
+                    if Nim>50 and using_multiple_files:
+                        imin_temp = imio.getnii(imdic['files'][i])
+                        imsum += ndi.interpolation.zoom(
+                            imin_temp, tuple(scale), order=int_order )
+                        if verbose:
+                            log.info(' image sum: read', imdic['files'][i])
+                    else:
+                        imsum += ndi.interpolation.zoom(
+                            imin[i,:,:,:], tuple(scale), order=int_order )
     else:
         imscl = imin
         imsum = np.sum(imin, axis=0)
 
-    # smooth the sum image for improving trimming (if any)
+    #> smooth the sum image for improving trimming (if any)
     #imsum = ndi.filters.gaussian_filter(imsum, imio.fwhm2sig(4.0, voxsize=abs(affine[0,0])), mode='mirror')
+    # import pdb; pdb.set_trace()
     #-------------------------------------------------------
    
+
+
     if not ref_flag:
         # find the object bounding indexes in x, y and z axes, e.g., ix0-ix1 for the x axis
         qx = np.sum(imsum, axis=(0,1))
@@ -345,7 +370,12 @@ def trimim( fims,
         iz0 -= IZ-tmp+1
         
     # save the trimming parameters in a dic
-    trimpar = {'x':(ix0, ix1), 'y':(iy0, iy1), 'z':(iz0), 'fmax':fmax}
+    trimpar = {
+        'x':(ix0, ix1),
+        'y':(iy0, iy1),
+        'z':(iz0),
+        'fmax':fmax,
+        'scale':scale}
 
     # new dims (z,y,x)
     newdims = (imsum.shape[0]-iz0, iy1-iy0+1, ix1-ix0+1)
@@ -394,8 +424,10 @@ def trimim( fims,
     # first trim the sum image
     imsumt[iz0t:, iy0t:iy1t, ix0t:ix1t] = imsum[iz0s:, iy0s:iy1+1, ix0s:ix1+1]
 
-    #> new affine matrix for the scaled and trimmed image
-    A = np.diag(sf*np.diag(affine))
+    #> new affine matrix for the upscaled and trimmed image
+    #> use the scale factor reversely for consistency
+    A = np.diag(np.append(sf[::-1], 1.) * np.diag(affine))
+
     #> note half of new voxel offset is used for the new centre of voxels
     A[0,3] = affine[0,3] + A[0,0]*(ix0-0.5)        
     A[1,3] = affine[1,3] + (affine[1,1]*(imshape[1]-1) - A[1,1]*(iy1-0.5))
@@ -414,44 +446,54 @@ def trimim( fims,
                + ';scale='+str(scale) \
                + ';fmx='+str(fmax)
     
+    #> remove brackets and spaces from the file name 
+    scale_fnm = str(scale).replace('[','').replace(']','').replace(' ','-')
+
     # store the sum image
-    if store_avg:
-        fsum = os.path.join(petudir, 'avg_trimmed-upsampled-scale-'+str(scale)+fcomment+'.nii.gz')
+    if store_avg and Nim>1:
+        fsum = os.path.join(petudir, 'avg_trimmed-upsampled-scale-'+scale_fnm+fcomment+'.nii.gz')
         imio.array2nii( imsumt[::-1,::-1,:], A, fsum, descrip=niidescr)
         if verbose:  log.info('saved averaged image to: {}'.format(fsum))
         dctout['fsum'] = fsum
 
     # list of file names for the upsampled and trimmed images
     fpetu = []
-    # perform the trimming and save the intermediate images if requested
-    for i in range(Nim):
+    #> perform the trimming and save the intermediate images if requested
+    with trange(
+        Nim, desc="finalising trimming/scaling",
+        disable=log.getEffectiveLevel() > logging.INFO,
+        leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
 
-        # memory saving option, second time doing interpolation
-        if memlim:
-            if Nim>50 and using_multiple_files:
-                    imin_temp = imio.getnii(imdic['files'][i])
-                    im = ndi.interpolation.zoom(imin_temp, (scale, scale, scale), order=int_order )
-                    if verbose:
-                        log.info('image scaling: {}'.format(imdic['files'][i]))
+        for i in pbar:
+
+            # memory saving option, second time doing interpolation
+            if memlim:
+                if Nim>50 and using_multiple_files:
+                        imin_temp = imio.getnii(imdic['files'][i])
+                        im = ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order )
+                        if verbose:
+                            log.info('image scaling: {}'.format(imdic['files'][i]))
+                else:
+                    im = ndi.interpolation.zoom(imin[i,:,:,:], tuple(scale), order=int_order )
             else:
-                im = ndi.interpolation.zoom(imin[i,:,:,:], (scale, scale, scale), order=int_order )
-        else:
-            im = imscl[i,:,:,:]
+                im = imscl[i,:,:,:]
 
-        # trim the scaled image
-        imtrim[i, iz0t:, iy0t:iy1t, ix0t:ix1t] = im[iz0s:, iy0s:iy1+1, ix0s:ix1+1]
-        
-        # save the up-sampled and trimmed PET images
-        if store_img_intrmd:
-            _frm = '_trmfrm'+str(i)
-            _fstr = '_trimmed-upsampled-scale-'+str(scale) + _frm*(Nim>1) +fcomment
-            fpetu.append( os.path.join(petudir, fnms[i]+_fstr+'_i.nii.gz') )
-            imio.array2nii( imtrim[i,::-1,::-1,:], A, fpetu[i], descrip=niidescr)
-            if verbose:  log.info('saved upsampled PET image to: {}'.format(fpetu[i]))
+            # trim the scaled image
+            imtrim[i, iz0t:, iy0t:iy1t, ix0t:ix1t] = im[iz0s:, iy0s:iy1+1, ix0s:ix1+1]
+            
+            # save the up-sampled and trimmed PET images
+            if store_img_intrmd:
+                _frm = '_trmfrm'+str(i)
+                _fstr = '_trimmed-upsampled-scale-'+scale_fnm + _frm*(Nim>1) +fcomment
+                fpetu.append( os.path.join(petudir, fnms[i]+_fstr+'_i.nii.gz') )
+                imio.array2nii( imtrim[i,::-1,::-1,:], A, fpetu[i], descrip=niidescr)
+                if verbose:  log.info('saved upsampled PET image to: {}'.format(fpetu[i]))
 
     if store_img:
         _nfrm = '_nfrm'+str(Nim)
-        fim = os.path.join(petudir, 'trimmed-upsampled-scale-'+str(scale))+_nfrm*(Nim>1)+fcomment+'.nii.gz'
+        fim = os.path.join(petudir, 'trimmed-upsampled-scale-'+scale_fnm)+_nfrm*(Nim>1)+fcomment+'.nii.gz'
+        log.info('storing image to:\n{}'.format(fim))
+        
         imio.array2nii( np.squeeze(imtrim[:,::-1,::-1,:]), A, fim, descrip=niidescr)
         dctout['fim'] = fim
 
@@ -852,7 +894,7 @@ def ct2mu(im):
 
 
 #===============================================================================
-def centre_mass_img(imdct):
+def centre_mass_img(imdct, output='mm'):
     ''' Calculate the centre of mass of an image along each axes (x,y,z),
         separately.
         Arguments:
@@ -860,8 +902,9 @@ def centre_mass_img(imdct):
         Output the list of the centre of mass for each axis.
     '''
     
-    #> initialise centre of mass array
+    #> initialise centre of mass array in mm and in voxel indexes
     com = np.zeros(3, dtype=np.float32)
+    icom = np.zeros(3, dtype=np.float32)
     #> total image sum
     imsum = np.sum(imdct['im'])
 
@@ -870,12 +913,23 @@ def centre_mass_img(imdct):
         axs = list(range(imdct['im'].ndim))
         del axs[ind_ax]
         #> indexed centre of mass
-        icom = np.sum( np.sum(imdct['im'], axis=tuple(axs)) \
-                * np.arange(imdct['im'].shape[ind_ax]))/imsum
-        #> centre of mass in mm
-        com[abs(ind_ax)-1] = icom * imdct['hdr']['pixdim'][abs(ind_ax)]
+        icom[ind_ax] = np.sum( np.sum(imdct['im'], axis=tuple(axs)) \
+                * np.arange(imdct['shape'][ind_ax]))/imsum
+        #> centre of mass in mm (zyx)
+        com[ind_ax] = icom[ind_ax] * imdct['voxsize'][ind_ax]
 
-    return com
+    #> correct due to flipped indexing and world mm
+    com[-1] = imdct['shape'][-1]*imdct['voxsize'][-1] - com[-1]
+    com[-2] = imdct['shape'][-2]*imdct['voxsize'][-2] - com[-2]
+    com[-3] = imdct['shape'][-3]*imdct['voxsize'][-3] - com[-3]
+
+    if output=='mm':
+        return com
+    elif output=='vox':
+        return icom
+    else:
+        raise ValueError('unrecognised output option')
+
 #===============================================================================
 
 

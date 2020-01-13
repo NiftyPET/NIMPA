@@ -5,6 +5,7 @@ from .prc import smoothim
 from .prc import ct2mu
 from .prc import nii_modify
 from .prc import bias_field_correction
+from .prc import centre_mass_img
 
 from .imio import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii
 from .imio import orientnii, nii_ugzip, nii_gzip, dcmsort, niisort, dcm2im, dcminfo
