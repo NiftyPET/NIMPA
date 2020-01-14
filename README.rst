@@ -29,7 +29,7 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     # optional (Linux syntax) to avoid prompts
     export PATHTOOLS=$HOME/NiftyPET_tools
     # cross-platform install
-    conda create -n niftypet -c conda-forge python=2.7 \
+    conda create -n niftypet -c conda-forge python=3 \
       ipykernel matplotlib numpy scikit-image ipywidgets
     git clone https://github.com/NiftyPET/NIMPA.git nimpa
     conda activate niftypet
