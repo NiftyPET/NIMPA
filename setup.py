@@ -2,7 +2,7 @@
 """Compile CUDA source code and setup Python 3 package 'nimpa' for namespace 'niftypet'."""
 
 __author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2019"
+__copyright__   = "Copyright 2020"
 # ------------------------------------------------------------------------------
 
 from setuptools import setup, find_packages
@@ -256,13 +256,15 @@ setup(
     long_description=long_description,
     author='Pawel J. Markiewicz',
     author_email='p.markiewicz@ucl.ac.uk',
-    url='https://github.com/pjmark/NIMPA',
+    url='https://github.com/NiftyPET/NIMPA',
     keywords='PET MR processing analysis',
     install_requires=[
         'pydicom>=1.0.2,<=1.2.2',
         'nibabel>=2.2.1, <=2.3.1',
+        'numpy>=1.14',
         #'SimpleITK>=1.2.0'
         ],
+    python_requires='>=3.4',
     packages=find_packages(exclude=['docs']),
     package_data={
         'niftypet': ['auxdata/*'],
@@ -271,15 +273,15 @@ setup(
     },
     zip_safe=False,
     # namespace_packages=['niftypet'],
-    # classifiers=[
-    #     'Development Status :: 5 - Production/Stable',
-    #     'Intended Audience :: Science/Research',
-    #     'Intended Audience :: Healthcare Industry'
-    #     'Programming Language :: Python :: 2.7',
-    #     'License :: OSI Approved :: Apache Software License',
-    #     'Operating System :: POSIX :: Linux',
-    #     'Programming Language :: C',
-    #     'Topic :: Scientific/Engineering :: Medical Science Apps.'
-    # ],
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Science/Research',
+        'Intended Audience :: Healthcare Industry'
+        'Programming Language :: Python :: 2.7',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: POSIX :: Linux',
+        'Programming Language :: C',
+        'Topic :: Scientific/Engineering :: Medical Science Apps.'
+    ],
 )
 #===============================================================
