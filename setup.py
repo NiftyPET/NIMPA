@@ -260,7 +260,7 @@ setup(
     keywords='PET MR processing analysis',
     install_requires=[
         'pydicom>=1.0.2,<=1.2.2',
-        'nibabel>=2.2.1, <=2.3.1',
+        'nibabel>=2.2.1, <=3.0.1',
         'numpy>=1.14',
         'scipy',
         #'SimpleITK>=1.2.0'
