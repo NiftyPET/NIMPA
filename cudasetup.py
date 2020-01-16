@@ -221,7 +221,7 @@ def dev_setup():
     return ccstr
 
 #=================================================================================================
-def resources_setup():
+def resources_setup(gpu=True):
     '''
     This function checks CUDA devices, selects some and installs resources.py
     '''
@@ -262,7 +262,10 @@ def resources_setup():
             ''')
 
     # find available GPU devices, select one or more and output the compilation flags
-    gpuarch = dev_setup()
+    if gpu:
+        gpuarch = dev_setup()
+    else:
+        gpuarch = ''
 
     # return gpuarch for cmake compilation
     return gpuarch

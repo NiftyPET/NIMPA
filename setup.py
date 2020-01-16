@@ -60,7 +60,7 @@ if chk['cuda'] and chk['cmake']:
     gpuarch = cs.resources_setup()
     #----------------------------------------------------
 else:
-    gpuarch = ''
+    gpuarch = cs.resources_setup(gpu=False)
 
 
 #===============================================================
