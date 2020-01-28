@@ -722,10 +722,10 @@ def pvc_iyang(
 
     # establish the output folder
     if outpath=='':
-        oprcl = os.path.join(prcl_dir, 'pre-processed')
+        oprcl = os.path.join(prcl_dir, 'PVC-preprocessed')
         opvc =  os.path.join(os.path.dirname(fpet), 'PVC')
     else:
-        oprcl = os.path.join(outpath, 'pre-processed')
+        oprcl = os.path.join(outpath, 'PVC-preprocessed')
         opvc =  os.path.join(outpath, 'PVC')
         
     #> create folders
@@ -856,6 +856,8 @@ def pvc_iyang(
 
     outdct['im'] = imgpvc
     outdct['imroi'] = imgroi
+    outdct['fprc'] = fprcu
+    outdct['imprc'] = prcu
     if not noreg:
         outdct['faff'] = faff
 

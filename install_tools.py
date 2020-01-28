@@ -52,13 +52,20 @@ reg_ver = '1.5.61'
 # -----------------------------------
 # dcm2niix git repository
 repo_dcm = 'https://github.com/rordenlab/dcm2niix'
-http_dcm_lin = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_lnx.zip'
-http_dcm_win = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_win.zip'
-http_dcm_mac = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_mac.zip'
+http_dcm_lin = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_lnx.zip'
+#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_lnx.zip'
+
+http_dcm_win = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_win.zip'
+#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_win.zip'
+
+http_dcm_mac = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_mac.zip'
+#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_mac.zip'
 
 # git SHA-1 checksum for the version used for PET/MR
-sha1_dcm = '32160d74cd266a59e81a75b655c16de27b8c7681'  
-dcm_ver = '1.0.20181125'
+sha1_dcm = 'f54be46667fce7994d2062e2623d12253c1bd968'
+# '32160d74cd266a59e81a75b655c16de27b8c7681'  
+dcm_ver = 'v1.0.20190902'
+#'1.0.20181125'
 # -----------------------------------
 
 # PREVIOUS WORKING:
