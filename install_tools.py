@@ -31,9 +31,20 @@ log.addHandler(ch)
 #-------------------------------------------------------------------------------
 
 
-if 'DISPLAY' in os.environ:
+if os.getenv('DISPLAY', False):
     from tkinter import Tk
     from tkinter.filedialog import askdirectory
+else:
+    def askdirectory(title='Folder: ', initialdir=os.path.expanduser('~'), name=''):
+        """
+        decreasing precedence: os.environ[name], raw_input, initialdir
+        """
+        path = os.environ.get(name, None)
+        if path is None:
+            path = input(title)
+        if path == '':
+            return initialdir
+        return path
 
 # -----------------------------------
 #> NiftyReg git repository
@@ -97,22 +108,6 @@ def query_yesno(question):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-def input_path(question, default=os.path.expanduser('~'), name=''):
-    """
-    Will not prompt if `name in os.environ`
-    """
-    while True:
-        question += '['+default+']:'
-        path = os.environ.get(name, None)
-        if path is None:
-            path = input(question)
-        if path == '':
-            return default
-        elif os.path.isdir(path):
-            return path
-        else:
-            log.error('the provided path is not valid: '+str(path))
-            
 #-----------------------------------------------------------------------------------------------------
 def check_depends():
     log.info('checking if [CUDA], [git] and [cmake] are installed...')
@@ -252,7 +247,7 @@ def install_tool(app, Cnt):
     if 'PATHTOOLS' in Cnt and Cnt['PATHTOOLS']!='':
         path_tools = Cnt['PATHTOOLS']
     elif ('PATHTOOLS' not in Cnt or Cnt['PATHTOOLS']!=''):
-        if 'DISPLAY' in os.environ and platform.system() in ['Linux', 'Windows']:
+        if os.getenv('DISPLAY', False) and platform.system() in ['Linux', 'Windows']:
             log.info('DISPLAY: {}'.format(os.environ['DISPLAY']))
             Tk().withdraw()
             dircore = askdirectory(title='choose a place for NiftyPET tools', initialdir=os.path.expanduser('~'))
@@ -261,7 +256,7 @@ def install_tool(app, Cnt):
             path_tools = os.path.join(dircore, Cnt['DIRTOOLS'])
         else:
             try:
-                path_tools = input_path('Enter path for NiftyPET tools (registration, etc):', name='PATHTOOLS')
+                path_tools = askdirectory('Enter path for NiftyPET tools (registration, etc): ', name='PATHTOOLS')
             except:
                 log.warning('manually enter the intended PATHTOOLS in resources.py located in ~/.niftypet/')
                 raise ValueError('\n e> could not get the path for NiftyPET_tools \n')
