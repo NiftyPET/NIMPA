@@ -13,6 +13,7 @@ import shutil
 import datetime
 import re
 import multiprocessing
+from textwrap import dedent
 from subprocess import run
 from pkg_resources import resource_filename
 from collections import namedtuple
@@ -195,7 +196,7 @@ def trimim( fims,
         imshape = imdic['shape']
         affine = imdic['affine']
         fldrin = fims
-        fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files'] if f!=None]
+        fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files'] if f is not None]
         # number of images/frames
         Nim = imdic['N']
         using_multiple_files = True
@@ -1072,14 +1073,13 @@ def bias_field_correction(
         log.setLevel(log_default)
 
 
-
-    if executable=='sitk' and not 'SimpleITK' in sys.modules:
-        log.error('''\
-            \rIf SimpleITK module is required for bias correction, it needs to be
-            \rfirst installed using this command:
-            \rconda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0
-            \ror pip install SimpleITK
-            ''')
+    if executable=='sitk' and 'SimpleITK' not in sys.modules:
+        log.error(dedent('''\
+            If SimpleITK module is required for bias correction, it needs to be
+            first installed using this command:
+            conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0
+            or pip install SimpleITK
+            '''))
         return None
 
     #---------------------------------------------------------------------------
@@ -1092,7 +1092,7 @@ def bias_field_correction(
     #> list of file paths
     elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):
         fins = fmr
-        info.log('multiple input files => ignoring the single output file name.')
+        log.info('multiple input files => ignoring the single output file name.')
         fimout = ''
 
     #> path to a folder
@@ -1178,9 +1178,8 @@ def bias_field_correction(
                 #-------------------------------------------
 
                 if sitk_image_mask:
-                    if not 'fmsk' in outdct: outdct['fmsk'] = []
+                    outdct.setdefault('fmsk', [])
                     outdct['fmsk'].append(fmsk)
-
 
             elif os.path.basename(executable)=='N4BiasFieldCorrection' \
                     and os.path.isfile(executable):
@@ -1211,7 +1210,7 @@ def bias_field_correction(
             log.info('N4 bias corrected file seems already existing.')
 
         #> output to dictionary 
-        if not 'fim' in outdct: outdct['fim'] = []
+        outdct.setdefault('fim', [])
         outdct['fim'].append(fn4)
 
 

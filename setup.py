@@ -8,9 +8,13 @@ import os
 import platform
 from setuptools import setup, find_packages
 from subprocess import run, PIPE
+import sys
 
 import cudasetup as cs
 import install_tools as tls
+__author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__   = "Copyright 2020"
+__licence__ = __license__ = "Apache 2.0"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('nimpa.setup')

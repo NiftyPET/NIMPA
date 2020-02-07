@@ -173,7 +173,7 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
         try:
             p = run([Cnt['DCM2NIIX'], '-h'], stdout=PIPE)
             out = p.stdout.decode('utf-8')
-            ver_str = re.search('(?<=dcm2niiX version v)\d{1,2}.\d{1,2}.\d*', out)
+            ver_str = re.search(r'(?<=dcm2niiX version v)\d{1,2}.\d{1,2}.\d*', out)
             if ver_str and dcm_ver in ver_str.group(0):
                 output['DCM2NIIX'] = True
         except OSError:

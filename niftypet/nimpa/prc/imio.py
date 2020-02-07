@@ -746,7 +746,7 @@ def niisort(
     for f in fims:
         if f.endswith('.nii') or f.endswith('.nii.gz'):
             Nim += 1
-            _match = re.search('(?<=_frm)\d*', f)
+            _match = re.search(r'(?<=_frm)\d*', f)
             if _match:
                 frm = int(_match.group(0))
                 freelists = [frm not in l for l in sortlist]

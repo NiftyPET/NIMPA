@@ -17,15 +17,15 @@ if 'CONDA_DEFAULT_ENV' in os.environ:
         env = os.environ['CONDA_DEFAULT_ENV']
     print('init> conda environment found:', env)
 else:
-	env = ''
+    env = ''
 # create the path for the resources files according to the OS platform
 if platform.system() in ['Linux', 'Darwin']:
-	path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
+    path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
 elif platform.system() == 'Windows' :
-	path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
+    path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
 else:
-	print('init error> unrecognised operating system!')
-	
+    print('init error> unrecognised operating system!')
+
 sys.path.append(path_resources)
 try:
     import resources
@@ -41,8 +41,8 @@ except ImportError as ie:
 #===========================
 
 if resources.CC_ARCH != '' and platform.system() in ['Linux', 'Windows']:
-	from .dinf import gpuinfo, dev_info
-	
+    from .dinf import gpuinfo, dev_info
+
 from .prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
 from .prc import smoothim
 
