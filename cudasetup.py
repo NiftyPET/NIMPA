@@ -1,48 +1,27 @@
 #!/usr/bin/env python
-"""ccompile.py: tools for CUDA compilation and set-up for Python."""
-
-__author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018"
-# ---------------------------------------------------------------------------------
-
+"""Tools for CUDA compilation and set-up for Python 3."""
 from distutils.sysconfig import get_python_inc
-from pkg_resources import resource_filename
-import re
-import os
-from os.path import join
-import sys
-import subprocess
-import numpy as np
-import platform
-import shutil
-
-#-------------------------------------------------------------------------------
 import logging
+import os
+from pkg_resources import resource_filename
+import platform
+import re
+import shutil
+import subprocess
+import sys
+from textwrap import dedent
+
+import numpy as np
+__author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__   = "Copyright 2020"
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 
-#> console handler
-ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n> %(message)s')
-ch.setFormatter(formatter)
-# ch.setLevel(logging.ERROR)
-log.addHandler(ch)
-#-------------------------------------------------------------------------------
-
-
-# get Python prefix
 prefix = sys.prefix
+pyhdr = get_python_inc()  # Python header paths
+nphdr = np.get_include()  # numpy header path
+mincc = 35  # minimum required CUDA compute capability
 
-# get Python header paths:
-pyhdr = get_python_inc()
 
-# get numpy header path:
-nphdr = np.get_include()
-
-# minimum required CUDA compute capability 
-mincc = 35
-
-# ---------------------------------------------------------------------------------
 def path_niftypet_local():
     '''Get the path to the local (home) folder for NiftyPET resources.'''
     # if using conda put the resources in the folder with the environment name
@@ -52,28 +31,27 @@ def path_niftypet_local():
     else:
         env = ''
     # create the path for the resources files according to the OS platform
-    if platform.system() == 'Linux' :
-        path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
+    if platform.system() in ('Linux', 'Darwin'):
+        path_resources = os.path.expanduser('~')
     elif platform.system() == 'Windows' :
-        path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
-    elif platform.system() == 'Darwin':
-        path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
+        path_resources = os.getenv('LOCALAPPDATA')
     else:
-        raise SystemError('e> the operating system is not recognised and therefore not supported!')
+        raise ValueError('Unknown operating system: {}'.format(platform.system()))
+    path_resources = os.path.join(path_resources, '.niftypet', env)
 
     return path_resources
 
-# ---------------------------------------------------------------------------------
+
 def find_cuda():
     '''Locate the CUDA environment on the system.'''
     # search the PATH for NVCC
     for fldr in os.environ['PATH'].split(os.pathsep):
-        cuda_path = join(fldr, 'nvcc')
+        cuda_path = os.path.join(fldr, 'nvcc')
         if os.path.exists(cuda_path):
             cuda_path = os.path.dirname(os.path.dirname(cuda_path))
             break
         cuda_path = None
-    
+
     if cuda_path is None:
         log.warning('nvcc compiler could not be found from the PATH!')
         return None
@@ -84,18 +62,15 @@ def find_cuda():
         if lcuda_path in os.environ['LD_LIBRARY_PATH'].split(os.pathsep):
             log.info('found CUDA lib64 in LD_LIBRARY_PATH: {}'.format(lcuda_path))
     elif os.path.isdir(lcuda_path):
-        log.info('found CUDA lib64 in : {}'.format(lcuda_path))
+        log.info('found CUDA lib64 in: {}'.format(lcuda_path))
     else:
         log.warning('folder for CUDA library (64-bit) could not be found!')
 
-
     return cuda_path, lcuda_path
-# ---------------------------------------------------------------------------------
 
-# =================================================================================
+
 def dev_setup():
     '''figure out what GPU devices are available and choose the supported ones.'''
-
     # check first if NiftyPET was already installed and use the choice of GPU
     path_resources = path_niftypet_local()
     # if so, import the resources and get the constants
@@ -104,14 +79,13 @@ def dev_setup():
         try:
             import resources
         except ImportError as ie:
-            log.error('''\
-            \r--------------------------------------------------------------------------
-            \rNiftyPET resources file <resources.py> could not be imported.
-            \rIt should be in ~/.niftypet/resources.py (Linux) or 
-            \rin //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
-            \rbut likely it does not exists.
-            \r--------------------------------------------------------------------------
-            ''')
+            log.error(dedent('''\
+                --------------------------------------------------------------------------
+                NiftyPET resources file <resources.py> could not be imported.
+                It should be in ~/.niftypet/resources.py (Linux) or
+                in //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
+                but likely it does not exists.
+                --------------------------------------------------------------------------'''))
     else:
         log.error('resources file not found/installed.')
         return None
@@ -136,14 +110,7 @@ def dev_setup():
     # copy the device_info module to the resources folder within the installation package
     shutil.copytree( path_dinf, path_tmp_dinf)
     # create a build using cmake
-    if platform.system()=='Windows':
-        path_tmp_build = os.path.join(path_tmp_dinf, 'build')
-    elif platform.system() in ['Linux', 'Darwin']:
-        path_tmp_build = os.path.join(path_tmp_dinf, 'build')
-    else:
-        log.warning('the operating system {} is not supported for GPU'.format(platform.system()))
-        return ''
-        
+    path_tmp_build = os.path.join(path_tmp_dinf, 'build')
     os.makedirs(path_tmp_build)
     os.chdir(path_tmp_build)
     if platform.system()=='Windows':
@@ -161,20 +128,20 @@ def dev_setup():
         )
         subprocess.call(['cmake', '--build', './'])
     else:
-        log.error('This operating systems {} is not supported!'.format(platform.system()))
+        log.error('Unknown operating system: {}'.format(platform.system()))
         return ''
-    
-    # imoprt the new module for device properties
+
+    # import the new module for device properties
     sys.path.insert(0, path_tmp_build)
     try:
         import dinf
     except ImportError:
         log.error('could not compile a CUDA C file--assuming no CUDA installation.')
         return ''
-    
+
     # get the list of installed CUDA devices
     Ldev = dinf.dev_info(0)
-    # extract the compute capability as a single number 
+    # extract the compute capability as a single number
     cclist = [int(str(e[2])+str(e[3])) for e in Ldev]
     # get the list of supported CUDA devices (with minimum compute capability)
     spprtd = [str(cc) for cc in cclist if cc>=mincc]
@@ -185,7 +152,6 @@ def dev_setup():
         devid = i.index(max(i))
         #-----------------------------------------------------------------------------------
         # form return list of compute capability numbers for which the software will be compiled
-        
         for cc in spprtd:
             ccstr += '-gencode=arch=compute_'+cc+',code=compute_'+cc+';'
         #-----------------------------------------------------------------------------------
@@ -213,14 +179,14 @@ def dev_setup():
     strNew = '### start GPU properties ###\n'
     for i in range(len(cnt_list)):
         strNew += cnt_list[i]+' = '+val_list[i] + '\n'
-    rsrcNew = rsrc[:i0] + strNew + rsrc[i1:] 
+    rsrcNew = rsrc[:i0] + strNew + rsrc[i1:]
     f = open(fpth, 'w')
     f.write(rsrcNew)
     f.close()
 
     return ccstr
 
-#=================================================================================================
+
 def resources_setup(gpu=True):
     '''
     This function checks CUDA devices, selects some and installs resources.py
@@ -235,7 +201,7 @@ def resources_setup(gpu=True):
 
     # flag for the resources file if already installed (initially assumed not)
     flg_resources = False
-    # does the local folder for niftypet exists? if not create one. 
+    # does the local folder for niftypet exists? if not create one.
     if not os.path.exists(path_resources):
         os.makedirs(path_resources)
     # is resources.py in the folder?
@@ -252,14 +218,13 @@ def resources_setup(gpu=True):
         try:
             import resources
         except ImportError as ie:
-            log.error('''\
-            \r--------------------------------------------------------------------------
-            \rNiftyPET resources file <resources.py> could not be imported.
-            \rIt should be in ~/.niftypet/resources.py (Linux) or 
-            \rin //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
-            \rbut likely it does not exists.
-            \r--------------------------------------------------------------------------
-            ''')
+            log.error(dedent('''\
+                --------------------------------------------------------------------------
+                NiftyPET resources file <resources.py> could not be imported.
+                It should be in ~/.niftypet/resources.py (Linux) or
+                in //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
+                but likely it does not exists.
+                --------------------------------------------------------------------------'''))
 
     # find available GPU devices, select one or more and output the compilation flags
     if gpu:
@@ -269,4 +234,3 @@ def resources_setup(gpu=True):
 
     # return gpuarch for cmake compilation
     return gpuarch
-#=================================================================================================

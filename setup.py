@@ -1,33 +1,26 @@
 #!/usr/bin/env python
-"""Compile CUDA source code and setup Python 3 package 'nimpa' for namespace 'niftypet'."""
-
-__author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2020"
-# ------------------------------------------------------------------------------
-
-from setuptools import setup, find_packages
-
+"""
+Compile CUDA source code and setup Python 3 package 'nimpa'
+for namespace 'niftypet'.
+"""
+import logging
 import os
-import sys
 import platform
+from setuptools import setup, find_packages
 from subprocess import run, PIPE
 
 import cudasetup as cs
 import install_tools as tls
 
-#-------------------------------------------------------------------------------
-import logging
-log = logging.getLogger('NIMPA')
-log.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('nimpa.setup')
 
 #> console handler
 ch = logging.StreamHandler()
 formatter = logging.Formatter(
-    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s'
-    )
+    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s')
 ch.setFormatter(formatter)
 log.addHandler(ch)
-#-------------------------------------------------------------------------------
 
 
 if not platform.system() in ['Windows', 'Darwin', 'Linux']:
@@ -219,11 +212,9 @@ if chk['cuda'] and gpuarch!='':
 
 
 
-
 #===============================================================
 # PYTHON SETUP
 #===============================================================
-
 log.info('''found those packages:\n{}'''.format(find_packages(exclude=['docs'])))
 
 freadme = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'README.rst')
@@ -245,25 +236,25 @@ sys.stderr = log_file
 
 if platform.system() in ['Linux', 'Darwin'] :
     fex = '*.so'
-elif platform.system() == 'Windows' : 
+elif platform.system() == 'Windows' :
     fex = '*.pyd'
 #----------------------------
 setup(
     name='nimpa',
-    license = 'Apache 2.0',
+    license=__licence__,
     version='2.0.0',
     description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
     long_description=long_description,
-    author='Pawel J. Markiewicz',
+    author=__author__[0],
     author_email='p.markiewicz@ucl.ac.uk',
     url='https://github.com/NiftyPET/NIMPA',
     keywords='PET MR processing analysis',
     install_requires=[
-        'pydicom>=1.0.2,<=1.3.1',
-        'nibabel>=2.2.1, <=3.0.1',
+        'nibabel>=2.2.1,<=3.0.1',
         'numpy>=1.14',
+        'pydicom>=1.0.2,<=1.3.1',
         'scipy',
-        #'SimpleITK>=1.2.0'
+        #'SimpleITK>=1.2.0',
         ],
     python_requires='>=3.4',
     packages=find_packages(exclude=['docs']),
@@ -276,13 +267,18 @@ setup(
     # namespace_packages=['niftypet'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Education',
+        'Intended Audience :: Healthcare Industry',
         'Intended Audience :: Science/Research',
-        'Intended Audience :: Healthcare Industry'
-        'Programming Language :: Python :: 2.7',
         'License :: OSI Approved :: Apache Software License',
+        'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: C',
-        'Topic :: Scientific/Engineering :: Medical Science Apps.'
+        'Programming Language :: C++',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3 :: Only',
+        'Topic :: Scientific/Engineering :: Medical Science Apps.',
+
     ],
 )
 #===============================================================
