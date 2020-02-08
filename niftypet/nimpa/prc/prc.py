@@ -1,90 +1,62 @@
-""" NIMPA: functions for neuro image processing and analysis
-    including partial volume correction (PVC) and ROI extraction and analysis.
 """
-__author__    = "Pawel Markiewicz"
-__copyright__ = "Copyright 2018"
-#-------------------------------------------------------------------------------
-
-
-import sys
-import os
-import platform
-import shutil
-import datetime
-import re
-import multiprocessing
-from textwrap import dedent
-from subprocess import run
-from pkg_resources import resource_filename
+NIMPA: functions for neuro image processing and analysis
+including partial volume correction (PVC) and ROI extraction and analysis.
+"""
 from collections import namedtuple
-from tqdm.auto import trange
+import datetime
+import multiprocessing
+import os
+from pkg_resources import resource_filename
+import platform
+import re
+import shutil
+from subprocess import run
+import sys
+from textwrap import dedent
 
+import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
-import nibabel as nib
-
-
-#-------------------------------------------------------------------------------
-# LOGGING
-#-------------------------------------------------------------------------------
-import logging
-
-#> console handler
-ch = logging.StreamHandler()
-formatter = logging.Formatter(
-    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s'
-    )
-ch.setFormatter(formatter)
-logging.getLogger(__name__).addHandler(ch)
-
-def get_logger(name):
-    return logging.getLogger(name)
-
-#> default log level (10-debug, 20-info, ...)
-log_default = logging.WARNING
-#-------------------------------------------------------------------------------
-
+from tqdm.auto import trange
 
 from . import imio
 from . import regseg
 import resources as rs
-
-
-
 #> GPU routines only on Linux and Windows
 if 'compute' in rs.CC_ARCH and platform.system() in ['Linux', 'Windows']:
     from . import improc
-
 sitk_flag = True
 try:
     import SimpleITK as sitk
 except ImportError:
     sitk_flag = False
+__author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__ = "Copyright 2020"
+log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
-#>--------------------------
+
 def num(s):
-    ''' Converts the string to a float or integer number.
-    '''
+    '''Converts the string to a float or integer number.'''
     try:
         return int(s)
     except ValueError:
         return float(s)
-#>--------------------------
+
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
+
 def smoothim(fim, fwhm=4, fout=''):
     '''
     Smooth image using Gaussian filter with FWHM given as an option.
     '''
-
     imd = imio.getnii(fim, output='all')
     imsmo = ndi.filters.gaussian_filter(
                 imd['im'],
@@ -126,7 +98,7 @@ def trimim( fims,
             scale=2,
             divdim = 8**2,
             fmax = 0.05,
-            
+
             int_order=0,
             outpath='',
             fname='',
@@ -149,7 +121,7 @@ def trimim( fims,
     Parameters:
     -----------
     refim:  Path to the reference image, which was already trimmed.
-            Needs the trimming parameters stored in the NIfTI header in 'descrip'. 
+            Needs the trimming parameters stored in the NIfTI header in 'descrip'.
     affine: affine matrix, 4x4, for all the input images in case when images
             passed as a matrix (all have to have the same shape and data type)
     scale:  the scaling factor for upsampling has to be greater than 1.  It can be a scalar or
@@ -166,24 +138,10 @@ def trimim( fims,
     memlim: Ture for cases when memory is limited and takes more processing time instead.
     verbose: verbose mode [True/False]
     '''
-
     #> check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
-    #-------------------------------------------
-    #> set the logger and its level of verbose
-    log = get_logger(__name__)
-
-    if 'LOG' not in Cnt and verbose>=1:
-        log.setLevel(logging.INFO)
-    elif 'LOG' in Cnt:
-        log.setLevel(Cnt['LOG'])
-    else:
-        log.setLevel(log_default)
-    #-------------------------------------------
-
-    
     sing_multiple_files = False
 
     # case when input folder is given
@@ -265,7 +223,7 @@ def trimim( fims,
         else:
             log.warning(' the reference image does not contain trimming info--using default.')
 
-    
+
 
     #-------------------------------------------------------
     # store images in this folder
@@ -290,8 +248,7 @@ def trimim( fims,
 
     #> scale factor as the inverse of scale
     sf = 1/np.float64(scale)
-    if verbose:
-        log.info(' upsampling scale {}, giving resolution scale factor {} for {} images.'.format(scale, sf, Nim))
+    log.debug(' upsampling scale {}, giving resolution scale factor {} for {} images.'.format(scale, sf, Nim))
     #-------------------------------------------------------
 
     #-------------------------------------------------------
@@ -319,8 +276,7 @@ def trimim( fims,
                         imin_temp = imio.getnii(imdic['files'][i])
                         imsum += ndi.interpolation.zoom(
                             imin_temp, tuple(scale), order=int_order )
-                        if verbose:
-                            log.info(' image sum: read', imdic['files'][i])
+                        log.debug(' image sum: read', imdic['files'][i])
                     else:
                         imsum += ndi.interpolation.zoom(
                             imin[i,:,:,:], tuple(scale), order=int_order )
@@ -332,7 +288,7 @@ def trimim( fims,
     #imsum = ndi.filters.gaussian_filter(imsum, imio.fwhm2sig(4.0, voxsize=abs(affine[0,0])), mode='mirror')
     # import pdb; pdb.set_trace()
     #-------------------------------------------------------
-   
+
 
 
     if not ref_flag:
@@ -354,7 +310,7 @@ def trimim( fims,
         IX = ix1-ix0+1
         IY = iy1-iy0+1
         tmp = max(IX, IY)
-        #> get the range such that it is divisible by 
+        #> get the range such that it is divisible by
         #> divdim (64 by default) for GPU execution
         IXY = divdim * ((tmp+divdim-1)//divdim)
         div = (IXY-IX)//2
@@ -369,7 +325,7 @@ def trimim( fims,
         tmp = (len(qz)-iz0+1)
         IZ = divdim * ((tmp+divdim-1)//divdim)
         iz0 -= IZ-tmp+1
-        
+
     # save the trimming parameters in a dic
     trimpar = {
         'x':(ix0, ix1),
@@ -386,30 +342,29 @@ def trimim( fims,
     # the absolute values are supposed to work like padding in case the indx are negative
     iz0s, iy0s, ix0s = iz0, iy0, ix0
     iz0t, iy0t, ix0t = 0,0,0
-    if iz0<0: 
-        iz0s=0; 
+    if iz0<0:
+        iz0s=0;
         iz0t = abs(iz0)
-        log.warning('''\
-        \r-----------------------------------------------------------------
-        \rCorrecting for trimming outside the original image (z-axis)'
-        \r-----------------------------------------------------------------''')
+        log.warning(dedent('''\
+            -----------------------------------------------------------------
+            Correcting for trimming outside the original image (z-axis)'
+            -----------------------------------------------------------------'''))
 
-    if iy0<0: 
-        iy0s=0; 
+    if iy0<0:
+        iy0s=0;
         iy0t = abs(iy0)
-        log.warning('''\
-        \r-----------------------------------------------------------------
-        \rCorrecting for trimming outside the original image (y-axis)'
-        \r-----------------------------------------------------------------''')
+        log.warning(dedent('''\
+            -----------------------------------------------------------------
+            Correcting for trimming outside the original image (y-axis)'
+            -----------------------------------------------------------------'''))
 
-    if ix0<0: 
-        ix0s=0; 
+    if ix0<0:
+        ix0s=0;
         ix0t = abs(ix0)
-        log.warning('''\
-        \r-----------------------------------------------------------------
-        \rCorrecting for trimming outside the original image (x-axis)
-        \r-----------------------------------------------------------------''')
-    
+        log.warning(dedent('''\
+            -----------------------------------------------------------------
+            Correcting for trimming outside the original image (x-axis)
+            -----------------------------------------------------------------'''))
 
     #> in case the upper index goes beyond the scaled but untrimmed image
     iy1t = imsumt.shape[1]
@@ -430,7 +385,7 @@ def trimim( fims,
     A = np.diag(np.append(sf[::-1], 1.) * np.diag(affine))
 
     #> note half of new voxel offset is used for the new centre of voxels
-    A[0,3] = affine[0,3] + A[0,0]*(ix0-0.5)        
+    A[0,3] = affine[0,3] + A[0,0]*(ix0-0.5)
     A[1,3] = affine[1,3] + (affine[1,1]*(imshape[1]-1) - A[1,1]*(iy1-0.5))
     A[2,3] = affine[2,3] - A[1,1]*0.5
     A[3,3] = 1
@@ -446,15 +401,15 @@ def trimim( fims,
                + str((trimpar['z'],)) \
                + ';scale='+str(scale) \
                + ';fmx='+str(fmax)
-    
-    #> remove brackets and spaces from the file name 
+
+    #> remove brackets and spaces from the file name
     scale_fnm = str(scale).replace('[','').replace(']','').replace(' ','-')
 
     # store the sum image
     if store_avg and Nim>1:
         fsum = os.path.join(petudir, 'avg_trimmed-upsampled-scale-'+scale_fnm+fcomment+'.nii.gz')
         imio.array2nii( imsumt[::-1,::-1,:], A, fsum, descrip=niidescr)
-        if verbose:  log.info('saved averaged image to: {}'.format(fsum))
+        log.debug('saved averaged image to: {}'.format(fsum))
         dctout['fsum'] = fsum
 
     # list of file names for the upsampled and trimmed images
@@ -472,8 +427,7 @@ def trimim( fims,
                 if Nim>50 and using_multiple_files:
                         imin_temp = imio.getnii(imdic['files'][i])
                         im = ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order )
-                        if verbose:
-                            log.info('image scaling: {}'.format(imdic['files'][i]))
+                        log.debug('image scaling: {}'.format(imdic['files'][i]))
                 else:
                     im = ndi.interpolation.zoom(imin[i,:,:,:], tuple(scale), order=int_order )
             else:
@@ -481,20 +435,20 @@ def trimim( fims,
 
             # trim the scaled image
             imtrim[i, iz0t:, iy0t:iy1t, ix0t:ix1t] = im[iz0s:, iy0s:iy1+1, ix0s:ix1+1]
-            
+
             # save the up-sampled and trimmed PET images
             if store_img_intrmd:
                 _frm = '_trmfrm'+str(i)
                 _fstr = '_trimmed-upsampled-scale-'+scale_fnm + _frm*(Nim>1) +fcomment
                 fpetu.append( os.path.join(petudir, fnms[i]+_fstr+'_i.nii.gz') )
                 imio.array2nii( imtrim[i,::-1,::-1,:], A, fpetu[i], descrip=niidescr)
-                if verbose:  log.info('saved upsampled PET image to: {}'.format(fpetu[i]))
+                log.debug('saved upsampled PET image to: {}'.format(fpetu[i]))
 
     if store_img:
         _nfrm = '_nfrm'+str(Nim)
         fim = os.path.join(petudir, 'trimmed-upsampled-scale-'+scale_fnm)+_nfrm*(Nim>1)+fcomment+'.nii.gz'
         log.info('storing image to:\n{}'.format(fim))
-        
+
         imio.array2nii( np.squeeze(imtrim[:,::-1,::-1,:]), A, fim, descrip=niidescr)
         dctout['fim'] = fim
 
@@ -503,16 +457,13 @@ def trimim( fims,
     dctout['im'] = np.squeeze(imtrim)
     dctout['N'] = Nim
     dctout['affine'] = A
-        
+
     return dctout
 
 
-
-
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 def psf_general(vx_size=(1,1,1), fwhm=(5, 5, 6), hradius=8, scale=2):
     '''
     Separable kernels for convolution executed on the GPU device
@@ -563,26 +514,19 @@ def psf_measured(scanner='mmr', scale=1):
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
-    '''partial volume correction using iterative Yang method
-    imgIn: input image which is blurred due to the PSF of the scanner
-    krnl: shift invariant kernel of the PSF
-    imgSeg: segmentation into regions starting with 0 (e.g., background) and then next integer numbers
-    itr: number of iteration (default 5)
     '''
-
-    #> set the logger and its level of verbose
-    log = get_logger(__name__)
-    if 'LOG' in Cnt:
-        log.setLevel(Cnt['LOG'])
-    else:
-        log.setLevel(log_default)
-
-
+    Partial volume correction using iterative Yang method.
+    Arguments:
+        imgIn: input image which is blurred due to the PSF of the scanner
+        krnl: shift invariant kernel of the PSF
+        imgSeg: segmentation into regions starting with 0 (e.g., background) and then next integer numbers
+        itr: number of iteration (default 5)
+    '''
     dim = imgIn.shape
     m = np.int32(np.max(imgSeg))
     m_a = np.zeros(( m+1, itr ), dtype=np.float32)
 
-    for jr in range(0,m+1): 
+    for jr in range(0,m+1):
         m_a[jr, 0] = np.mean( imgIn[imgSeg==jr] )
 
     # init output image
@@ -590,14 +534,13 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
 
     # iterative Yang algorithm:
     for i in range(0, itr):
-        if Cnt['VERBOSE']: 
-            log.info('PVC Yang iteration = {}'.format(i))
+        log.debug('PVC Yang iteration = {}'.format(i))
         # piece-wise constant image
         imgPWC = imgOut
         imgPWC[imgPWC<0] = 0
         for jr in range(0,m+1):
             imgPWC[imgSeg==jr] = np.mean( imgPWC[imgSeg==jr] )
-        
+
         #> blur the piece-wise constant image using either:
         #> (1) GPU convolution with a separable kernel (x,y,z), or
         #> (2) CPU, Python-based convolution
@@ -612,7 +555,7 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
             hxy = np.outer(krnl[1,:], krnl[2,:])
             hxyz = np.multiply.outer(krnl[0,:], hxy)
             imgSmo = ndi.convolve(imgPWC, hxyz, mode='constant', cval=0.)
-        
+
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)
         imgCrr[imgSmo>0] = imgPWC[imgSmo>0] / imgSmo[imgSmo>0]
@@ -644,7 +587,7 @@ def pvc_iyang(
     ):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
         The PVC method uses iterative Yang method.
-        GPU based convolution is the key routine of the PVC. 
+        GPU based convolution is the key routine of the PVC.
         Input:
         -------
         petin:  either a dictionary containing image data, file name and affine transform,
@@ -667,7 +610,7 @@ def pvc_iyang(
                     [39, 40, 72, 73, 74], # ROI 3 (region consisting of multiple parcellation regions)
                     ...
                 ]
-        kernel: the point spread function (PSF) specific for the camera and the object.  
+        kernel: the point spread function (PSF) specific for the camera and the object.
                 It is given as a 3x17 matrix, a 17-element kernel for each dimension (x,y,z).
                 It is used in the GPU-based convolution using separable kernels.
         outpath:path to the output of the resulting PVC images
@@ -676,16 +619,10 @@ def pvc_iyang(
                 For this the MR T1w image is required.  If faff and T1w image are not provided,
                 it will results in exception/error.
         fcomment:a string used in naming the produced files, helpful for distinguishing them.
-        tool:   co-registration tool.  By default it is NiftyReg, but SPM is also 
+        tool:   co-registration tool.  By default it is NiftyReg, but SPM is also
                 possible (needs Matlab engine and more validation)
         itr:    number of iterations used by the PVC.  5-10 should be enough (5 default)
     '''
-
-
-    #> set the logger and its level of verbose
-    log = get_logger(__name__)
-    log.setLevel(Cnt['LOG'])
-
     # get all the input image properties
     if isinstance(petin, dict):
         im = imdic['im']
@@ -698,7 +635,7 @@ def pvc_iyang(
         fpet = petin
     else:
         raise IOError('e> unrecognised input PET file')
-    
+
     if im.ndim!=3:
         raise IndexError('Only 3D images are expected in this method of partial volume correction.')
 
@@ -728,7 +665,7 @@ def pvc_iyang(
     else:
         oprcl = os.path.join(outpath, 'PVC-preprocessed')
         opvc =  os.path.join(outpath, 'PVC')
-        
+
     #> create folders
     imio.create_dir(oprcl)
     imio.create_dir(opvc)
@@ -792,7 +729,7 @@ def pvc_iyang(
             oprcl,
             os.path.basename(mridct['T1lbl']).split('.')[0]\
             +'_registered_trimmed'+fcomment+'.nii.gz')
-        
+
     if tool=='niftyreg':
         if os.path.isfile( Cnt['RESPATH'] ):
             cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
@@ -801,7 +738,7 @@ def pvc_iyang(
             run(cmd)
         else:
             raise IOError('e> path to resampling executable is incorrect!')
-        
+
     elif tool=='spm':
         fout = regseg.resample_spm(
                     fpet,
@@ -826,10 +763,10 @@ def pvc_iyang(
     #---------------------------------------------------------------------------
     #> get the parcellation specific for PVC based on the current parcellations
     imgroi = prcu.copy();  imgroi[:] = 0
-    
+
     #> number of segments, without the background
     nSeg = len(pvcroi)
-    
+
     #> create the image of numbered parcellations
     for k in range(nSeg):
         for m in pvcroi[k]:
@@ -876,7 +813,7 @@ def pvc_iyang(
 def ct2mu(im):
     '''HU units to 511keV PET mu-values
         https://link.springer.com/content/pdf/10.1007%2Fs00259-002-0796-3.pdf
-        C. Burger, et al., PET attenuation coefficients from CT images, 
+        C. Burger, et al., PET attenuation coefficients from CT images,
     '''
 
     # convert nans to -1024 for the HU values only
@@ -904,7 +841,7 @@ def centre_mass_img(imdct, output='mm'):
         imdct - the image dictionary with the image and header data.
         Output the list of the centre of mass for each axis.
     '''
-    
+
     #> initialise centre of mass array in mm and in voxel indexes
     com = np.zeros(3, dtype=np.float32)
     icom = np.zeros(3, dtype=np.float32)
@@ -992,7 +929,7 @@ def nii_modify(
     elif voxel_range and len(voxel_range)==2:
         #> normalise into range 0-1
         im = (dctnii['im'] - np.min(dctnii['im'])) / np.ptp(dctnii['im'])
-        #> convert to voxel_range 
+        #> convert to voxel_range
         im = voxel_range[0] + im*(voxel_range[1] - voxel_range[0])
     else:
         return None
@@ -1036,12 +973,12 @@ def bias_field_correction(
         Cnt=None):
 
     ''' Correct for bias field in MR image(s) given in <fmr> as a string
-        (single file) or as a list of strings (multiple files).  
+        (single file) or as a list of strings (multiple files).
 
         Output dictionary with the bias corrected file names.
 
         Options:
-        - fimout:       The name (with path) of the output file.  It's 
+        - fimout:       The name (with path) of the output file.  It's
                         ignored when multiple files are given as input.  If
                         given for a single file name, the <outpath> and
                         <fcomment> options are ignored.
@@ -1049,43 +986,29 @@ def bias_field_correction(
         - fcomment:     A prefix comment to the file name
         - executable:   The path to the executable, overrides the above
                         choice of software;  if 'sitk' is given instead
-                        of the path, the Python module SimpleITK will be 
+                        of the path, the Python module SimpleITK will be
                         used if it is available.
         - exe_options:  Options for the executable in the form of a list of
                         strings.
         - sitk_image_mask:  Image masking will be used if SimpleITK is
                             chosen.
     '''
-
-
     #> check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
-
-    #> set the logger and its level of verbose
-    log = get_logger(__name__)
-
-    if 'LOG' not in Cnt and verbose>=1:
-        log.setLevel(logging.INFO)
-    elif 'LOG' in Cnt:
-        log.setLevel(Cnt['LOG'])
-    else:
-        log.setLevel(log_default)
-
 
     if executable=='sitk' and 'SimpleITK' not in sys.modules:
         log.error(dedent('''\
             If SimpleITK module is required for bias correction, it needs to be
             first installed using this command:
             conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0
-            or pip install SimpleITK
-            '''))
+            or pip install SimpleITK'''))
         return None
 
     #---------------------------------------------------------------------------
     # INPUT
     #---------------------------------------------------------------------------
-    #> path to a single file 
+    #> path to a single file
     if isinstance(fmr, str) and os.path.isfile(fmr):
         fins = [fmr]
 
@@ -1117,12 +1040,10 @@ def bias_field_correction(
             fimout = os.path.join(opth, fimout)
         n4opth = opth
         fcomment = ''
-
     elif outpath=='':
         opth = os.path.dirname(fmr)
         #> N4 bias correction specific folder
         n4opth = os.path.join(opth, 'N4bias')
-
     else:
         opth = outpath
         #> N4 bias correction specific folder
@@ -1134,16 +1055,13 @@ def bias_field_correction(
     #---------------------------------------------------------------------------
 
 
-
     for fin in fins:
+        log.debug('input for bias correction:\n{}'.format(fin))
 
-        if verbose:
-            log.info('input for bias correction:\n{}'.format(fin))
-        
         if fimout=='':
             # split path
             fspl = os.path.split(fin)
-            
+
             # N4 bias correction file output paths
             fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]\
                                 + fcomment +'.nii.gz')
@@ -1160,14 +1078,14 @@ def bias_field_correction(
                 corrector = sitk.N4BiasFieldCorrectionImageFilter()
                 # numberFilltingLevels = 4
 
-                # read input file        
+                # read input file
                 im = sitk.ReadImage(fin)
 
                 #> create a object specific mask
                 fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
                 msk = sitk.OtsuThreshold(im, 0, 1, 200)
                 sitk.WriteImage(msk, fmsk)
-                
+
                 #> cast to 32-bit float
                 im = sitk.Cast( im, sitk.sitkFloat32 )
 
@@ -1183,14 +1101,14 @@ def bias_field_correction(
 
             elif os.path.basename(executable)=='N4BiasFieldCorrection' \
                     and os.path.isfile(executable):
-                
+
                 cmd = [executable,  '-i', fin, '-o', fn4]
-            
+
                 if verbose and os.path.basename(executable)=='N4BiasFieldCorrection':
                     cmd.extend(['-v', '1'])
 
                 cmd.extend(exe_options)
-                
+
                 run(cmd)
 
                 if 'command' not in outdct:
@@ -1205,11 +1123,11 @@ def bias_field_correction(
 
                 if 'command' not in outdct:
                     outdct['command'] = cmd
-        
+
         else:
             log.info('N4 bias corrected file seems already existing.')
 
-        #> output to dictionary 
+        #> output to dictionary
         outdct.setdefault('fim', [])
         outdct['fim'].append(fn4)
 
@@ -1246,7 +1164,7 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05
     # output in register with ref PET
     fout = os.path.join(odir, 'PET-r-to-'+os.path.basename(fref).split('.')[0]+'.nii.gz')
     # text file for the affine transform T1w->PET
-    faff   = os.path.join(odir, 'affine-PET-r-to-'+os.path.basename(fref).split('.')[0]+'.txt')  
+    faff   = os.path.join(odir, 'affine-PET-r-to-'+os.path.basename(fref).split('.')[0]+'.txt')
     # call the registration routine
     if os.path.isfile( Cnt['REGPATH'] ):
         cmd = [Cnt['REGPATH'],
@@ -1259,16 +1177,17 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05
              '-smooF', str(smof),
              '-smooR', str(smor),
              '-res', fout]
-        if rmsk: 
+        if rmsk:
             cmd.append('-rmask')
             cmd.append(fmsk)
-        if not Cnt['VERBOSE']: cmd.append('-voff')
+        if not Cnt['VERBOSE']:
+            cmd.append('-voff')
         log.info('Executing command:\n{}'.format(cmd))
         run(cmd)
     else:
-        log.error('e> path to registration executable is incorrect!')
+        log.error('path to registration executable is incorrect!')
         raise Exception('No registration executable found')
-        
+
     return faff, fout
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
@@ -1285,18 +1204,6 @@ def mr2pet_rigid(
         fthrsh=0.05,
         pi=50, pv=50,
         smof=0, smor=0):
-
-
-    
-    #> set the logger and its level of verbose
-    log = get_logger(__name__)
-
-    if 'LOG' in Cnt:
-        log.setLevel(Cnt['LOG'])
-    else:
-        log.setLevel(log_default)
-
-
     # create output path if given
     if outpath!='':
         imio.create_dir(outpath)
@@ -1313,8 +1220,7 @@ def mr2pet_rigid(
         ft1nii = glob.glob( os.path.join(mridct['T1nii'], '*converted*.nii*') )
         ft1w = ft1nii[0]
     else:
-        log.info('e> disaster: no T1w image!')
-        sys.exit()
+        raise ValueError('disaster: no T1w image!')
 
     #create a folder for MR images registered to PET
     if outpath!='':
@@ -1350,7 +1256,7 @@ def mr2pet_rigid(
     # output for the T1w in register with PET
     ft1out = os.path.join(mrodir, 'T1w-r-to-'+os.path.basename(fpet).split('.')[0]+fcomment+'.nii.gz')
     # text file for the affine transform T1w->PET
-    faff   = os.path.join(mrodir, 'affine-T1w-r-to-'+os.path.basename(fpet).split('.')[0]+fcomment+'.txt')  
+    faff   = os.path.join(mrodir, 'affine-T1w-r-to-'+os.path.basename(fpet).split('.')[0]+fcomment+'.txt')
     # call the registration routine
     if os.path.isfile( Cnt['REGPATH'] ):
         cmd = [Cnt['REGPATH'],
@@ -1363,31 +1269,31 @@ def mr2pet_rigid(
              '-smooF', str(smof),
              '-smooR', str(smor),
              '-res', ft1out]
-        if rmsk: 
+        if rmsk:
             cmd.append('-rmask')
             cmd.append(f_rmsk)
         if fmsk:
             cmd.append('-fmask')
             cmd.append(f_fmsk)
-        if 'VERBOSE' in Cnt and not Cnt['VERBOSE']: cmd.append('-voff')
+        if not Cnt.get('VERBOSE', True):
+            cmd.append('-voff')
         log.info('Executing command:\n{}'.format(cmd))
         run(cmd)
     else:
         raise IOError('path to registration executable is incorrect!')
-        
+
     return faff
-
-
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # OUTDATED
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
+
 def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
     '''
     Extracting ROI values of upsampled PET.  If not provided it will be upsampled.
-    imdic: dictionary of all image parts (image, path to file and affine transformation)    
+    imdic: dictionary of all image parts (image, path to file and affine transformation)
      > fpet: file name for quantitative PET
      > faff: file name and path to the affine (rigid) transformations, most likely for upscaled PET
     amyroi: module with ROI definitions in numbers
@@ -1398,7 +1304,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
     faff = imdic['faff']
     im   = imdic['im']
 
-    if Cnt['VERBOSE']: log.info('extracting ROI values')
+    log.debug('extracting ROI values')
 
     # split the labels path
     lbpth = os.path.split(datain['T1lbl'])
@@ -1415,11 +1321,11 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
 
     dscrp = imio.getnii_descr(fpet)
     impvc = False
-    if 'pvc' in list(dscrp.keys()):       
+    if 'pvc' in list(dscrp.keys()):
         impvc = True
-        if Cnt['VERBOSE']: log.info('the provided image is partial volume corrected.')
+        log.debug('the provided image is partial volume corrected.')
 
-    #------------------------------------------------------------------------------------------------------------  
+    #------------------------------------------------------------------------------------------------------------
     # next steps after having sorted out the upsampled input image and the rigid transformation for the T1w -> PET:
 
     # Get the labels before resampling to PET space so that the regions can be separated (more difficult to separate after resampling)
@@ -1428,8 +1334,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
         A = nilb.get_sform()
         imlb = nilb.get_data()
     else:
-        log.info('parcellation label image not present!')
-        sys.exit()
+        raise ValueError('parcellation label image not present!')
 
     # ===============================================================
     # get the segmentation/parcellation by creating an image for ROI extraction
@@ -1464,7 +1369,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
                 '-trans', faff,
                 '-res', froi2]#,
                 #'-pad', '0']
-            if not Cnt['VERBOSE']: cmd.append('-voff') 
+            if not Cnt['VERBOSE']: cmd.append('-voff')
             run(cmd)
         # get the resampled ROI mask image
         rmsk = imio.getnii(froi2)
@@ -1473,7 +1378,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
 
         # erode the cerebral white matter region if no PVC image
         if k=='wm' and not impvc:
-            if Cnt['VERBOSE']: log.info('eroding white matter as PET image not partial volume corrected.')
+            log.debug('eroding white matter as PET image not partial volume corrected.')
             nilb = nib.load(froi2)
             B = nilb.get_sform()
             tmp = ndi.filters.gaussian_filter(rmsk, imio.fwhm2sig(12,Cnt['VOXY']), mode='mirror')
@@ -1486,18 +1391,15 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
         rmsum  = np.sum(rmsk)
         roisum[k].append( rvsum )
         roimsk[k].append( rmsum )
-        if Cnt['VERBOSE']: 
-            log.info('''\
-            \r================================================================
-            \rROI extracted: {}
-            \r  > value sum: {}
-            \r  > # voxels : {}
-            \r================================================================
-            '''.format(k, rvsum, rmsum))
-    # --------------------------------------------------------------
+        log.debug(dedent('''\
+            ================================================================
+            ROI extracted: {}
+              > value sum: {}
+              > # voxels : {}
+            ================================================================'''
+            ).format(k, rvsum, rmsum))
 
     return roisum, roimsk
-
 
 
 def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_stored=False):
@@ -1506,7 +1408,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
     M  = imdic['affine'] # matrix with affine parameters
     im   = imdic['im']
 
-    if Cnt['VERBOSE']: log.info('i> extracting ROI values')
+    log.debug('extracting ROI values')
 
     # split the labels path
     lbpth = os.path.split(datain['T1lbl'])
@@ -1514,11 +1416,11 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 
     dscrp = nimpa.prc.getnii_descr(fpet)
     impvc = False
-    if 'pvc' in dscrp:       
+    if 'pvc' in dscrp:
         impvc = True
-        if Cnt['VERBOSE']: log.info('the provided image is partial volume corrected.')
+        log.debug('the provided image is partial volume corrected.')
 
-    #------------------------------------------------------------------------------------------------------------  
+    #------------------------------------------------------------------------------------------------------------
     # next steps after having sorted out the upsampled input image and the rigid transformation for the T1w -> PET:
 
     # Get the labels before resampling to PET space so that the regions can be separated (more difficult to separate after resampling)
@@ -1528,12 +1430,11 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
         else:
             flbl = datain['T1lbl']
     else:
-        info.error('parcellation label image not present!')
-        sys.exit()
+        raise ValueError('parcellation label image not present!')
 
     # ===============================================================
     # resample the labels to upsampled PET
-    if fpet[-3:]=='.gz': 
+    if fpet[-3:]=='.gz':
         fpet_ = imio.nii_ugzip(fpet)
     else:
         fpet_ = fpet
@@ -1564,18 +1465,15 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
         rmsum  = np.sum(roi_img)
         roisum[k].append( rvsum )
         roimsk[k].append( rmsum )
-        if Cnt['VERBOSE']: 
-            log.info('''\
-            \r================================================================
-            \rROI extracted: {}
-            \r  > value sum: {}
-            \r  > # voxels : {}
-            \r================================================================
-            '''.format(k, rvsum, rmsum))
-   # --------------------------------------------------------------
+        log.debug(dedent('''\
+            ================================================================
+            ROI extracted: {}
+              > value sum: {}
+              > # voxels : {}
+            ================================================================'''
+            ).format(k, rvsum, rmsum))
 
     return roisum, roimsk
-
 
 
 # # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -1611,14 +1509,14 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 #             cmmnt = '(b'+str(bitr)+')'
 #         # perform reconstruction with UTE and pCT mu-maps while aligning the pCT/T1w to PET-UTE
 #         recout = nipet.img.prc.osemduo(datain, txLUT, axLUT, Cnt, t0=t0, t1=t1, itr=itr, fcomment=fcomment+cmmnt, use_stored=True)
-        
+
 #         # get the PSF kernel for PVC
 #         krnlPSF = nimpa.psf_measured(scale=2)
 #         # trim PET and upsample.  The trimming is done based on the first file in the list below, i.e., recon with pCT
-#         imudic = trimim( datain, Cnt, fpets=[recout.fpct, recout.fute], scale=2, 
+#         imudic = trimim( datain, Cnt, fpets=[recout.fpct, recout.fute], scale=2,
 #                                         fcomment='trim_'+fcomment, int_order=int_order)
 #         # create separate dictionary for UTE and pCT reconstructions
-#         imupct = {'im':imudic['im'][0,:,:,:], 'fpet':imudic['fpet'][0], 'affine':imudic['affine']} 
+#         imupct = {'im':imudic['im'][0,:,:,:], 'fpet':imudic['fpet'][0], 'affine':imudic['affine']}
 #         imuute = {'im':imudic['im'][1,:,:,:], 'fpet':imudic['fpet'][1], 'affine':imudic['affine']}
 
 #         if bitr==0 and Cnt['BTP']>0:
@@ -1631,7 +1529,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 #             btpout.M2pctpvc= np.zeros(imupct['im'].shape, dtype=np.float32)
 #             btpout.M2ute   = np.zeros(imuute['im'].shape, dtype=np.float32)
 #             btpout.M2utepvc= np.zeros(imuute['im'].shape, dtype=np.float32)
-        
+
 #         #-----------------------------
 #         # PCT ANALYSIS
 #         if Cnt['BTP']==0:
@@ -1668,7 +1566,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 #         if Cnt['BTP']==0:
 #             cmmnt = '(ute-P)'
 #         else:
-#             cmmnt = '(ute-b'+str(bitr)+')' 
+#             cmmnt = '(ute-b'+str(bitr)+')'
 #         # perform PVC, iterative Yang
 #         pvcdic = nipet.img.prc.pvc_iYang(datain, Cnt, imuute, amyroi, krnlPSF, faffu=recout.faff, fcomment=cmmnt)
 #         # the rigid transformation is the same for PVC corrected and uncorrected images

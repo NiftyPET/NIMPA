@@ -17,15 +17,13 @@ __copyright__   = "Copyright 2020"
 __licence__ = __license__ = "Apache 2.0"
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('nimpa.setup')
-
-#> console handler
-ch = logging.StreamHandler()
+logroot = logging.getLogger('nimpa')
+hand = logging.StreamHandler()
 formatter = logging.Formatter(
-    '\n%(levelname)s> %(asctime)s - %(name)s - %(funcName)s\n> %(message)s')
-ch.setFormatter(formatter)
-log.addHandler(ch)
-
+    '%(levelname)s:%(asctime)s:%(name)s:%(funcName)s\n> %(message)s')
+hand.setFormatter(formatter)
+logroot.addHandler(hand)
+log = logging.getLogger('nipet.setup')
 
 if not platform.system() in ['Windows', 'Darwin', 'Linux']:
     log.error('''\
@@ -79,7 +77,7 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
         log.info('''
             \r------------------------------------------------------------------
             \rNiftyPET resources file <resources.py> could not be imported.
-            \rIt should be in ~/.niftypet/resources.py (Linux) or 
+            \rIt should be in ~/.niftypet/resources.py (Linux) or
             \rin //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
             \rbut likely it does not exists.
             \r------------------------------------------------------------------
@@ -89,7 +87,7 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
     Cnt = resources.get_setup()
     # check the installation of tools
     chck_tls = tls.check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX'])
-    
+
     #-------------------------------------------
     # NiftyPET tools:
     #-------------------------------------------
@@ -104,7 +102,7 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
             ''')
         Cnt = tls.install_tool('dcm2niix', Cnt)
     #---------------------------------------
-    
+
     #-------------------------------------------
     # NiftyReg
     if not chck_tls['REGPATH'] or not chck_tls['RESPATH']:
@@ -125,7 +123,7 @@ if os.path.isfile(os.path.join(path_resources,'resources.py')):
                 ''')
             Cnt = tls.install_tool('niftyreg', Cnt)
     #-------------------------------------------
-    
+
 else:
     raise SystemError('Missing file: resources.py')
 
@@ -140,7 +138,7 @@ log.info('''
 #===============================================================
 #>CUDA installation
 if chk['cuda'] and gpuarch!='':
-    
+
     log.info('''
         \r--------------------------------------------------------------
         \rCUDA compilation for NIMPA ...
@@ -170,7 +168,7 @@ if chk['cuda'] and gpuarch!='':
     # error string for later reporting
     errstr = []
     # the log files the cmake results are written
-    cmakelog = ['py_cmake_config.log', 'py_cmake_build.log'] 
+    cmakelog = ['py_cmake_config.log', 'py_cmake_build.log']
     # run commands with logging
     for ci in range(len(cmd)):
 
@@ -182,7 +180,7 @@ if chk['cuda'] and gpuarch!='':
         with open(cmakelog[ci], 'w') as f:
             f.write(stdout)
 
-        
+
 
         ei = stderr.find('error')
         if ei>=0:

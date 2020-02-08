@@ -1,40 +1,26 @@
-""" NIMPA: functions for neuro image processing and analysis.
-    Includes functions relating to image registration/segmentation.
-    
 """
-__author__    = "Pawel Markiewicz"
-__copyright__ = "Copyright 2019"
-#-------------------------------------------------------------------------------
-
-import sys
+NIMPA: functions for neuro image processing and analysis.
+Includes functions relating to image registration/segmentation.
+"""
+import glob
+import logging
 import os
 import shutil
 from subprocess import call
-import glob
+import sys
 
 import numpy as np
 import scipy.ndimage as ndi
 
 from . import imio
 from . import prc
-
-#-------------------------------------------------------------------------------
-import logging
+__author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__ = "Copyright 2020"
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
-
-#> console handler
-ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n>  %(message)s')
-ch.setFormatter(formatter)
-# ch.setLevel(logging.ERROR)
-log.addHandler(ch)
-#-------------------------------------------------------------------------------
 
 
 def imfill(immsk):
     '''fill the empty patches of image mask 'immsk' '''
-
     for iz in range(immsk.shape[0]):
         for iy in range(immsk.shape[1]):
             ix0 = np.argmax(immsk[iz,iy,:]>0)
@@ -44,23 +30,21 @@ def imfill(immsk):
     return immsk
 
 
+#-------------------------------------------------------------------------------
+# Create object mask for the input image
+#-------------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------
-# Create object mask for the input image 
-#-------------------------------------------------------------------------------
+
 def create_mask(
-        fnii,
-        fimout = '',
-        outpath = '',
-        fill = 1,
-        dtype_fill = np.uint8,
-        
-        thrsh = 0.,
-        fwhm = 0.,):
-
-    ''' create mask over the whole image or over the threshold area'''
-    
-
+    fnii,
+    fimout='',
+    outpath='',
+    fill=1,
+    dtype_fill=np.uint8,
+    thrsh=0.,
+    fwhm=0.,
+):
+    '''create mask over the whole image or over the threshold area'''
     #> output path
     if outpath=='' and fimout!='':
         opth = os.path.dirname(fimout)
@@ -90,7 +74,7 @@ def create_mask(
     if thrsh>0.:
         smoim = ndi.filters.gaussian_filter(
                     im,
-                    imio.fwhm2sig(fwhm, voxsize=abs(hdr['pixdim'][1])), 
+                    imio.fwhm2sig(fwhm, voxsize=abs(hdr['pixdim'][1])),
                     mode='mirror')
         thrsh = thrsh*smoim.max()
         immsk = np.int8(smoim>thrsh)
@@ -98,13 +82,11 @@ def create_mask(
 
         #> output image
         imo = fill * immsk.astype(dtype_fill)
-
     else:
-
         imo = fill * np.ones(im.shape, dtype = dtype_fill)
 
     #> save output image
-    imio.array2nii( 
+    imio.array2nii(
                 imo,
                 niidct['affine'],
                 fimout,
@@ -114,8 +96,6 @@ def create_mask(
                 flip = niidct['flip'])
 
     return {'fim':fimout, 'im':imo}
-#-------------------------------------------------------------------------------
-
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -123,7 +103,6 @@ def create_mask(
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-#-------------------------------------------------------------------------------
 def affine_niftyreg(
     fref,
     fflo,
@@ -145,7 +124,8 @@ def affine_niftyreg(
     rthrsh=0.05,
     ffwhm = 15.,
     fthrsh=0.05,
-    verbose=True):
+    verbose=True,
+):
 
     # check if the executable exists:
     if not os.path.isfile(executable):
@@ -164,7 +144,7 @@ def affine_niftyreg(
     if rmsk:
         f_rmsk = os.path.join(fimdir, 'rmask_'+os.path.basename(fref).split('.nii')[0]+'.nii.gz')
         create_mask(fref, fimout = f_rmsk, thrsh = rthrsh, fwhm = rfwhm)
-    
+
     if fmsk:
         f_fmsk = os.path.join(fimdir, 'fmask_'+os.path.basename(fflo).split('.nii')[0]+'.nii.gz')
         create_mask(fflo, fimout = f_fmsk, thrsh = fthrsh, fwhm = ffwhm)
@@ -184,7 +164,7 @@ def affine_niftyreg(
                 +os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
             faff = os.path.join(odir, 'affine_flo-' \
                 +os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
-    
+
     # call the registration routine
     cmd = [executable,
          '-ref', fref,
@@ -203,7 +183,7 @@ def affine_niftyreg(
         cmd.append('-rigOnly')
     if affDirect:
         cmd.append('affDirect')
-    if rmsk: 
+    if rmsk:
         cmd.append('-rmask')
         cmd.append(f_rmsk)
     if fmsk:
@@ -216,27 +196,27 @@ def affine_niftyreg(
 
     #> affine to Numpy array
     aff = np.loadtxt(faff)
-       
-    return {'affine':aff, 'faff':faff, 'fim':fout} #faff, fout
-#-------------------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------------
+    return {'affine':aff, 'faff':faff, 'fim':fout} #faff, fout
+
+
 def resample_niftyreg(
-        fref,
-        fflo,
-        faff,
-        outpath = '',
-        fimout = '',
-        fcomment = '',
-        pickname = 'ref',
-        intrp = 1,
-        executable = '',
-        verbose = True):
+    fref,
+    fflo,
+    faff,
+    outpath='',
+    fimout='',
+    fcomment='',
+    pickname='ref',
+    intrp=1,
+    executable='',
+    verbose=True,
+):
 
     # check if the executable exists:
     # if executable=='' and 'RESPATH' in Cnt and os.path.isfile(Cnt['RESPATH']):
     #     executable = Cnt['RESPATH']
-    
+
     if not os.path.isfile(executable):
         raise IOError('Incorrect path to executable file for registration.')
 
@@ -245,10 +225,8 @@ def resample_niftyreg(
         opth = os.path.dirname(fimout)
         if opth=='':
             opth = os.path.dirname(fflo)
-
     elif outpath=='':
         opth = os.path.dirname(fflo)
-
     else:
         opth = outpath
 
@@ -262,54 +240,55 @@ def resample_niftyreg(
     elif pickname=='ref':
         fout = os.path.join(opth, 'affine_ref-' \
                 + os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
-    elif pickname=='flo':        
+    elif pickname=='flo':
         fout = os.path.join(opth, 'affine_flo-' \
                 + os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
 
-    if isinstance(intrp, int): intrp = str(intrp)
-    
-    cmd = [executable,
-       '-ref', fref,
-       '-flo', fflo,
-       '-trans', faff,
-       '-res', fout,
-       '-inter', intrp
-       ]
+    if isinstance(intrp, int):
+        intrp = str(intrp)
+
+    cmd = [
+        executable,
+        '-ref', fref,
+        '-flo', fflo,
+        '-trans', faff,
+        '-res', fout,
+        '-inter', intrp,
+    ]
     if not verbose:
         cmd.append('-voff')
     call(cmd)
 
     return fout
-#-------------------------------------------------------------------------------------
-
 
 
 #===============================================================================
 # S P M registration
 #===============================================================================
-def coreg_spm(
-        imref,
-        imflo,
-        matlab_eng='',
-        fwhm_ref = 0,
-        fwhm_flo = 0,
-        outpath='',
-        fname_aff='',
-        fcomment = '',
-        pickname='ref',
-        costfun='nmi',
-        sep = [4,2],
-        tol = [ 0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
-                0.0100,0.0100,0.0100,0.0010,0.0010,0.0010],
-        fwhm = [7,7],
-        params = [0,0,0,0,0,0],
-        graphics = 1,
-        visual = 0,
-        del_uncmpr=True,
-        save_arr = True,
-        save_txt = True,
-    ):
 
+
+def coreg_spm(
+    imref,
+    imflo,
+    matlab_eng='',
+    fwhm_ref=0,
+    fwhm_flo=0,
+    outpath='',
+    fname_aff='',
+    fcomment='',
+    pickname='ref',
+    costfun='nmi',
+    sep=[4,2],
+    tol=[0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
+         0.0100,0.0100,0.0100,0.0010,0.0010,0.0010],
+    fwhm=[7,7],
+    params=[0,0,0,0,0,0],
+    graphics=1,
+    visual=0,
+    del_uncmpr=True,
+    save_arr = True,
+    save_txt = True,
+):
     import matlab
     from pkg_resources import resource_filename
 
@@ -337,17 +316,17 @@ def coreg_spm(
         opth = outpath
     imio.create_dir(opth)
 
-    #> decompress ref image as necessary 
+    #> decompress ref image as necessary
     if imref[-3:]=='.gz':
         imrefu = imio.nii_ugzip(imref, outpath=opth)
     else:
         fnm = os.path.basename(imref).split('.nii')[0] + '_copy.nii'
         imrefu = os.path.join(opth, fnm)
         shutil.copyfile(imref, imrefu)
-    
+
     if fwhm_ref>0:
         smodct = prc.smoothim(imrefu, fwhm_ref)
-        
+
         #> delete the previous version (non-smoothed)
         os.remove(imrefu)
         imrefu = smodct['fim']
@@ -355,7 +334,7 @@ def coreg_spm(
         log.info('smoothed the reference image with FWHM={} and saved to\n{}'.format(fwhm_ref,imrefu))
 
     #> floating
-    if imflo[-3:]=='.gz': 
+    if imflo[-3:]=='.gz':
         imflou = imio.nii_ugzip(imflo, outpath=opth)
     else:
         fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
@@ -369,7 +348,6 @@ def coreg_spm(
         imflou = smodct['fim']
 
         log.info('smoothed the floating image with FWHM={} and saved to\n{}'.format(fwhm_ref,imrefu))
-
 
     # run the matlab SPM coregistration
     Mm, xm = eng.coreg_spm_m(
@@ -411,7 +389,7 @@ def coreg_spm(
                     opth,
                     'affine-spm',
                     'affine-flo-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.npy')
-    
+
     else:
 
         #> add '.npy' extension if not in the affine output file name
@@ -430,47 +408,43 @@ def coreg_spm(
     if save_txt:
         faff = faff.split('.npy')[0]+'.txt'
         np.savetxt(faff, M)
-    
+
     return {'affine':M, 'faff':faff,
             'rotations':x[3:], 'translations':x[:3],
             'matlab_eng':eng}
-#===============================================================================
-
-
-
 
 
 #===============================================================================
 # S P M resampling
 #===============================================================================
+
+
 def resample_spm(
-        imref,
-        imflo,
-        M,
-        matlab_eng='',
-        fwhm = 0,
-        intrp=1.,
-        which=1,
-        mask=0,
-        mean=0,
-        outpath='',
-        fimout='',
-        fcomment='',
-        prefix='r_',
-        pickname='ref',
-        del_ref_uncmpr=False,
-        del_flo_uncmpr=False,
-        del_out_uncmpr=False
-    ):
-
-
-    log.info('''\
-        \r======================================================================
-        \r S P M  inputs:
-        \r > ref:' {}
-        \r > flo:' {}
-        \r======================================================================
-    '''.format(imref, imflo))
+    imref,
+    imflo,
+    M,
+    matlab_eng='',
+    fwhm = 0,
+    intrp=1.,
+    which=1,
+    mask=0,
+    mean=0,
+    outpath='',
+    fimout='',
+    fcomment='',
+    prefix='r_',
+    pickname='ref',
+    del_ref_uncmpr=False,
+    del_flo_uncmpr=False,
+    del_out_uncmpr=False,
+):
+    log.info(dedent('''\
+        ======================================================================
+         S P M  inputs:
+         > ref:' {}
+         > flo:' {}
+        ======================================================================'''
+        ).format(imref, imflo))
 
     import matlab
     from pkg_resources import resource_filename
@@ -500,7 +474,7 @@ def resample_spm(
 
     imio.create_dir(opth)
 
-    #> decompress if necessary 
+    #> decompress if necessary
     if imref[-3:]=='.gz':
         imrefu = imio.nii_ugzip(imref, outpath=opth)
     else:
@@ -509,7 +483,7 @@ def resample_spm(
         shutil.copyfile(imref, imrefu)
 
     #> floating
-    if imflo[-3:]=='.gz': 
+    if imflo[-3:]=='.gz':
         imflou = imio.nii_ugzip(imflo, outpath=opth)
     else:
         fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
@@ -524,8 +498,8 @@ def resample_spm(
             M = np.load(M)
             log.info('matrix M given in the form of NumPy file')
         else:
-            raise IOError('e> unrecognised file extension for the affine.')
-            
+            raise IOError('Unrecognised file extension for the affine.')
+
     elif isinstance(M, (np.ndarray, np.generic)):
        log.info('matrix M given in the form of Numpy array')
     else:
@@ -542,7 +516,7 @@ def resample_spm(
         which,
         prefix)
 
-    
+
     #-compress the output
     split = os.path.split(imflou)
     fim = os.path.join(split[0], prefix+split[1])
@@ -559,7 +533,7 @@ def resample_spm(
     elif pickname=='ref':
         fout = os.path.join(opth, 'affine_ref-' \
                 + os.path.basename(imrefu).split('.nii')[0]+fcomment+'.nii.gz')
-    elif pickname=='flo':        
+    elif pickname=='flo':
         fout = os.path.join(opth, 'affine_flo-' \
                 + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
     # change the file name
@@ -569,34 +543,32 @@ def resample_spm(
         smodct = prc.smoothim(fout, fwhm)
         log.info('smoothed the resampled image with FWHM={} and saved to\n{}'.format(fwhm, smodct['fim']))
 
-
-
     return fout
-
-#===============================================================================
 
 
 #===============================================================================
 # S P M realignment of multiple images through m-scripting (dynamic PET)
 #===============================================================================
-def realign_mltp_spm(
-        fims,
-        quality = 1.0,
-        fwhm = 6,
-        sep = 4,
-        rtm = 1,
-        interp = 2,
-        graph = 0,
-        outpath='',
-        fcomment='',
-        niicopy=False,
-        niisort=False):
 
+
+def realign_mltp_spm(
+    fims,
+    quality=1.0,
+    fwhm=6,
+    sep=4,
+    rtm=1,
+    interp=2,
+    graph=0,
+    outpath='',
+    fcomment='',
+    niicopy=False,
+    niisort=False,
+):
     '''
+    Arguments:
         fims:   has to be a list of at least two files with the first one acting
                 as a reference.
     '''
-
     #> input folder
     inpath = os.path.dirname(fims[0])
 
@@ -605,7 +577,7 @@ def realign_mltp_spm(
         outpath = os.path.join(inpath, 'align')
     else:
         outpath = os.path.join(outpath, 'align')
-    
+
     if fims[0][-3:]=='.gz' or niicopy:
         tmpth = outpath #os.path.join(outpath, 'tmp')
         rpth = tmpth
@@ -693,34 +665,34 @@ def realign_mltp_spm(
 
     return {'fout':fres, 'outarray': res, 'P':Pineq, 'fims':fsrt}
 
-    
 
 #===============================================================================
 # S P M resampling of multiple images through m-scripting (dynamic PET)
 #===============================================================================
 
-def resample_mltp_spm(
-        fims,
-        ftr,
-        interp=1.,
-        which=1,
-        mask=0,
-        mean=0,
-        graph=0,
-        niisort=False,
-        prefix='r_',
-        outpath='',
-        fcomment='',
-        pickname='ref',
-        copy_input=False,
-        del_in_uncmpr=False,
-        del_out_uncmpr=False):
 
+def resample_mltp_spm(
+    fims,
+    ftr,
+    interp=1.,
+    which=1,
+    mask=0,
+    mean=0,
+    graph=0,
+    niisort=False,
+    prefix='r_',
+    outpath='',
+    fcomment='',
+    pickname='ref',
+    copy_input=False,
+    del_in_uncmpr=False,
+    del_out_uncmpr=False,
+):
     '''
+    Arguments:
         fims:   has to be a list of at least two files with the first one acting
                 as a reference.
     '''
-
     if not isinstance(fims, list) and not isinstance(fims[0], str):
         raise ValueError('e> unrecognised list of input images')
 
@@ -823,24 +795,24 @@ def resample_mltp_spm(
 # V I N C I  registration and resampling
 #===============================================================================
 
-def coreg_vinci(
-        fref,
-        fflo,
-        vc = '',
-        con = '',
-        vincipy_path = '',
-        scheme_xml = '',
-        outpath = '',
-        fname_aff = '',
-        pickname = 'ref',
-        fcomment = '',
-        flo_colourmap = 'Green',
-        close_vinci = False,
-        close_buff = True,
-        cleanup = True,
-        save_res = False,
-        ):
 
+def coreg_vinci(
+    fref,
+    fflo,
+    vc='',
+    con='',
+    vincipy_path='',
+    scheme_xml='',
+    outpath='',
+    fname_aff='',
+    pickname='ref',
+    fcomment='',
+    flo_colourmap='Green',
+    close_vinci=False,
+    close_buff=True,
+    cleanup=True,
+    save_res=False,
+):
     if scheme_xml=='':
         raise IOError('e> the Vinci schema *.xml file is not provided. \n \
                 i> please add the schema file in the call: scheme_xml=...')
@@ -932,7 +904,7 @@ def coreg_vinci(
         vc = Vinci_Core.Vinci_CoreCalc(con)
         vc.StdProject()
 
-    #> read the registration schema file 
+    #> read the registration schema file
     f = open(scheme_xml, 'rb')
     reg_scheme = f.read()
     f.close()
@@ -986,36 +958,34 @@ def coreg_vinci(
     return {'faff':faff, 'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
 
 
-
-
 #-------------------------------------------------------------------------------
 # VINCI RESAMPLE
 #-------------------------------------------------------------------------------
 
-def resample_vinci(
-        fref,
-        fflo,
-        faff,
-        intrp = 0,
-        fimout = '',
-        fcomment = '',
-        outpath = '',
-        pickname = 'ref',
-        vc = '',
-        con = '',
-        vincipy_path = '',
-        atlas_resample = False,
-        atlas_ref_make = False,
-        atlas_ref_del = False,
-        close_vinci = False,
-        close_buff = True,
-        ):
-    ''' Resample the floating image <fflo> into the geometry of <fref>,
-        using the Vinci transformation output <faff> (an *.xml file).
-        Output the NIfTI file path of the resampled/resliced image.
-    '''
 
-    #---------------------------------------------------------------------------
+def resample_vinci(
+    fref,
+    fflo,
+    faff,
+    intrp=0,
+    fimout='',
+    fcomment='',
+    outpath='',
+    pickname='ref',
+    vc='',
+    con='',
+    vincipy_path='',
+    atlas_resample=False,
+    atlas_ref_make=False,
+    atlas_ref_del=False,
+    close_vinci=False,
+    close_buff=True,
+):
+    '''
+    Resample the floating image <fflo> into the geometry of <fref>,
+    using the Vinci transformation output <faff> (an *.xml file).
+    Output the NIfTI file path of the resampled/resliced image.
+    '''
     #> output path
     if outpath=='' and fimout!='' and '/' in fimout:
         opth = os.path.dirname(fimout)
@@ -1090,7 +1060,7 @@ def resample_vinci(
         fextref = os.path.join(opth, 'reference-as-atlas.nii.gz')
 
         prc.nii_modify(fref, fimout=fextref, voxel_range=[0., 255.])
-        
+
         ref = Vinci_ImageT.newTemporary(
                 vc,
                 szFileName = fextref,
@@ -1124,7 +1094,7 @@ def resample_vinci(
             bUseOffsetRotation = True,
             bUseNextNeighbourInterp = interp_nn,
             szFullFileName = fout)
-    #---------------------------------------------------------------------------    
+    #---------------------------------------------------------------------------
 
 
     #> close image buffers for reference and floating
@@ -1132,7 +1102,7 @@ def resample_vinci(
         ref.killYourself()
         flo.killYourself()
         rsl.killYourself()
-        
+
 
 
     if close_vinci: con.CloseVinci(True)
@@ -1141,28 +1111,24 @@ def resample_vinci(
     #return {'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
 
 
-
-
-
 #-------------------------------------------------------------------------------
 # FSL-FLIRT REGISTRATION (AFFINE/RIGID)
 #-------------------------------------------------------------------------------
 
 
 def affine_fsl(
-        fref,
-        fflo,
-        outpath='',
-        fname_aff='',
-        pickname = 'ref',
-        fcomment='',
-        executable='',
-        costfun='normmi',
-        dof=6,
-        hstbins=256,
-        verbose=True):
-
-
+    fref,
+    fflo,
+    outpath='',
+    fname_aff='',
+    pickname = 'ref',
+    fcomment='',
+    executable='',
+    costfun='normmi',
+    dof=6,
+    hstbins=256,
+    verbose=True,
+):
     if executable=='':
         if 'FSLDIR' not in os.environ:
             raise IOError('e> no FSL executable provided!')
@@ -1178,7 +1144,7 @@ def affine_fsl(
         opth = os.path.dirname(fname_aff)
         if opth=='':
             opth = os.path.dirname(fflo)
-        fname_aff = os.path.basename(fname_aff) 
+        fname_aff = os.path.basename(fname_aff)
 
     elif outpath=='':
         opth = os.path.dirname(fflo)
@@ -1190,7 +1156,7 @@ def affine_fsl(
 
     #> output floating and affine file names
     if fname_aff=='':
-        
+
         if pickname=='ref':
             faff = os.path.join(
                     opth,
@@ -1216,7 +1182,7 @@ def affine_fsl(
                 'affine-vinci',
                 fname_aff)
     #---------------------------------------------------------------------------
-    
+
     #> command with options for FSL-FLIRT registration
     cmd = [ executable,
             '-cost', costfun,
@@ -1242,18 +1208,19 @@ def affine_fsl(
 #-------------------------------------------------------------------------------
 # FSL RESAMPLING
 #-------------------------------------------------------------------------------
+
+
 def resample_fsl(
-        imref,
-        imflo,
-        faff,
-        outpath = '',
-        fimout = '',
-        pickname = 'ref',
-        fcomment = '',
-        intrp = 1,
-        executable = ''):
-
-
+    imref,
+    imflo,
+    faff,
+    outpath='',
+    fimout='',
+    pickname='ref',
+    fcomment='',
+    intrp=1,
+    executable='',
+):
     if executable=='':
         if 'FSLDIR' not in os.environ:
             raise IOError('e> no FSL executable provided!')
@@ -1263,11 +1230,10 @@ def resample_fsl(
     if not os.path.isfile(executable) or not call([executable, '-version'])==0:
         raise IOError('e> no valid FSL executable provided!')
 
-    log.info('''\
-        \r===================================================================
-        \rF S L  resampling...
-        \r===================================================================
-        ''')
+    log.info(dedent('''\
+        ===================================================================
+        F S L  resampling...
+        ==================================================================='''))
 
     #> output path
     if outpath=='' and fimout!='':
@@ -1279,7 +1245,7 @@ def resample_fsl(
         opth = os.path.dirname(imflo)
     elif outpath!='':
         opth = outpath
-    
+
     imio.create_dir(opth)
 
     #> the output naming
@@ -1290,7 +1256,7 @@ def resample_fsl(
     elif pickname=='ref':
         fout = os.path.join(opth, 'affine_ref-' \
                 + os.path.basename(imref).split('.nii')[0]+fcomment+'.nii.gz')
-    elif pickname=='flo':        
+    elif pickname=='flo':
         fout = os.path.join(opth, 'affine_flo-' \
                 + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
 
@@ -1311,41 +1277,36 @@ def resample_fsl(
     call(cmd)
 
 
-    log.info('''\
-        \r===================================================================
-        \rF S L  resampling done.
-        \r===================================================================
-        ''')
+    log.info(dedent('''\
+        ===================================================================
+        F S L  resampling done.
+        ==================================================================='''))
 
     return fout
-
-
-
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # M O T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-def motion_reg(
-        ref,
-        flo,
-        fcomment = '',
-        pickname = 'ref',
-        outpath = '',
-        fname_aff = '',
-        matlab_eng='',
-        rot_thresh = 1.,
-        trn_thresh = 1.):
 
-    
+def motion_reg(
+    ref,
+    flo,
+    fcomment='',
+    pickname='ref',
+    outpath='',
+    fname_aff='',
+    matlab_eng='',
+    rot_thresh=1.,
+    trn_thresh=1.,
+):
     if isinstance(flo, str):
         flolst = [flo]
     elif isinstance(flo, list) and all([os.path.isfile(f) for f in flo]):
         flolst = flo
     else:
         raise OSError('could not decode the input of floating images.')
-
 
     if matlab_eng=='':
         import matlab.engine
@@ -1360,7 +1321,6 @@ def motion_reg(
     motion_trn = False
 
     for i in range(len(flolst)):
-
         M = coreg_spm(
             ref,
             flolst[i],
@@ -1382,7 +1342,7 @@ def motion_reg(
             motion_trn = True
 
         lstout.append({
-                'regout':M, 
+                'regout':M,
                 'trans_mo':motion_trn,
                 'rotat_mo':motion_rot,
             })
@@ -1390,25 +1350,23 @@ def motion_reg(
     return lstout
 
 
-
-
-
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S I M I L A R I T Y
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-def dice_coeff(im1, im2, val=1):
-    ''' Calculate Dice score for parcellation images <im1> and <im2> and ROI value <val>.
-        Input images can be given as:
-            1. paths to NIfTI image files or as
-            2. Numpy arrays.
-        The ROI value can be given as:
-            1. a single integer representing one ROI out of many in the parcellation
-               images (<im1> and <im2>) or as
-            2. a list of integers to form a composite ROI used for the association test.
-        Outputs a float number representing the Dice score.
-    '''
 
+def dice_coeff(im1, im2, val=1):
+    '''
+    Calculate Dice score for parcellation images <im1> and <im2> and ROI value <val>.
+    Input images can be given as:
+        1. paths to NIfTI image files or as
+        2. Numpy arrays.
+    The ROI value can be given as:
+        1. a single integer representing one ROI out of many in the parcellation
+           images (<im1> and <im2>) or as
+        2. a list of integers to form a composite ROI used for the association test.
+    Outputs a float number representing the Dice score.
+    '''
     if isinstance(im1, str) and isinstance(im2, str) \
     and os.path.isfile(im1) and os.path.basename(im1).endswith(('nii', 'nii.gz')) \
     and os.path.isfile(im2) and os.path.basename(im2).endswith(('nii', 'nii.gz')):
@@ -1434,7 +1392,7 @@ def dice_coeff(im1, im2, val=1):
             imv2 += (imn2==v)
     else:
         raise TypeError('ROI Values have to be integer (single or in a list).')
-        
+
 
     if imv1.shape != imv2.shape:
         raise ValueError('Shape Mismatch: Input images must have the same shape.')
@@ -1445,18 +1403,15 @@ def dice_coeff(im1, im2, val=1):
     return 2. * intrsctn.sum() / (imv1.sum() + imv2.sum())
 
 
-
-
-#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 def dice_coeff_multiclass(im1, im2, roi2ind):
-    ''' Calculate Dice score for parcellation images <im1> and <im2> and ROI value <val>.
-        Input images can be given as:
-            1. paths to NIfTI image files or as
-            2. Numpy arrays.
-        The ROI value must be given as a dictionary of lists of indexes for each ROI
-        Outputs a float number representing the Dice score.
     '''
-
+    Calculate Dice score for parcellation images <im1> and <im2> and ROI value <val>.
+    Input images can be given as:
+        1. paths to NIfTI image files or as
+        2. Numpy arrays.
+    The ROI value must be given as a dictionary of lists of indexes for each ROI
+    Outputs a float number representing the Dice score.
+    '''
     if isinstance(im1, str) and isinstance(im2, str) \
     and os.path.isfile(im1) and os.path.basename(im1).endswith(('nii', 'nii.gz')) \
     and os.path.isfile(im2) and os.path.basename(im2).endswith(('nii', 'nii.gz')):
@@ -1487,5 +1442,3 @@ def dice_coeff_multiclass(im1, im2, roi2ind):
         out[k] = 2. * intrsctn.sum() / (imv1.sum() + imv2.sum())
 
     return out
-
-

@@ -1,36 +1,18 @@
-''' 
+'''
 Install tools for NiftyPET including:
 * NiftyReg
 * dcm2niix
 '''
-__author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2019"
-
-
-import os
-import sys
-import multiprocessing
-import platform
-import shutil
 import glob
-from subprocess import run, PIPE
-import re
-import cudasetup as cs
-
-#-------------------------------------------------------------------------------
 import logging
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
-
-#> console handler
-ch = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s \n%(message)s')
-ch.setFormatter(formatter)
-# ch.setLevel(logging.ERROR)
-log.addHandler(ch)
-#-------------------------------------------------------------------------------
-
-
+import multiprocessing
+import os
+import platform
+import re
+import shutil
+from subprocess import run, PIPE
+import sys
+from textwrap import dedent
 if os.getenv('DISPLAY', False):
     from tkinter import Tk
     from tkinter.filedialog import askdirectory
@@ -45,8 +27,11 @@ else:
         if path == '':
             return initialdir
         return path
+import cudasetup as cs
+__author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__   = "Copyright 2020"
+log = logging.getLogger('nimpa.install_tools')
 
-# -----------------------------------
 #> NiftyReg git repository
 repo_reg = 'https://github.com/KCL-BMEIS/niftyreg.git'
 # repo_reg = 'https://cmiclab.cs.ucl.ac.uk/mmodat/niftyreg.git' #'git://git.code.sf.net/p/niftyreg/git'
@@ -54,13 +39,11 @@ repo_reg = 'https://github.com/KCL-BMEIS/niftyreg.git'
 #> git SHA-1 checksum for NiftyReg version used for PET/MR image registration and resampling
 sha1_reg = '731a565bd42ca97ff5968adb1c06133ea72f0856'
 # 'f673b7837c0824f55dedb1534b32b55bf68a2823'
-#'6bf84b492050a4b9a93431209babeab9bc8f14da' 
+#'6bf84b492050a4b9a93431209babeab9bc8f14da'
 #'62af1ca6777379316669b6934889c19863eaa708'
 
 reg_ver = '1.5.61'
-# -----------------------------------
 
-# -----------------------------------
 # dcm2niix git repository
 repo_dcm = 'https://github.com/rordenlab/dcm2niix'
 http_dcm_lin = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_lnx.zip'
@@ -74,10 +57,9 @@ http_dcm_mac = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.201
 
 # git SHA-1 checksum for the version used for PET/MR
 sha1_dcm = 'f54be46667fce7994d2062e2623d12253c1bd968'
-# '32160d74cd266a59e81a75b655c16de27b8c7681'  
+# '32160d74cd266a59e81a75b655c16de27b8c7681'
 dcm_ver = 'v1.0.20190902'
 #'1.0.20181125'
-# -----------------------------------
 
 # PREVIOUS WORKING:
 # http_dcm_lin =  'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20180622/dcm2niix_27-Jun-2018_lnx.zip'
@@ -108,7 +90,7 @@ def query_yesno(question):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
-#-----------------------------------------------------------------------------------------------------
+
 def check_depends():
     log.info('checking if [CUDA], [git] and [cmake] are installed...')
 
@@ -137,10 +119,11 @@ def check_depends():
 
     return outdct
 
-#--------------------------------------------------------------------
+
 def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
-    ''' Check version and existence of all third-party software and input data.
-        Output a dictionary with bool type of the requested bits in 'chcklst'
+    '''
+    Check version and existence of all third-party software and input data.
+    Output a dictionary with bool type of the requested bits in 'chcklst'
     '''
 
     # at start, assume that nothing is present yet
@@ -157,7 +140,7 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
                 output['RESPATH'] = True
         except OSError:
             log.error('NiftyReg (reg_resample) either is NOT installed or is corrupt.')
-    
+
     # niftyreg reg_aladin
     if 'REGPATH' in chcklst and 'REGPATH' in Cnt:
         try:
@@ -189,14 +172,14 @@ def check_version(Cnt, chcklst=['RESPATH','REGPATH','DCM2NIIX','HMUDIR']):
                 break
 
     return output
-#--------------------------------------------------------------------
+
+
 def download_dcm2niix(Cnt, path):
-    log.info('''\
-        \r==============================================================
-        \rdcm2niix will be installed directly from:
-        \rhttps://github.com/rordenlab/dcm2niix/releases
-        \r==============================================================
-        ''')
+    log.info(dedent('''\
+        ==============================================================
+        dcm2niix will be installed directly from:
+        https://github.com/rordenlab/dcm2niix/releases
+        =============================================================='''))
 
     #-create the installation folder
     if not os.path.isdir(path):
@@ -206,23 +189,10 @@ def download_dcm2niix(Cnt, path):
         os.mkdir(binpath)
 
     import urllib.request, urllib.parse, urllib.error, zipfile
-    if platform.system()=='Windows':
-        urllib.request.urlretrieve(
-            http_dcm_win,
-            os.path.join(path, 'dcm2niix.zip')
-        )
-    elif platform.system()=='Linux':
-        urllib.request.urlretrieve(
-            http_dcm_lin,
-            os.path.join(path, 'dcm2niix.zip')
-        )
-    elif platform.system()=='Darwin':
-        urllib.request.urlretrieve(
-            http_dcm_mac,
-            os.path.join(path, 'dcm2niix.zip')
-        )
-    else:
-        raise OSError('Unrecognised operating system.')
+    http_dcm = dict(
+        Windows=http_dcm_win, Linux=http_dcm_lin, Darwin=http_dcm_mac)
+    urllib.request.urlretrieve(
+        http_dcm[platform.system()], os.path.join(path, 'dcm2niix.zip'))
 
     zipf = zipfile.ZipFile(os.path.join(path, 'dcm2niix.zip'), 'r')
     zipf.extractall(os.path.join(path, 'bin'))
@@ -236,10 +206,10 @@ def download_dcm2niix(Cnt, path):
 
 
 def install_tool(app, Cnt):
-    ''' Install the requested software from the git 'repo'
-        and check out the version given by 'sha1'.
     '''
-
+    Install the requested software from the git 'repo'
+    and check out the version given by 'sha1'.
+    '''
     # get the current working directory
     cwd = os.getcwd()
 
@@ -270,11 +240,11 @@ def install_tool(app, Cnt):
         else:
             log.error('''\
                 \r=============================================================
-                \ronly Linux and Windows operating systems are supported 
+                \ronly Linux and Windows operating systems are supported
                 \rfor the additional tools installation!
                 \r=============================================================
                 ''')
-            raise SystemError('OS not supported!')      
+            raise SystemError('OS not supported!')
         Cnt['PATHTOOLS'] = path_tools
 
     #create the main tools folder
@@ -364,12 +334,10 @@ def install_tool(app, Cnt):
             log.error('dcm2niix has NOT been successfully compiled from github.')
             Cnt = download_dcm2niix(Cnt, path)
     return Cnt
-    
+
 
 def update_resources(Cnt):
-    '''Update resources.py with the paths to the new installed apps.
-    '''
-
+    '''Update resources.py with the paths to the new installed apps.'''
     # list of path names which will be saved
     key_list = ['PATHTOOLS', 'RESPATH', 'REGPATH', 'DCM2NIIX', 'HMUDIR']
 
@@ -403,5 +371,3 @@ def update_resources(Cnt):
         f.close()
 
     return Cnt
-
-#---------
