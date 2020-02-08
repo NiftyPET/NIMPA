@@ -27,6 +27,7 @@ else:
         if path == '':
             return initialdir
         return path
+
 import cudasetup as cs
 __author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__   = "Copyright 2020"

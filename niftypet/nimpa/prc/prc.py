@@ -4,6 +4,8 @@ including partial volume correction (PVC) and ROI extraction and analysis.
 """
 from collections import namedtuple
 import datetime
+from glob import glob
+import logging
 import multiprocessing
 import os
 from pkg_resources import resource_filename
@@ -881,10 +883,10 @@ def nii_modify(
         fcomment = '',
         voxel_range=[]):
 
-    ''' Modify the NIfTI image given either as a file path or a dictionary,
-        obtained by nimpa.getnii(file_path).
     '''
-
+    Modify the NIfTI image given either as a file path or a dictionary,
+    obtained by nimpa.getnii(file_path).
+    '''
     if isinstance(nii, str) and os.path.isfile(nii):
         dctnii = imio.getnii(nii, output='all')
         fnii = nii
@@ -1021,7 +1023,7 @@ def bias_field_correction(
     #> path to a folder
     elif isinstance(fmr, str) and os.path.isdir(fmr):
         fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
-        info.log('multiple input files from input folder.')
+        log.info('multiple input files from input folder.')
         fimout = ''
 
     else:
@@ -1148,7 +1150,7 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05
         fimdir = os.path.join(odir, 'tmp')
         imio.create_dir(fimdir)
         fmsk = os.path.join(fimdir, 'rmask.nii.gz')
-        imdct = nimpa.getnii(fref, output='all')
+        imdct = imio.getnii(fref, output='all')
         smoim = ndi.filters.gaussian_filter(imdct['im'],
                                             imio.fwhm2sig(rfwhm, voxsize=imdct['affine'][0,0]), mode='mirror')
         thrsh = rthrsh*smoim.max()
@@ -1217,7 +1219,7 @@ def mr2pet_rigid(
         # create file name for the converted NIfTI image
         fnii = 'converted'
         run( [ Cnt['DCM2NIIX'], '-f', fnii, mridct['T1nii'] ] )
-        ft1nii = glob.glob( os.path.join(mridct['T1nii'], '*converted*.nii*') )
+        ft1nii = glob( os.path.join(mridct['T1nii'], '*converted*.nii*') )
         ft1w = ft1nii[0]
     else:
         raise ValueError('disaster: no T1w image!')
@@ -1414,7 +1416,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
     lbpth = os.path.split(datain['T1lbl'])
     prcl_dir = os.path.dirname(datain['T1lbl'])
 
-    dscrp = nimpa.prc.getnii_descr(fpet)
+    dscrp = imio.getnii_descr(fpet)
     impvc = False
     if 'pvc' in dscrp:
         impvc = True

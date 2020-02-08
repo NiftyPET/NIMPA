@@ -1,33 +1,28 @@
-""" NIMPA: functions for neuro image processing and analysis
-    Generates images.
 """
-__author__    = "Pawel Markiewicz"
-__copyright__ = "Copyright 2019"
-#-------------------------------------------------------------------------------
-
-import sys
+NIMPA: functions for neuro image processing and analysis
+Generates images.
+"""
+import math
 import os
+import sys
 
 import numpy as np
-import math
 import scipy.ndimage as ndi
+__author__    = "Pawel Markiewicz"
+__copyright__ = "Copyright 2019"
 
 
-
-
-#=================================================
 def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
-
     if len(shape_in)==2:
         shape = (1,)+shape_in
     if len(shape_in)==3:
         shape = shape_in
-    
+
     imsk = np.zeros((gen_scale*shape[1], gen_scale*shape[2]), dtype=np.float32)
     for t in np.arange(0, math.pi, math.pi/(gen_scale*400)):
         x = gen_scale*r*np.cos(t) + gen_scale*a
         y = gen_scale*r*np.sin(t) + gen_scale*b
-        
+
         for ys in np.arange(-y+2*b*gen_scale, y, 0.5):
             v = 0.5*gen_scale*shape[1] - np.ceil(ys)
             u = 0.5*gen_scale*shape[2] + np.floor(x)
@@ -38,19 +33,15 @@ def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
 
     if threshold:
         imsk = imsk>threshold
-    
+
     if len(shape_in)==3:
         msk = np.repeat(imsk.reshape((1, shape[1], shape[1])), shape[0], axis=0)
     elif len(shape_in)==2:
         msk = imsk
     return msk
-#=================================================
 
 
-
-#=================================================
 def profile_points(im, p0, p1, steps=100):
-
     p = np.array([p1[0]-p0[0], p1[1]-p0[1]])
     nrm = np.sum(p**2)**.5
     p = p/nrm
@@ -67,4 +58,3 @@ def profile_points(im, p0, p1, steps=100):
         c+=1
 
     return profile
-#=================================================
