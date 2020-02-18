@@ -55,7 +55,7 @@ else:
 # create the path for the resources files according to the OS platform
 if platform.system() in ['Linux', 'Darwin']:
     path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
-elif platform.system() == 'Windows' :
+elif platform.system() == 'Windows':
     path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
 else:
     log.error('unrecognised operating system!')
@@ -64,9 +64,9 @@ sys.path.append(path_resources)
 try:
     import resources
 except ImportError as ie:
-    log.info(dedent('''\
+    raise ImportError(dedent('''\
         --------------------------------------------------------------------------
-        init error> NiftyPET resources file <resources.py> could not be imported.
+        NiftyPET resources file <resources.py> could not be imported.
         It should be in ~/.niftypet/resources.py (Linux) or
         in //Users//USERNAME//AppData//Local//niftypet//resources.py (Windows)
         but likely it does not exists.
