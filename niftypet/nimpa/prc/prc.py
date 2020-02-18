@@ -278,7 +278,7 @@ def trimim( fims,
                         imin_temp = imio.getnii(imdic['files'][i])
                         imsum += ndi.interpolation.zoom(
                             imin_temp, tuple(scale), order=int_order )
-                        log.debug(' image sum: read', imdic['files'][i])
+                        log.debug(' image sum: read {}'.format(imdic['files'][i]))
                     else:
                         imsum += ndi.interpolation.zoom(
                             imin[i,:,:,:], tuple(scale), order=int_order )

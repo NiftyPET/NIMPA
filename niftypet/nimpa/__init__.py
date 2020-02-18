@@ -49,7 +49,7 @@ if 'CONDA_DEFAULT_ENV' in os.environ:
         env = re.findall('envs/(.*)/bin/python', sys.executable)[0]
     except IndexError:
         env = os.environ['CONDA_DEFAULT_ENV']
-    log.info('conda environment found:', env)
+    log.info('conda environment found:' + env)
 else:
     env = ''
 # create the path for the resources files according to the OS platform
