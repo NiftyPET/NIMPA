@@ -89,6 +89,28 @@ def smoothim(fim, fwhm=4, fout=''):
     return dctout
 
 
+#===================================================================================================
+#> get projections along 3D image axes
+def im_project3(im):
+    ''' project intensities on the 3 axes x, y ,z.
+    '''
+
+    if isinstance(im, str):
+        img = imio.getnii(im)
+    elif isinstance(im, (np.ndarray, np.generic)):
+        img = im
+    else:
+        raise ValueError('unrecognised image input')
+
+    qx = np.sum(img, axis=(0,1))
+    qy = np.sum(img, axis=(0,2))
+    qz = np.sum(img, axis=(1,2))
+
+    return qx, qy, qz
+#===================================================================================================
+
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -295,15 +317,14 @@ def trimim( fims,
 
     if not ref_flag:
         # find the object bounding indexes in x, y and z axes, e.g., ix0-ix1 for the x axis
-        qx = np.sum(imsum, axis=(0,1))
+        qx, qy, qz = im_project3(im)
+
         ix0 = np.argmax( qx>(fmax*np.nanmax(qx)) )
         ix1 = ix0+np.argmin( qx[ix0:]>(fmax*np.nanmax(qx)) )
 
-        qy = np.sum(imsum, axis=(0,2))
         iy0 = np.argmax( qy>(fmax*np.nanmax(qy)) )
         iy1 = iy0+np.argmin( qy[iy0:]>(fmax*np.nanmax(qy)) )
 
-        qz = np.sum(imsum, axis=(1,2))
         iz0 = np.argmax( qz>(fmax*np.nanmax(qz)) )
 
         # import pdb; pdb.set_trace()
@@ -957,6 +978,56 @@ def nii_modify(
 
 
 
+#> face removal
+
+def im_cut(im, i_cut, fout=None):
+    ''' cut the part of image like the face for de-identification purposes.
+        assumes that image is in the form of im[z,y,x].
+    '''
+
+    if fout is None:
+        save_nii = False
+    else:
+        save_nii = True
+
+    #> output dictionary
+    out = {}
+
+    if isinstance(im, str):
+        imdct = imio.getnii(im, output='all')
+        img = imdct['im']
+        save_nii = True
+        fout_s = os.path.split(im)
+        fout = os.path.join(fout_s[0], fout_s[1].split('.nii')[0]+'_cut.nii.gz')
+        out['fim'] = fout
+    elif isinstance(im, (np.ndarray, np.generic)):
+        img = im
+    else:
+        raise ValueError('unrecognised image input')
+
+
+    # prj = im_project3(img)
+    # plot(prj[0]); plot(prj[1]); plot(prj[2])
+
+    img[:,:i_cut,:] = 0
+
+    if save_nii:
+        imio.array2nii(
+            img,
+            imdct['affine'],
+            fout,
+            trnsp = (imdct['transpose'].index(0), imdct['transpose'].index(1), imdct['transpose'].index(2)),
+            flip = imdct['flip']
+            )
+        out['fim'] = four
+
+    out['im'] = img    
+
+    return out
+
+#===============================================================================
+
+
 
 #  ____________________________________________________________________________
 # |                                                                            |
@@ -986,8 +1057,7 @@ def bias_field_correction(
                         <fcomment> options are ignored.
         - outpath:      Path to the output folder
         - fcomment:     A prefix comment to the file name
-        - executable:   The path to the executable, overrides the above
-                        choice of software;  if 'sitk' is given instead
+        - executable:   The path to the executable;  if 'sitk' is given instead
                         of the path, the Python module SimpleITK will be
                         used if it is available.
         - exe_options:  Options for the executable in the form of a list of
