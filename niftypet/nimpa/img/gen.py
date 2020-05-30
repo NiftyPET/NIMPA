@@ -11,6 +11,11 @@ import scipy.ndimage as ndi
 __author__    = "Pawel Markiewicz"
 __copyright__ = "Copyright 2019"
 
+import logging
+log = logging.getLogger(__name__)
+
+from ..prc import imio
+
 
 def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
     if len(shape_in)==2:
@@ -58,3 +63,117 @@ def profile_points(im, p0, p1, steps=100):
         c+=1
 
     return profile
+
+
+#-----------------------------------------------------------------------------------------------------------------------------
+def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
+    ''' Compare the new image (imnew) to the reference image and return and plot (optional) the difference.
+    '''
+
+
+    if isinstance(imref, str):
+        imref = imio.getnii(imref)
+        log.info('using NIfTI files as image input for the reference')
+    elif isinstance(imref, (np.ndarray, np.generic)):
+        log.info('using Numpy arrays as input for the reference image')
+    elif isinstance(imref, dict):
+        imref = imref['im']
+        log.info('using the input dictionary with an image for reference')
+
+    if isinstance(imnew, str):
+        imnew = imio.getnii(imnew)
+        log.info('using NIfTI files as input for the new image')
+    elif isinstance(imnew, (np.ndarray, np.generic)):
+        log.info('using Numpy arrays as input for the new image')
+    elif isinstance(imnew, dict):
+        imnew = imnew['im']
+        log.info('using the input dictionary with a new image for comparison')
+
+
+    
+
+
+    #> maximum voxel value of reference image
+    mx = np.max(imref)
+
+    #> create a image mask based on the max the 0.1% value
+    msk = imref>0.001*mx
+
+    #> average voxel value in the reference image
+    avgref = np.mean(imref[msk])
+
+    #> image difference
+    imdiff = imref-imnew
+
+    #> mean absolute percentage difference
+    mape = np.mean(abs(imdiff[msk]/imref[msk]))*100
+
+    #> mean absolute error
+    mae = np.mean(abs(imdiff[msk]))
+
+    #> maximum absolute difference
+    mad = np.max(abs(imdiff[msk]))
+
+
+    if verbose:
+        print('>> mean absolute relative image difference [%]:')
+        print(mape)
+
+        print('>> mean absolute image difference:')
+        print(mae)
+
+        print('>> maximum absolute image difference:')
+        print(mad)
+
+
+    if plot:
+
+        import matplotlib.pyplot as plt
+
+        maxproj_thrshl = 0.7
+
+        def maxproj(imdiff, ax):
+            #> maximum projection image
+            imp = np.max(imdiff, axis=ax)
+            #> minimum projection image
+            imn = np.min(imdiff, axis=ax)
+            #> max mask
+            mmsk = imp>abs(imn)
+            #> form the highest intensity projection image (positive and negative)
+            im = imn.copy()
+            im[mmsk] = imp[mmsk]
+            #> maximum/minimum value in the difference image for a symmetrical colour map
+            valmax = max(np.max(imp), np.min(imn))
+            return im, valmax
+
+
+        fig = plt.figure(figsize=(12, 6))
+        fig.suptitle('maximum absolute difference projection along 3 axes', fontsize=12, fontweight='bold')
+
+        im, valmax = maxproj(imdiff, 0)
+
+        plt.subplot(131)
+        plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
+        plt.colorbar()
+
+        im, valmax = maxproj(imdiff, 1)
+
+        plt.subplot(132)
+        plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
+        # plt.colorbar()
+
+        im, valmax = maxproj(imdiff, 2)
+        plt.subplot(133)
+        plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
+        # plt.colorbar()
+
+        plt.show()
+
+
+    return dict(mape=mape, mae=mae, mad=mad)
+
+
+def absmax(a):
+    amax = a.max()
+    amin = a.min()
+    return np.where(-amin > amax, amin, amax)

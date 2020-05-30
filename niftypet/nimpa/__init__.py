@@ -2,6 +2,7 @@
 """initialise the NiftyPET NIMPA package"""
 __author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__   = "Copyright 2020"
+
 import logging
 import os
 import platform
@@ -52,6 +53,7 @@ if 'CONDA_DEFAULT_ENV' in os.environ:
     log.info('conda environment found:' + env)
 else:
     env = ''
+    
 # create the path for the resources files according to the OS platform
 if platform.system() in ['Linux', 'Darwin']:
     path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
@@ -98,3 +100,5 @@ from .prc import nii_modify
 from .prc import dcm2nii
 
 from .img import create_disk, profile_points
+from .img import imdiff
+

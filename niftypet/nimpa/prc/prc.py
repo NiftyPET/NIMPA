@@ -2,10 +2,13 @@
 NIMPA: functions for neuro image processing and analysis
 including partial volume correction (PVC) and ROI extraction and analysis.
 """
+__author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__ = "Copyright 2020"
+
 from collections import namedtuple
 import datetime
 from glob import glob
-import logging
+
 import multiprocessing
 import os
 from pkg_resources import resource_filename
@@ -24,6 +27,7 @@ from tqdm.auto import trange
 from . import imio
 from . import regseg
 import resources as rs
+
 #> GPU routines only on Linux and Windows
 if 'compute' in rs.CC_ARCH and platform.system() in ['Linux', 'Windows']:
     from . import improc
@@ -32,13 +36,12 @@ try:
     import SimpleITK as sitk
 except ImportError:
     sitk_flag = False
-__author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
-__copyright__ = "Copyright 2020"
+
+import logging
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
-
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
 
@@ -317,7 +320,7 @@ def trimim( fims,
 
     if not ref_flag:
         # find the object bounding indexes in x, y and z axes, e.g., ix0-ix1 for the x axis
-        qx, qy, qz = im_project3(im)
+        qx, qy, qz = im_project3(imsum)
 
         ix0 = np.argmax( qx>(fmax*np.nanmax(qx)) )
         ix1 = ix0+np.argmin( qx[ix0:]>(fmax*np.nanmax(qx)) )
