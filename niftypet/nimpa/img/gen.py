@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 from ..prc import imio
 
 
+def absmax(a):
+    amax = a.max()
+    amin = a.min()
+    return np.where(-amin > amax, amin, amax)
+
+
 def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
     if len(shape_in)==2:
         shape = (1,)+shape_in
@@ -89,49 +95,14 @@ def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
         imnew = imnew['im']
         log.info('using the input dictionary with a new image for comparison')
 
-
-    
-
-
-    #> maximum voxel value of reference image
-    mx = np.max(imref)
-
-    #> create a image mask based on the max the 0.1% value
-    msk = imref>0.001*mx
-
-    #> average voxel value in the reference image
-    avgref = np.mean(imref[msk])
-
-    #> image difference
-    imdiff = imref-imnew
-
-    #> mean absolute percentage difference
-    mape = np.mean(abs(imdiff[msk]/imref[msk]))*100
-
-    #> mean absolute error
-    mae = np.mean(abs(imdiff[msk]))
-
-    #> maximum absolute difference
-    mad = np.max(abs(imdiff[msk]))
-
-
-    if verbose:
-        print('>> mean absolute relative image difference [%]:')
-        print(mape)
-
-        print('>> mean absolute image difference:')
-        print(mae)
-
-        print('>> maximum absolute image difference:')
-        print(mad)
-
-
+    #------------------------------------------------------------------------------------
+    # MAXIMUM PROJECTION IMAGE
     if plot:
-
         import matplotlib.pyplot as plt
 
+        #> threshold percentage used in plotting (helps ignoring singular hot values)
         maxproj_thrshl = 0.7
-
+        #> maximum projection along axis ax
         def maxproj(imdiff, ax):
             #> maximum projection image
             imp = np.max(imdiff, axis=ax)
@@ -145,35 +116,88 @@ def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
             #> maximum/minimum value in the difference image for a symmetrical colour map
             valmax = max(np.max(imp), np.min(imn))
             return im, valmax
+    #------------------------------------------------------------------------------------
+
+    if imnew.ndim==3 and imref.ndim==3 and imnew.shape==imref.shape:
+        imnew = imnew[np.newaxis, ...]
+        imref = imref[np.newaxis, ...]
+        log.info('using 3D images as input')
+        Nim = 1
+    elif imnew.ndim==4 and imref.ndim==4 and imnew.shape==imref.shape:
+        log.info('using 4D images as input')
+        #> this assumes that axis 0 encodes image frames (e.g., along time)
+        Nim = imnew.shape[0]
+    else:
+        raise ValueError('the input images have to be of the same dimensions and shape')
 
 
-        fig = plt.figure(figsize=(12, 6))
-        fig.suptitle('maximum absolute difference projection along 3 axes', fontsize=12, fontweight='bold')
+    mape = np.zeros(Nim)
+    mae = np.zeros(Nim)
+    mad = np.zeros(Nim)
 
-        im, valmax = maxproj(imdiff, 0)
+    for i in range(Nim):
+        #> maximum voxel value of reference image
+        mx = np.max(imref[i,...])
 
-        plt.subplot(131)
-        plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
-        plt.colorbar()
+        #> create a image mask based on the max the 0.1% value
+        msk = imref[i,...]>0.001*mx
 
-        im, valmax = maxproj(imdiff, 1)
+        #> image difference
+        imdiff = imref[i,...]-imnew[i,...]
 
-        plt.subplot(132)
-        plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
-        # plt.colorbar()
+        #> mean absolute percentage difference
+        mape[i] = np.mean(abs(imdiff[msk]/imref[i,msk]))*100
 
-        im, valmax = maxproj(imdiff, 2)
-        plt.subplot(133)
-        plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
-        # plt.colorbar()
+        #> mean absolute error
+        mae[i] = np.mean(abs(imdiff[msk]))
 
-        plt.show()
-
-
-    return dict(mape=mape, mae=mae, mad=mad)
+        #> maximum absolute difference
+        mad[i] = np.max(abs(imdiff[msk]))
 
 
-def absmax(a):
-    amax = a.max()
-    amin = a.min()
-    return np.where(-amin > amax, amin, amax)
+        if verbose:
+            print('---------------------------------------------------------------')
+            print('>> frame {}: mean absolute relative image difference [%]:'.format(i))
+            print(mape[i])
+
+            print('>> frame {}: mean absolute image difference:'.format(i))
+            print(mae[i])
+
+            print('>> frame {}:maximum absolute image difference:'.format(i))
+            print(mad[i])
+
+
+        if plot:
+
+            fig = plt.figure(figsize=(12, 6))
+            fig.suptitle('maximum absolute difference projection along 3 axes', fontsize=12, fontweight='bold')
+
+            im, valmax = maxproj(imdiff, 0)
+
+            plt.subplot(131)
+            plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
+            plt.colorbar()
+
+            im, valmax = maxproj(imdiff, 1)
+
+            plt.subplot(132)
+            plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
+            # plt.colorbar()
+
+            im, valmax = maxproj(imdiff, 2)
+            plt.subplot(133)
+            plt.imshow(im, cmap=cmap, vmax=maxproj_thrshl*valmax, vmin=-maxproj_thrshl*valmax)
+            # plt.colorbar()
+
+            plt.show()
+
+
+    if Nim>1:
+        out = dict(mape=mape, mae=mae, mad=mad)
+    else:
+        out = dict(mape=mape[0], mae=mae[0], mad=mad[0])
+
+    return out
+
+
+

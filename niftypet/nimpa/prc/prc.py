@@ -981,8 +981,7 @@ def nii_modify(
 
 
 
-#> face removal
-
+#> used for cutting out part of image for face de-identification
 def im_cut(im, i_cut, fout=None):
     ''' cut the part of image like the face for de-identification purposes.
         assumes that image is in the form of im[z,y,x].
@@ -1022,7 +1021,7 @@ def im_cut(im, i_cut, fout=None):
             trnsp = (imdct['transpose'].index(0), imdct['transpose'].index(1), imdct['transpose'].index(2)),
             flip = imdct['flip']
             )
-        out['fim'] = four
+        out['fim'] = fout
 
     out['im'] = img    
 
