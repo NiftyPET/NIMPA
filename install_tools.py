@@ -47,20 +47,22 @@ reg_ver = '1.5.61'
 
 # dcm2niix git repository
 repo_dcm = 'https://github.com/rordenlab/dcm2niix'
-http_dcm_lin = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_lnx.zip'
-#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_lnx.zip'
+http_dcm_lin = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20200331/dcm2niix_lnx.zip'
+# http_dcm_lin = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_lnx.zip'
 
-http_dcm_win = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_win.zip'
-#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_win.zip'
+http_dcm_win = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20200331/dcm2niix_win.zip'
+#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_win.zip'
 
-http_dcm_mac = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_mac.zip'
-#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20181125/dcm2niix_25-Nov-2018_mac.zip'
+http_dcm_mac = 'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20200331/dcm2niix_mac.zip'
+#'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20190902/dcm2niix_mac.zip'
 
 # git SHA-1 checksum for the version used for PET/MR
-sha1_dcm = 'f54be46667fce7994d2062e2623d12253c1bd968'
-# '32160d74cd266a59e81a75b655c16de27b8c7681'
-dcm_ver = 'v1.0.20190902'
-#'1.0.20181125'
+sha1_dcm = '485c387c93bbca3b29b93403dfde211c4bc39af6'
+#'f54be46667fce7994d2062e2623d12253c1bd968'
+
+dcm_ver = 'v1.0.20200331'
+#'v1.0.20190902'
+
 
 # PREVIOUS WORKING:
 # http_dcm_lin =  'https://github.com/rordenlab/dcm2niix/releases/download/v1.0.20180622/dcm2niix_27-Jun-2018_lnx.zip'
