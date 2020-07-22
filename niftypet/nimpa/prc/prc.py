@@ -240,11 +240,12 @@ def trimim( fims,
     ref_flag = False
     if os.path.isfile(refim):
         refdct = imio.getnii(refim, output='all')
-        nii_descrp = refdct['hdr']['descrip'].item()
+        nii_descrp = refdct['hdr']['descrip'].item().decode('utf-8')
         if 'trim' in nii_descrp:
             #> find all the numbers (int and floats)
             parstr = re.findall(r'\d+\.*\d*', nii_descrp)
-            ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
+            ix0, ix1, iy0, iy1, iz0, scale0, scale1, scale2, fmax = (num(s) for s in parstr)
+            scale = [scale0, scale1, scale2]
             ref_flag = True
             log.info(' using the trimming parameters of the reference image.')
         else:
