@@ -244,8 +244,13 @@ def trimim( fims,
         if 'trim' in nii_descrp:
             #> find all the numbers (int and floats)
             parstr = re.findall(r'\d+\.*\d*', nii_descrp)
-            ix0, ix1, iy0, iy1, iz0, scale0, scale1, scale2, fmax = (num(s) for s in parstr)
-            scale = [scale0, scale1, scale2]
+            try:
+                ix0, ix1, iy0, iy1, iz0, scale0, scale1, scale2, fmax = (num(s) for s in parstr)
+                scale = [scale0, scale1, scale2]
+            except ValueError:
+                ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
+                scale = [scale, scale, scale]
+            
             ref_flag = True
             log.info(' using the trimming parameters of the reference image.')
         else:
