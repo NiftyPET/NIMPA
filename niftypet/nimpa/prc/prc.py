@@ -610,7 +610,7 @@ def pvc_iyang(
         krnl,
         itr=5,
         tool='niftyreg',
-        faff='',
+        faff=None,
         outpath='',
         fcomment='',
         store_img=False,
@@ -677,7 +677,7 @@ def pvc_iyang(
     if isinstance(mridct, str) and os.path.isfile(mridct):
         prcl_dir = os.path.dirname(mridct)
         tmpdct = imio.getnii(mridct, output='all')
-        if faff=='' and tmpdct['shape']==imdct['shape']:
+        if faff==None and tmpdct['shape']==imdct['shape']:
             fprcu = mridct
             fprc  = mridct
             noreg = True
@@ -757,32 +757,33 @@ def pvc_iyang(
 
     # resample the T1/labels to upsampled PET
     # file name of the parcellation (e.g., GIF-based) upsampled to PET
-    fprcu = os.path.join(
+    if not faff is None:
+        fprcu = os.path.join(
             oprcl,
             os.path.basename(mridct['T1lbl']).split('.')[0]\
             +'_registered_trimmed'+fcomment+'.nii.gz')
 
-    if tool=='niftyreg':
-        if os.path.isfile( Cnt['RESPATH'] ):
-            cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
-                   '-trans', faff, '-res', fprcu, '-inter', '0']
-            if not Cnt['VERBOSE']: cmd.append('-voff')
-            run(cmd)
-        else:
-            raise IOError('e> path to resampling executable is incorrect!')
+        if tool=='niftyreg':
+            if os.path.isfile( Cnt['RESPATH'] ):
+                cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
+                       '-trans', faff, '-res', fprcu, '-inter', '0']
+                if not Cnt['VERBOSE']: cmd.append('-voff')
+                run(cmd)
+            else:
+                raise IOError('e> path to resampling executable is incorrect!')
 
-    elif tool=='spm':
-        fout = regseg.resample_spm(
-                    fpet,
-                    mridct['T1lbl'],
-                    faff,
-                    fimout = fprcu,
-                    matlab_eng = matlab_eng,
-                    intrp = 0.,
-                    del_ref_uncmpr = True,
-                    del_flo_uncmpr = True,
-                    del_out_uncmpr = True,
-            )
+        elif tool=='spm':
+            fout = regseg.resample_spm(
+                        fpet,
+                        mridct['T1lbl'],
+                        faff,
+                        fimout = fprcu,
+                        matlab_eng = matlab_eng,
+                        intrp = 0.,
+                        del_ref_uncmpr = True,
+                        del_flo_uncmpr = True,
+                        del_out_uncmpr = True,
+                )
     #==================================================================
 
     #> get the parcellation labels in the upsampled PET space
