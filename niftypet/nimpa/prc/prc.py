@@ -604,7 +604,7 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
 # ------------------------------------------------------------------------------------------------------
 def pvc_iyang(
         petin,
-        mridct,
+        mrin,
         Cnt,
         pvcroi,
         krnl,
@@ -615,16 +615,16 @@ def pvc_iyang(
         fcomment='',
         store_img=False,
         store_rois=False,
-        matlab_eng = '',
+        matlab_eng = None,
     ):
-    ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mridct).
+    ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mrin).
         The PVC method uses iterative Yang method.
         GPU based convolution is the key routine of the PVC.
         Input:
         -------
         petin:  either a dictionary containing image data, file name and affine transform,
                 or a string of the path to the NIfTI file of the PET data.
-        mridct: a dictionary of MRI data, including the T1w image, which can be given
+        mrin: a dictionary of MRI data, including the T1w image, which can be given
                 in DICOM (field 'T1DCM') or NIfTI (field 'T1nii').  The T1w image data
                 is needed for co-registration to PET if affine is not given in the text
                 file with its path in faff.
@@ -674,20 +674,22 @@ def pvc_iyang(
     #> avoid registration if the provided parcellation is already in PET space
     #> it is assumed so if the parcellation is given as a file path and no affine is given
     noreg = False
-    if isinstance(mridct, str) and os.path.isfile(mridct):
-        prcl_dir = os.path.dirname(mridct)
-        tmpdct = imio.getnii(mridct, output='all')
-        if faff==None and tmpdct['shape']==imdct['shape']:
-            fprcu = mridct
-            fprc  = mridct
+    if isinstance(mrin, str) and os.path.isfile(mrin):
+        prcl_dir = os.path.dirname(mrin)
+        tmpdct = imio.getnii(mrin, output='all')
+        if faff is None and tmpdct['shape']==imdct['shape']:
+            fprcu = mrin
+            fprc  = mrin
             noreg = True
+        elif not faff is None:
+            fprc  = mrin
 
-    elif isinstance(mridct, dict) and os.path.isfile(mridct['T1lbl']):
-        fprc = mridct['T1lbl']
+    elif isinstance(mrin, dict) and os.path.isfile(mrin['T1lbl']):
+        fprc = mrin['T1lbl']
         prcl_dir = os.path.dirname(fprc)
 
     else:
-        raise NameError('e> missing labels/parcellations')
+        raise NameError('e> missing or incorrect labels/parcellations')
 
 
     # establish the output folder
@@ -709,16 +711,22 @@ def pvc_iyang(
     outdct = {}
 
     #==================================================================
-    #if affine transf. (faff) is given then take the T1 and resample it too.
-    if not noreg and isinstance(faff, str) and not os.path.isfile(faff):
-        # faff is not given; get it by running the affine; get T1w to PET space
+    #> if affine transformation (faff) is not given then register T1 to PET and resample parcellations.
+    if not noreg and faff is None:
 
-        ft1w = imio.pick_t1w(mridct)
+        ft1w = imio.pick_t1w(mrin)
 
         if tool=='spm':
+
+            if matlab_eng is None:
+                log.info('starting Matlab for SPM...')
+                import matlab.engine
+                matlab_eng = matlab.engine.start_matlab()
+
             regdct = regseg.coreg_spm(
                 fpet,
                 ft1w,
+                matlab_eng=matlab_eng,
                 fcomment = fcomment,
                 outpath=os.path.join(outpath,'PET', 'positioning')
             )
@@ -748,24 +756,20 @@ def pvc_iyang(
                 verbose=Cnt['VERBOSE']
             )
         faff = regdct['faff']
-    else:
-        if tool=='spm' and matlab_eng == '':
-            log.info('starting Matlab for SPM...')
-            import matlab.engine
-            matlab_eng = matlab.engine.start_matlab()
 
 
     # resample the T1/labels to upsampled PET
     # file name of the parcellation (e.g., GIF-based) upsampled to PET
-    if not faff is None:
+    if not faff is None and os.path.isfile(faff):
         fprcu = os.path.join(
             oprcl,
-            os.path.basename(mridct['T1lbl']).split('.')[0]\
-            +'_registered_trimmed'+fcomment+'.nii.gz')
+            os.path.basename(fprc.split('.')[0]\
+                +'_registered_trimmed'+fcomment+'.nii.gz')
+            )
 
         if tool=='niftyreg':
             if os.path.isfile( Cnt['RESPATH'] ):
-                cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', mridct['T1lbl'],
+                cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', fprc,
                        '-trans', faff, '-res', fprcu, '-inter', '0']
                 if not Cnt['VERBOSE']: cmd.append('-voff')
                 run(cmd)
@@ -773,9 +777,15 @@ def pvc_iyang(
                 raise IOError('e> path to resampling executable is incorrect!')
 
         elif tool=='spm':
+
+            if matlab_eng is None:
+                log.info('starting Matlab for SPM...')
+                import matlab.engine
+                matlab_eng = matlab.engine.start_matlab()
+
             fout = regseg.resample_spm(
                         fpet,
-                        mridct['T1lbl'],
+                        fprc,
                         faff,
                         fimout = fprcu,
                         matlab_eng = matlab_eng,

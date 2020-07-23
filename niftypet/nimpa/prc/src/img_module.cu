@@ -213,7 +213,6 @@ static PyObject *img_convolve(PyObject *self, PyObject *args)
 
 	int Nkr = (int)PyArray_DIM(p_krnl, 1);
 	if (Cnt.LOG <=LOGINFO) printf("i> kernel size [voxels]: %d\n", Nkr);
-	// for (int i=0; i<KERNEL_LENGTH; i++) printf("k[%d]=%f\n", i, krnl[i]);
 
 	if (Nkr != KERNEL_LENGTH) {
 		if (Cnt.LOG <=LOGWARNING) printf("w> wrong kernel size.\n");
