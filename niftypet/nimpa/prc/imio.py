@@ -65,7 +65,8 @@ def getnii(fim, nan_replace=None, output='image'):
     if output=='image' or output=='all':
         imr = nim.get_data()
         # replace NaNs if requested
-        if isinstance(nan_replace, numbers.Number): imr[np.isnan(imr)]
+        if isinstance(nan_replace, numbers.Number): 
+            imr[np.isnan(imr)] = nan_replace
 
         imr = np.squeeze(imr)
         if dimno!=imr.ndim and dimno==4:
