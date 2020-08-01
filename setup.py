@@ -263,7 +263,7 @@ setup(
     package_data={
         'niftypet': ['auxdata/*'],
         'niftypet.nimpa.dinf': [fex],
-        'niftypet.nimpa.prc' : [fex],
+        'niftypet.nimpa.prc' : [fex, 'spm/*'],
     },
     zip_safe=False,
     # namespace_packages=['niftypet'],
