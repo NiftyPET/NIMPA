@@ -256,6 +256,7 @@ setup(
         'numpy>=1.14',
         'pydicom>=1.0.2,<=1.3.1',
         'scipy',
+        'spm12',
         #'SimpleITK>=1.2.0',
         ],
     python_requires='>=3.4',
@@ -263,7 +264,7 @@ setup(
     package_data={
         'niftypet': ['auxdata/*'],
         'niftypet.nimpa.dinf': [fex],
-        'niftypet.nimpa.prc' : [fex, 'spm/*'],
+        'niftypet.nimpa.prc' : [fex],
     },
     zip_safe=False,
     # namespace_packages=['niftypet'],
