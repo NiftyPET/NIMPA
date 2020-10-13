@@ -2,14 +2,15 @@
 NIMPA: functions for neuro image processing and analysis.
 Includes functions relating to image registration/segmentation.
 """
+from subprocess import call
+from textwrap import dedent
 import glob
 import logging
 import os
 import shutil
-from subprocess import call
 import sys
-from textwrap import dedent
 
+from spm12.regseg import coreg_spm, resample_spm  # SPM registration
 import numpy as np
 import scipy.ndimage as ndi
 
@@ -259,290 +260,6 @@ def resample_niftyreg(
     if not verbose:
         cmd.append('-voff')
     call(cmd)
-
-    return fout
-
-
-#===============================================================================
-# S P M registration
-#===============================================================================
-
-
-def coreg_spm(
-    imref,
-    imflo,
-    matlab_eng='',
-    fwhm_ref=0,
-    fwhm_flo=0,
-    outpath='',
-    fname_aff='',
-    fcomment='',
-    pickname='ref',
-    costfun='nmi',
-    sep=[4,2],
-    tol=[0.0200,0.0200,0.0200,0.0010,0.0010,0.0010,
-         0.0100,0.0100,0.0100,0.0010,0.0010,0.0010],
-    fwhm=[7,7],
-    params=[0,0,0,0,0,0],
-    graphics=1,
-    visual=0,
-    del_uncmpr=True,
-    save_arr = True,
-    save_txt = True,
-):
-    import matlab
-    from pkg_resources import resource_filename
-
-    #-start Matlab engine if not given
-    if matlab_eng=='':
-        import matlab.engine
-        eng = matlab.engine.start_matlab()
-    else:
-        eng = matlab_eng
-
-    # add path to SPM matlab file
-    spmpth = resource_filename(__name__, 'spm')
-    log.info('adding SPM to PATH: ' + spmpth)
-    eng.addpath(spmpth, nargout=0)
-
-    #> output path
-    if outpath=='' and fname_aff!='' and '/' in fname_aff:
-        opth = os.path.dirname(fname_aff)
-        if opth=='':
-            opth = os.path.dirname(imflo)
-        fname_aff = os.path.basename(fname_aff)
-    elif outpath=='':
-        opth = os.path.dirname(imflo)
-    else:
-        opth = outpath
-    imio.create_dir(opth)
-
-    #> decompress ref image as necessary
-    if imref[-3:]=='.gz':
-        imrefu = imio.nii_ugzip(imref, outpath=opth)
-    else:
-        fnm = os.path.basename(imref).split('.nii')[0] + '_copy.nii'
-        imrefu = os.path.join(opth, fnm)
-        shutil.copyfile(imref, imrefu)
-
-    if fwhm_ref>0:
-        smodct = prc.smoothim(imrefu, fwhm_ref)
-
-        #> delete the previous version (non-smoothed)
-        os.remove(imrefu)
-        imrefu = smodct['fim']
-
-        log.info('smoothed the reference image with FWHM={} and saved to\n{}'.format(fwhm_ref,imrefu))
-
-    #> floating
-    if imflo[-3:]=='.gz':
-        imflou = imio.nii_ugzip(imflo, outpath=opth)
-    else:
-        fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
-        imflou = os.path.join(opth, fnm)
-        shutil.copyfile(imflo, imflou)
-
-    if fwhm_flo>0:
-        smodct = prc.smoothim(imflou, fwhm_flo)
-        #> delete the previous version (non-smoothed)
-        os.remove(imflou)
-        imflou = smodct['fim']
-
-        log.info('smoothed the floating image with FWHM={} and saved to\n{}'.format(fwhm_ref,imrefu))
-
-    # run the matlab SPM coregistration
-    Mm, xm = eng.coreg_spm_m(
-        imrefu,
-        imflou,
-        costfun,
-        matlab.double(sep),
-        matlab.double(tol),
-        matlab.double(fwhm),
-        matlab.double(params),
-        graphics,
-        visual,
-        nargout=2
-    )
-
-    # get the affine matrix
-    M = np.array(Mm._data.tolist())
-    M = M.reshape(4,4).T
-
-    # get the translation and rotation parameters in a vector
-    x = np.array(xm._data.tolist())
-
-    # delete the uncompressed files
-    if del_uncmpr:
-        os.remove(imrefu)
-        os.remove(imflou)
-
-    imio.create_dir( os.path.join(opth, 'affine-spm') )
-
-    #---------------------------------------------------------------------------
-    if fname_aff == '':
-        if pickname=='ref':
-            faff = os.path.join(
-                    opth,
-                    'affine-spm',
-                    'affine-ref-'+os.path.basename(imref).split('.nii')[0]+fcomment+'.npy')
-        else:
-            faff = os.path.join(
-                    opth,
-                    'affine-spm',
-                    'affine-flo-'+os.path.basename(imflo).split('.nii')[0]+fcomment+'.npy')
-
-    else:
-
-        #> add '.npy' extension if not in the affine output file name
-        if not fname_aff.endswith('.npy'):
-            fname_aff += '.npy'
-
-        faff = os.path.join(
-                opth,
-                'affine-spm',
-                fname_aff)
-    #---------------------------------------------------------------------------
-
-    #> safe the affine transformation
-    if save_arr:
-        np.save(faff, M)
-    if save_txt:
-        faff = faff.split('.npy')[0]+'.txt'
-        np.savetxt(faff, M)
-
-    return {'affine':M, 'faff':faff,
-            'rotations':x[3:], 'translations':x[:3],
-            'matlab_eng':eng}
-
-
-#===============================================================================
-# S P M resampling
-#===============================================================================
-
-
-def resample_spm(
-    imref,
-    imflo,
-    M,
-    matlab_eng='',
-    fwhm = 0,
-    intrp=1.,
-    which=1,
-    mask=0,
-    mean=0,
-    outpath='',
-    fimout='',
-    fcomment='',
-    prefix='r_',
-    pickname='ref',
-    del_ref_uncmpr=False,
-    del_flo_uncmpr=False,
-    del_out_uncmpr=False,
-):
-    log.info(dedent('''\
-        ======================================================================
-         S P M  inputs:
-         > ref:' {}
-         > flo:' {}
-        ======================================================================'''
-        ).format(imref, imflo))
-
-    import matlab
-    from pkg_resources import resource_filename
-
-    #-start Matlab engine if not given
-    if matlab_eng=='':
-        import matlab.engine
-        eng = matlab.engine.start_matlab()
-    else:
-        eng = matlab_eng
-
-    # add path to SPM matlab file
-    spmpth = resource_filename(__name__, 'spm')
-    eng.addpath(spmpth, nargout=0)
-
-    #> output path
-    if outpath=='' and fimout!='':
-        opth = os.path.dirname(fimout)
-        if opth=='':
-            opth = os.path.dirname(imflo)
-
-    elif outpath=='':
-        opth = os.path.dirname(imflo)
-
-    else:
-        opth = outpath
-
-    imio.create_dir(opth)
-
-    #> decompress if necessary
-    if imref[-3:]=='.gz':
-        imrefu = imio.nii_ugzip(imref, outpath=opth)
-    else:
-        fnm = os.path.basename(imref).split('.nii')[0] + '_copy.nii'
-        imrefu = os.path.join(opth, fnm)
-        shutil.copyfile(imref, imrefu)
-
-    #> floating
-    if imflo[-3:]=='.gz':
-        imflou = imio.nii_ugzip(imflo, outpath=opth)
-    else:
-        fnm = os.path.basename(imflo).split('.nii')[0] + '_copy.nii'
-        imflou = os.path.join(opth, fnm)
-        shutil.copyfile(imflo, imflou)
-
-    if isinstance(M, str):
-        if os.path.basename(M).endswith('.txt'):
-            M = np.loadtxt(M)
-            log.info('matrix M given in the form of text file')
-        elif os.path.basename(M).endswith('.npy'):
-            M = np.load(M)
-            log.info('matrix M given in the form of NumPy file')
-        else:
-            raise IOError('Unrecognised file extension for the affine.')
-
-    elif isinstance(M, (np.ndarray, np.generic)):
-       log.info('matrix M given in the form of Numpy array')
-    else:
-        raise IOError('The form of affine matrix not recognised.')
-
-    # run the Matlab SPM resampling
-    r = eng.resample_spm_m(
-        imrefu,
-        imflou,
-        matlab.double(M.tolist()),
-        mask,
-        mean,
-        intrp,
-        which,
-        prefix)
-
-
-    #-compress the output
-    split = os.path.split(imflou)
-    fim = os.path.join(split[0], prefix+split[1])
-    imio.nii_gzip(fim, outpath=opth)
-
-    # delete the uncompressed
-    if del_ref_uncmpr:  os.remove(imrefu)
-    if del_flo_uncmpr and os.path.isfile(imflou):  os.remove(imflou)
-    if del_out_uncmpr: os.remove(fim)
-
-    #> the compressed output naming
-    if fimout!='':
-        fout = os.path.join(opth, fimout)
-    elif pickname=='ref':
-        fout = os.path.join(opth, 'affine_ref-' \
-                + os.path.basename(imrefu).split('.nii')[0]+fcomment+'.nii.gz')
-    elif pickname=='flo':
-        fout = os.path.join(opth, 'affine_flo-' \
-                + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
-    # change the file name
-    os.rename(fim+'.gz', fout)
-
-    if fwhm>0:
-        smodct = prc.smoothim(fout, fwhm)
-        log.info('smoothed the resampled image with FWHM={} and saved to\n{}'.format(fwhm, smodct['fim']))
 
     return fout
 
@@ -1298,7 +1015,7 @@ def motion_reg(
     pickname='ref',
     outpath='',
     fname_aff='',
-    matlab_eng='',
+    matlab_eng_name='',
     rot_thresh=1.,
     trn_thresh=1.,
 ):
@@ -1308,12 +1025,6 @@ def motion_reg(
         flolst = flo
     else:
         raise OSError('could not decode the input of floating images.')
-
-    if matlab_eng=='':
-        import matlab.engine
-        eng = matlab.engine.start_matlab()
-    else:
-        eng = matlab_eng
 
     # dctout = {}
     lstout = []
@@ -1328,7 +1039,7 @@ def motion_reg(
             fcomment = fcomment,
             pickname = pickname,
             fname_aff = fname_aff,
-            matlab_eng = eng,
+            matlab_eng_name = matlab_eng_name,
             outpath = outpath,
             visual = 0,
             del_uncmpr=True)
