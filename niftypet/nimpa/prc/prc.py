@@ -252,7 +252,7 @@ def trimim( fims,
             except ValueError:
                 ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
                 scale = [scale, scale, scale]
-            
+
             ref_flag = True
             log.info(' using the trimming parameters of the reference image.')
         else:
@@ -617,7 +617,7 @@ def pvc_iyang(
         fcomment='',
         store_img=False,
         store_rois=False,
-        matlab_eng = None,
+        matlab_eng_name='',
     ):
     ''' Perform partial volume (PVC) correction of PET data (petin) using MRI data (mrin).
         The PVC method uses iterative Yang method.
@@ -718,24 +718,15 @@ def pvc_iyang(
 
         ft1w = imio.pick_t1w(mrin)
 
-        if tool=='spm':
-
-            if matlab_eng is None:
-                log.info('starting Matlab for SPM...')
-                import matlab.engine
-                matlab_eng = matlab.engine.start_matlab()
-
+        if tool == 'spm':
             regdct = regseg.coreg_spm(
                 fpet,
                 ft1w,
-                matlab_eng=matlab_eng,
-                fcomment = fcomment,
+                matlab_eng_name=matlab_eng_name,
+                fcomment=fcomment,
                 outpath=os.path.join(outpath,'PET', 'positioning')
             )
-            #> save Matlab engine for later resampling
-            matlab_eng = regdct['matlab_eng']
-
-        elif tool=='niftyreg':
+        elif tool == 'niftyreg':
             regdct = regseg.affine_niftyreg(
                 fpet,
                 ft1w,
@@ -769,7 +760,7 @@ def pvc_iyang(
                 +'_registered_trimmed'+fcomment+'.nii.gz')
             )
 
-        if tool=='niftyreg':
+        if tool == 'niftyreg':
             if os.path.isfile( Cnt['RESPATH'] ):
                 cmd = [Cnt['RESPATH'],  '-ref', fpet,  '-flo', fprc,
                        '-trans', faff, '-res', fprcu, '-inter', '0']
@@ -777,24 +768,17 @@ def pvc_iyang(
                 run(cmd)
             else:
                 raise IOError('e> path to resampling executable is incorrect!')
-
-        elif tool=='spm':
-
-            if matlab_eng is None:
-                log.info('starting Matlab for SPM...')
-                import matlab.engine
-                matlab_eng = matlab.engine.start_matlab()
-
+        elif tool == 'spm':
             fout = regseg.resample_spm(
-                        fpet,
-                        fprc,
-                        faff,
-                        fimout = fprcu,
-                        matlab_eng = matlab_eng,
-                        intrp = 0.,
-                        del_ref_uncmpr = True,
-                        del_flo_uncmpr = True,
-                        del_out_uncmpr = True,
+                    fpet,
+                    fprc,
+                    faff,
+                    fimout=fprcu,
+                    matlab_eng_name=matlab_eng_name,
+                    intrp=0.,
+                    del_ref_uncmpr=True,
+                    del_flo_uncmpr=True,
+                    del_out_uncmpr=True,
                 )
     #==================================================================
 
@@ -1042,7 +1026,7 @@ def im_cut(im, i_cut, fout=None):
             )
         out['fim'] = fout
 
-    out['im'] = img    
+    out['im'] = img
 
     return out
 
