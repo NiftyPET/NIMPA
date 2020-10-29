@@ -130,6 +130,7 @@ def trimim( fims,
             outpath='',
             fname='',
             fcomment='',
+            fcomment_pfx='',
             store_avg=False,
             store_img_intrmd=False,
             store_img=False,
@@ -159,6 +160,7 @@ def trimim( fims,
     outpath: output folder path
     fname: file name when image given as a numpy matrix
     fcomment: part of the name of the output file, left for the user as a comment
+    fcomment_pfx: part of the name of the output file at the start (prefix)
     store_img_intrmd: stores intermediate images with suffix '_i'
     store_avg: stores the average image (if multiple images are given)
     imdtype: data type for output images
@@ -439,7 +441,7 @@ def trimim( fims,
 
     # store the sum image
     if store_avg and Nim>1:
-        fsum = os.path.join(petudir, 'avg_trimmed-upsampled-scale-'+scale_fnm+fcomment+'.nii.gz')
+        fsum = os.path.join(petudir, fcomment_pfx+'avg_trimmed-upsampled-scale-'+scale_fnm+fcomment+'.nii.gz')
         imio.array2nii( imsumt[::-1,::-1,:], A, fsum, descrip=niidescr)
         log.debug('saved averaged image to: {}'.format(fsum))
         dctout['fsum'] = fsum
@@ -478,7 +480,7 @@ def trimim( fims,
 
     if store_img:
         _nfrm = '_nfrm'+str(Nim)
-        fim = os.path.join(petudir, 'trimmed-upsampled-scale-'+scale_fnm)+_nfrm*(Nim>1)+fcomment+'.nii.gz'
+        fim = os.path.join(petudir, fcomment_pfx+'trimmed-upsampled-scale-'+scale_fnm)+_nfrm*(Nim>1)+fcomment+'.nii.gz'
         log.info('storing image to:\n{}'.format(fim))
 
         imio.array2nii( np.squeeze(imtrim[:,::-1,::-1,:]), A, fim, descrip=niidescr)
