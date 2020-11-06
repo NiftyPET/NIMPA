@@ -13,8 +13,6 @@ import sys
 
 import numpy as np
 import scipy.ndimage as ndi
-import matplotlib.pyplot as plt
-
 
 import logging
 log = logging.getLogger(__name__)
@@ -205,59 +203,49 @@ def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
     return out
 
 
+class imscroll:
+    instances = []
 
+    def __init__(self, vol, view='t', **kwargs):
+        """
+        Scroll through 2D slices of a 3D volume using the mouse.
 
-#-------------------------------------------------------------------------------------
-# SCROLL THROUGH 3D IMAGE
-#-------------------------------------------------------------------------------------
+        Args:
+            vol (str or numpy.ndarray): path to file or a numpy array.
+            view (str): z, t, transverse/y, c, coronal/x, s, sagittal.
+            **kwargs: passed to `matplotlib.pyplot.imshow()`.
+        """
+        import matplotlib.pyplot as plt
 
-def scrollim(img, cmap='magma', view='t'):
-    '''
-    scroll through 3D image using the mouse while selecting one of three views:
-    t - transverse,
-    c - coronal,
-    s - sagittal  
-    '''
+        if isinstance(vol, str) and os.path.exists(vol):
+            im = imio.getnii(vol)
+        elif isinstance(vol, np.ndarray):
+            im = vol.copy()
+        else:
+            raise ValueError('unrecognised vol')
 
-    if isinstance(img, str) and os.path.exists(img):
-        im = imio.getnii(img)
+        view = view.lower()
+        if view in ['c', 'coronal', 'y']:
+            im = im.transpose(1,0,2)
+        elif view in ['s', 'saggital', 'x']:
+            im = im.transpose(2,0,1)
 
-    elif isinstance(img, np.ndarray):
-        im = img.copy()
+        self.index = im.shape[0] // 2
+        self.fig, self.ax = plt.subplots()
+        self.ax.imshow(im[self.index], **kwargs)
+        self.vol = im
+        self.fig.canvas.mpl_connect('scroll_event', self.scroll)
+        imscroll.instances.append(self)  # prevents gc
 
-    else:
-        raise ValueError('unrecognised input')
+    @classmethod
+    def clear(cls, self):
+        cls.instances.clear()
 
+    def scroll(self, event):
+        self.set_index(self.index + (1 if event.button == "up" else -1))
 
-    if view=='c':
-        im = im.transpose(1,0,2)
-    elif view=='s':
-        im = im.transpose(2,0,1)
-
-
-    fig, ax = plt.subplots()
-    ax.volume = im
-    ax.index = im.shape[0] // 2
-    ax.imshow(im[ax.index], cmap=cmap)
-    fig.canvas.mpl_connect('scroll_event', scroll)
-
-def scroll(event):
-    fig = event.canvas.figure
-    ax = fig.axes[0]
-    if event.button == 'up':
-        next_slice(ax)
-    else:
-        previous_slice(ax)
-    ax.set_title('slice #{}'.format(ax.index))
-    fig.canvas.draw()
-
-def previous_slice(ax):
-    volume = ax.volume
-    ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
-    ax.images[0].set_array(volume[ax.index])
-
-def next_slice(ax):
-    volume = ax.volume
-    ax.index = (ax.index + 1) % volume.shape[0]
-    ax.images[0].set_array(volume[ax.index])
-#-------------------------------------------------------------------------------------
+    def set_index(self, index):
+        self.index = index % self.vol.shape[0]
+        self.ax.images[0].set_array(self.vol[self.index])
+        self.ax.set_title(f"slice #{self.index}")
+        self.fig.canvas.draw()
