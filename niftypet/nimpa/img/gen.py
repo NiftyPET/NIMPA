@@ -2,14 +2,19 @@
 NIMPA: functions for neuro image processing and analysis
 Generates images.
 """
+
+__author__    = "Pawel Markiewicz"
+__copyright__ = "Copyright 2020"
+
+
 import math
 import os
 import sys
 
 import numpy as np
 import scipy.ndimage as ndi
-__author__    = "Pawel Markiewicz"
-__copyright__ = "Copyright 2019"
+import matplotlib.pyplot as plt
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -201,3 +206,58 @@ def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
 
 
 
+
+#-------------------------------------------------------------------------------------
+# SCROLL THROUGH 3D IMAGE
+#-------------------------------------------------------------------------------------
+
+def scrollim(img, cmap='magma', view='t'):
+    '''
+    scroll through 3D image using the mouse while selecting one of three views:
+    t - transverse,
+    c - coronal,
+    s - sagittal  
+    '''
+
+    if isinstance(img, str) and os.path.exists(img):
+        im = imio.getnii(img)
+
+    elif isinstance(img, np.ndarray):
+        im = img.copy()
+
+    else:
+        raise ValueError('unrecognised input')
+
+
+    if view=='c':
+        im = im.transpose(1,0,2)
+    elif view=='s':
+        im = im.transpose(2,0,1)
+
+
+    fig, ax = plt.subplots()
+    ax.volume = im
+    ax.index = im.shape[0] // 2
+    ax.imshow(im[ax.index], cmap=cmap)
+    fig.canvas.mpl_connect('scroll_event', scroll)
+
+def scroll(event):
+    fig = event.canvas.figure
+    ax = fig.axes[0]
+    if event.button == 'up':
+        next_slice(ax)
+    else:
+        previous_slice(ax)
+    ax.set_title('slice #{}'.format(ax.index))
+    fig.canvas.draw()
+
+def previous_slice(ax):
+    volume = ax.volume
+    ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
+    ax.images[0].set_array(volume[ax.index])
+
+def next_slice(ax):
+    volume = ax.volume
+    ax.index = (ax.index + 1) % volume.shape[0]
+    ax.images[0].set_array(volume[ax.index])
+#-------------------------------------------------------------------------------------

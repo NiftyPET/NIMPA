@@ -102,5 +102,4 @@ from .prc import dcm2nii
 from .prc import im_cut
 
 from .img import create_disk, profile_points
-from .img import imdiff
-
+from .img import imdiff, scrollim
