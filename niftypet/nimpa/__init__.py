@@ -77,8 +77,10 @@ except ImportError as ie:
 if resources.CC_ARCH != '' and platform.system() in ['Linux', 'Windows']:
     from .dinf import gpuinfo, dev_info
 
-from .prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
-from .prc import smoothim
+from .prc import imsmooth
+from .prc import imtrimup
+from .prc import imtrimup as trimim #for backward compatibility
+from .prc import iyang, pvc_iyang, psf_general, psf_measured
 
 from .prc import realign_mltp_spm, resample_mltp_spm
 from .prc import coreg_spm, coreg_vinci, resample_spm, resample_vinci

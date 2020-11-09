@@ -1,7 +1,7 @@
 # initialise the module folder
 
-from .prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
-from .prc import smoothim
+from .prc import imtrimup, iyang, pvc_iyang, psf_general, psf_measured
+from .prc import imsmooth
 from .prc import ct2mu
 from .prc import nii_modify
 from .prc import bias_field_correction

@@ -58,7 +58,7 @@ def num(s):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def smoothim(fim, fwhm=4, fout=''):
+def imsmooth(fim, fwhm=4, fout=''):
     '''
     Smooth image using Gaussian filter with FWHM given as an option.
     '''
@@ -118,7 +118,7 @@ def im_project3(im):
 # FUNCTIONS: T R I M   &   P A R T I A L   V O L U M E   E F F E C T S   A N D   C O R R E C T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-def trimim( fims,
+def imtrimup( fims,
 
             refim = '',
             affine=None,
