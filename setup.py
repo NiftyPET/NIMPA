@@ -257,6 +257,7 @@ setup(
         'pydicom>=1.0.2,<=1.3.1',
         'scipy',
         'spm12',
+        'miutil[nii]>=0.2.0',
         #'SimpleITK>=1.2.0',
         ],
     python_requires='>=3.4',
