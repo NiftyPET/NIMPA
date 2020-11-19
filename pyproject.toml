@@ -1,2 +1,2 @@
 [build-system]
-requires = ["setuptools", "wheel", "miutil[cuda]", "numpy>=1.14"]
+requires = ["setuptools>=42", "wheel", "miutil[cuda]", "numpy>=1.14"]
