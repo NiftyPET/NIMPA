@@ -30,10 +30,9 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     export PATHTOOLS=$HOME/NiftyPET_tools
     # cross-platform install
     conda create -n niftypet -c conda-forge python=3 \
-      ipykernel matplotlib numpy scikit-image ipywidgets
-    git clone https://github.com/NiftyPET/NIMPA.git nimpa
+      ipykernel numpy scipy scikit-image matplotlib ipywidgets
     conda activate niftypet
-    pip install --no-binary :all: --verbose -e ./nimpa
+    pip install "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
 
 Licence
 ~~~~~~~

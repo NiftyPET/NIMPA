@@ -12,7 +12,6 @@ find_package(PythonLibs)
 
 set(PYTHON_PREFIX_PATH)
 
-add_subdirectory(${CMAKE_PROJECT_NAME}/dinf)
 add_subdirectory(${CMAKE_PROJECT_NAME}/prc)
 
 set(CMAKE_BUILD_TYPE Release)

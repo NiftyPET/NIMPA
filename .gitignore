@@ -1,6 +1,7 @@
 *.py[co]
 *.so
 *.log
+__pycache__/
 /build/
 /dist/
 /nimpa.egg*/
