@@ -50,11 +50,12 @@ def find_cuda():
         if os.path.exists(cuda_path):
             cuda_path = os.path.dirname(os.path.dirname(cuda_path))
             break
-        cuda_path = None
+        else:
+            cuda_path = None
 
     if cuda_path is None:
         log.warning('nvcc compiler could not be found from the PATH!')
-        return None
+        return
 
     # serach for the CUDA library path
     lcuda_path = os.path.join(cuda_path, 'lib64')

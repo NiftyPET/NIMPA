@@ -2,27 +2,25 @@
 NIMPA: functions for neuro image processing and analysis
 Generates images.
 """
-
-__author__    = "Pawel Markiewicz"
-__copyright__ = "Copyright 2020"
-
-
+import logging
 import math
 import os
 import sys
 
 import numpy as np
 import scipy.ndimage as ndi
-
-import logging
-log = logging.getLogger(__name__)
-
-from ..prc import imio
 try:
     from miutil.plot import imscroll
 except ImportError as err:
-    def imscroll(*args, **kwargs):
+    def imscroll(*_, **__):
+        """delay matplotlib import error for later"""
         raise err
+
+from ..prc import imio
+__author__    = "Pawel Markiewicz"
+__copyright__ = "Copyright 2020"
+log = logging.getLogger(__name__)
+
 
 def absmax(a):
     amax = a.max()

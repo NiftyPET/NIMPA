@@ -32,7 +32,7 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     conda create -n niftypet -c conda-forge python=3 \
       ipykernel numpy scipy scikit-image matplotlib ipywidgets
     conda activate niftypet
-    pip install "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
+    pip install --verbose "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
 
 Licence
 ~~~~~~~
