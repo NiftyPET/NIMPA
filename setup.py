@@ -10,6 +10,7 @@ from setuptools import setup, find_packages
 from subprocess import run, PIPE
 import sys
 
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import cudasetup as cs
 import install_tools as tls
 __author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
@@ -251,20 +252,10 @@ setup(
     author_email='p.markiewicz@ucl.ac.uk',
     url='https://github.com/NiftyPET/NIMPA',
     keywords='PET MR processing analysis',
-    install_requires=[
-        'nibabel>=2.4.0,<=3.0.1',
-        'numpy>=1.14',
-        'pydicom>=1.0.2,<=1.3.1',
-        'scipy',
-        'spm12',
-        'miutil[nii]>=0.2.0',
-        #'SimpleITK>=1.2.0',
-        ],
     python_requires='>=3.4',
     packages=find_packages(exclude=['docs']),
     package_data={
         'niftypet': ['auxdata/*'],
-        'niftypet.nimpa.dinf': [fex],
         'niftypet.nimpa.prc' : [fex],
     },
     zip_safe=False,
