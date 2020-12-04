@@ -50,8 +50,7 @@ def find_cuda():
         if os.path.exists(cuda_path):
             cuda_path = os.path.dirname(os.path.dirname(cuda_path))
             break
-        else:
-            cuda_path = None
+        cuda_path = None
 
     if cuda_path is None:
         log.warning('nvcc compiler could not be found from the PATH!')
