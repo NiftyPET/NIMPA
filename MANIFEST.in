@@ -1,7 +1,6 @@
 graft niftypet/nimpa/prc
 graft niftypet/nimpa/prc/src
 graft niftypet/auxdata
-graft resources/
 recursive-include niftypet *.py
 include *.py
 recursive-include niftypet CMakeLists.txt

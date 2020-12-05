@@ -26,7 +26,7 @@ from tqdm.auto import trange
 
 from . import imio
 from . import regseg
-import resources as rs
+from .. import resources as rs
 
 #> GPU routines only on Linux and Windows
 if 'compute' in rs.CC_ARCH and platform.system() in ['Linux', 'Windows']:
