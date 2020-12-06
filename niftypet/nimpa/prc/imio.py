@@ -14,7 +14,7 @@ import numpy as np
 import pydicom as dcm
 
 #> NiftyPET resources
-import resources as rs
+from .. import resources as rs
 __author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__   = "Copyright 2020"
 log = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ def getnii(fim, nan_replace=None, output='image'):
     if output=='image' or output=='all':
         imr = nim.get_data()
         # replace NaNs if requested
-        if isinstance(nan_replace, numbers.Number): 
+        if isinstance(nan_replace, numbers.Number):
             imr[np.isnan(imr)] = nan_replace
 
         imr = np.squeeze(imr)
@@ -757,11 +757,9 @@ def dcm2nii(
 
     if executable=='':
         try:
-            import resources
-            executable = resources.DCM2NIIX
-        except:
-            raise NameError('e> could not import resources \
-                    or find variable DCM2NIIX in resources.py')
+            executable = rs.DCM2NIIX
+        except AttributeError:
+            raise AttributeError('e> could not find variable DCM2NIIX in resources.py')
     elif not os.path.isfile(executable):
         raise IOError('e> the executable is incorrect!')
 

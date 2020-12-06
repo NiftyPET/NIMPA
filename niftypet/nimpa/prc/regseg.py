@@ -16,6 +16,7 @@ import scipy.ndimage as ndi
 
 from . import imio
 from . import prc
+from .. import resources as rs
 __author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__ = "Copyright 2020"
 log = logging.getLogger(__name__)
@@ -598,11 +599,9 @@ def coreg_vinci(
 
     if vincipy_path=='':
         try:
-            import resources
-            vincipy_path = resources.VINCIPATH
-        except:
-            raise NameError('e> could not import resources \
-                    or find variable VINCIPATH in resources.py')
+            vincipy_path = rs.VINCIPATH
+        except AttributeError:
+            raise AttributeError('e> could not find variable VINCIPATH in resources.py')
 
     sys.path.append(vincipy_path)
 
@@ -738,11 +737,9 @@ def resample_vinci(
 
     if vincipy_path=='':
         try:
-            import resources
-            vincipy_path = resources.VINCIPATH
-        except:
-            raise NameError('e> could not import resources \
-                    or find variable VINCIPATH in resources.py')
+            vincipy_path = rs.VINCIPATH
+        except AttributeError:
+            raise AttributeError('e> could not find variable VINCIPATH in resources.py')
 
     sys.path.append(vincipy_path)
 
