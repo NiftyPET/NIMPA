@@ -220,7 +220,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args)
 	}
 
 	// sets the device on which to calculate
-	cudaSetDevice(Cnt.DEVID);
+	HANDLE_ERROR(cudaSetDevice(Cnt.DEVID));
 
 	//=================================================================
 	setConvolutionKernel(krnl);
@@ -236,8 +236,3 @@ static PyObject *img_convolve(PyObject *self, PyObject *args)
 	Py_INCREF(Py_None);
 	return Py_None;
 }
-
-
-
-
-
