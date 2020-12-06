@@ -13,15 +13,15 @@ from textwrap import dedent
 
 from niftypet.ninst import cudasetup as cs
 from niftypet.ninst import install_tools as tls
-from niftypet.ninst.tools import LogHandler
+
 __author__ = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__ = "Copyright 2020"
 __licence__ = __license__ = "Apache 2.0"
 
 logging.basicConfig(level=logging.INFO)
-logroot = logging.getLogger('nimpa')
-logroot.addHandler(LogHandler())
-log = logging.getLogger('nipet.setup')
+logroot = logging.getLogger("nimpa")
+logroot.addHandler(tls.LogHandler())
+log = logging.getLogger("nimpa.setup")
 
 tls.check_platform()
 ext = tls.check_depends()  # external dependencies
@@ -38,12 +38,7 @@ if not ext["git"]:
     raise SystemError("Git is missing.")
 
 # install resources.py
-if ext["cuda"] and ext["cmake"]:
-    # select the supported GPU device and
-    gpuarch = cs.resources_setup()
-else:
-    gpuarch = cs.resources_setup(gpu=False)
-
+gpuarch = cs.resources_setup(gpu=ext["cuda"] and ext["cmake"])
 
 # First install third party apps for NiftyPET tools
 log.info(
@@ -72,10 +67,12 @@ if not chck_tls["DCM2NIIX"]:
     # reply = tls.query_yesno('q> the latest compatible version of dcm2niix seems to be missing.\n   Do you want to install it?')
     # if reply:
     log.info(
-        dedent("""
+        dedent(
+            """
         --------------------------------------------------------------
         Installing dcm2niix ...
-        --------------------------------------------------------------""")
+        --------------------------------------------------------------"""
+        )
     )
     Cnt = tls.install_tool("dcm2niix", Cnt)
 # ---------------------------------------
@@ -83,23 +80,24 @@ if not chck_tls["DCM2NIIX"]:
 # -------------------------------------------
 # NiftyReg
 if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
+    reply = True
     if gpuarch == "":
         try:
             reply = tls.query_yesno(
                 "q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?"
             )
         except:
-            reply = True
-    else:
-        reply = True
+            pass
 
     if reply:
-        log.info(dedent(
-            """
+        log.info(
+            dedent(
+                """
             --------------------------------------------------------------
             Installing NiftyReg ...
             --------------------------------------------------------------"""
-        ))
+            )
+        )
         Cnt = tls.install_tool("niftyreg", Cnt)
 # -------------------------------------------
 
@@ -139,7 +137,7 @@ if ext["cuda"] and gpuarch != "":
             "-DPYTHON_PREFIX_PATH=" + cs.prefix,
             "-DCUDA_NVCC_FLAGS=" + gpuarch,
         ],
-        ["cmake", "--build", "./"]
+        ["cmake", "--build", "./"],
     ]
 
     if platform.system() == "Windows":
@@ -149,7 +147,7 @@ if ext["cuda"] and gpuarch != "":
     # error string for later reporting
     errs = []
     # the log files the cmake results are written
-    cmakelogs = ["py_cmake_config.log", "py_cmake_build.log"]
+    cmakelogs = ["nimpa_cmake_config.log", "nimpa_cmake_build.log"]
     # run commands with logging
     for cmd, cmakelog in zip(cmds, cmakelogs):
         p = run(cmd, stdout=PIPE, stderr=PIPE)
@@ -172,9 +170,7 @@ if ext["cuda"] and gpuarch != "":
                     ---------- process warnings/errors ------------
                     {}
                     --------------------- end ---------------------"""
-                ).format(
-                    stderr
-                )
+                ).format(stderr)
             )
 
         log.info(
@@ -194,67 +190,73 @@ if ext["cuda"] and gpuarch != "":
 
     # come back from build folder
     os.chdir(path_current)
-#===============================================================
+# ===============================================================
 
 
-
-#===============================================================
+# ===============================================================
 # PYTHON SETUP
-#===============================================================
-log.info('''found those packages:\n{}'''.format(find_packages(exclude=['docs'])))
+# ===============================================================
+log.info("""found those packages:\n{}""".format(find_packages(exclude=["docs"])))
 
-freadme = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'README.rst')
-log.info('''\
+freadme = os.path.join(os.path.dirname(os.path.realpath(__file__)), "README.rst")
+log.info(
+    """\
     \rUsing this README file:
     {}
-    '''.format(freadme))
+    """.format(
+        freadme
+    )
+)
 
 with open(freadme) as file:
     long_description = file.read()
 
-#---- for setup logging -----
+# ---- for setup logging -----
 stdout = sys.stdout
 stderr = sys.stderr
-log_file = open('setup_nimpa.log', 'w')
+log_file = open("setup_nimpa.log", "w")
 sys.stdout = log_file
 sys.stderr = log_file
-#----------------------------
+# ----------------------------
 
-if platform.system() in ['Linux', 'Darwin'] :
-    fex = '*.so'
-elif platform.system() == 'Windows' :
-    fex = '*.pyd'
-#----------------------------
+if platform.system() in ["Linux", "Darwin"]:
+    fex = "*.so"
+elif platform.system() == "Windows":
+    fex = "*.pyd"
+# ----------------------------
 setup(
-    name='nimpa',
+    name="nimpa",
     license=__licence__,
-    version='2.0.0',
-    description='CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.',
+    version="2.0.0",
+    description="CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.",
     long_description=long_description,
     author=__author__[0],
-    author_email='p.markiewicz@ucl.ac.uk',
-    url='https://github.com/NiftyPET/NIMPA',
-    keywords='PET MR processing analysis',
-    python_requires='>=3.6',
-    packages=find_packages(exclude=['docs']),
+    author_email="p.markiewicz@ucl.ac.uk",
+    url="https://github.com/NiftyPET/NIMPA",
+    keywords="PET MR processing analysis",
+    python_requires=">=3.6",
+    packages=find_packages(exclude=["docs"]),
     package_data={
-        'niftypet': ['auxdata/*'],
-        'niftypet.nimpa.prc' : [fex],
+        "niftypet": ["auxdata/*"],
+        "niftypet.nimpa.prc": [fex],
     },
     zip_safe=False,
     # namespace_packages=['niftypet'],
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Education',
-        'Intended Audience :: Healthcare Industry',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX :: Linux',
-        'Programming Language :: C',
-        'Programming Language :: C++',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3 :: Only',
-        'Topic :: Scientific/Engineering :: Medical Science Apps.',
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Education",
+        "Intended Audience :: Healthcare Industry",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: C",
+        "Programming Language :: C++",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3 :: Only",
+        "Topic :: Scientific/Engineering :: Medical Science Apps.",
     ],
 )
