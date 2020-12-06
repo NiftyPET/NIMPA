@@ -82,15 +82,14 @@ if not chck_tls["DCM2NIIX"]:
 # -------------------------------------------
 # NiftyReg
 if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
+    reply = True
     if gpuarch == "":
         try:
             reply = tls.query_yesno(
                 "q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?"
             )
         except:
-            reply = True
-    else:
-        reply = True
+            pass
 
     if reply:
         log.info(dedent(
@@ -148,7 +147,7 @@ if ext["cuda"] and gpuarch != "":
     # error string for later reporting
     errs = []
     # the log files the cmake results are written
-    cmakelogs = ["py_cmake_config.log", "py_cmake_build.log"]
+    cmakelogs = ["nimpa_cmake_config.log", "nimpa_cmake_build.log"]
     # run commands with logging
     for cmd, cmakelog in zip(cmds, cmakelogs):
         p = run(cmd, stdout=PIPE, stderr=PIPE)
@@ -255,5 +254,8 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Scientific/Engineering :: Medical Science Apps.',
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
 )

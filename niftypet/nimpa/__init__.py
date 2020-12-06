@@ -12,16 +12,14 @@ from textwrap import dedent
 
 from tqdm.auto import tqdm
 
-from niftypet.ninst.tools import LogHandler
+from niftypet.ninst.tools import LogHandler, path_resources, resources
 from niftypet.ninst import cudasetup as cs
 
-log = logging.getLogger(__name__)
+# log = logging.getLogger(__name__)
 # technically bad practice to add handlers
 # https://docs.python.org/3/howto/logging.html#library-config
 # log.addHandler(LogHandler())  # do it anyway for convenience
 
-path_resources = cs.path_niftypet_local()
-resources = cs.get_resources()
 
 # if getattr(resources, "CC_ARCH", "") and platform.system() in ['Linux', 'Windows']:
 from niftypet.ninst.dinf import gpuinfo, dev_info
