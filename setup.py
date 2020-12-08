@@ -7,7 +7,6 @@ import logging
 import os
 import platform
 from setuptools import setup, find_packages
-from subprocess import run, PIPE
 import sys
 from textwrap import dedent
 
@@ -105,87 +104,20 @@ log.info(
     )
 )
 
-# CUDA installation
+# ===============================================================
+# CUDA BUILD
+# ===============================================================
 if ext["cuda"] and gpuarch != "":
-    log.info(
-        dedent(
-            """
-            --------------------------------------------------------------
-            CUDA compilation for NIMPA ...
-            --------------------------------------------------------------"""
-        )
-    )
-
     path_current = os.path.dirname(os.path.realpath(__file__))
     path_build = os.path.join(path_current, "build")
-    if not os.path.isdir(path_build):
-        os.makedirs(path_build)
-    os.chdir(path_build)
-
-    # cmake installation commands
-    cmds = [
-        [
-            "cmake",
-            os.path.join("..", "niftypet"),
-            "-DPYTHON_INCLUDE_DIRS=" + cs.pyhdr,
-            "-DPYTHON_PREFIX_PATH=" + cs.prefix,
-            "-DCUDA_NVCC_FLAGS=" + gpuarch,
-        ],
-        ["cmake", "--build", "./"],
-    ]
-
-    if platform.system() == "Windows":
-        cmds[0] += ["-G", Cnt["MSVC_VRSN"]]
-        cmds[1] += ["--config", "Release"]
-
-    # error string for later reporting
-    errs = []
-    # the log files the cmake results are written
-    cmakelogs = ["nimpa_cmake_config.log", "nimpa_cmake_build.log"]
-    # run commands with logging
-    for cmd, cmakelog in zip(cmds, cmakelogs):
-        p = run(cmd, stdout=PIPE, stderr=PIPE)
-        stdout = p.stdout.decode("utf-8")
-        stderr = p.stderr.decode("utf-8")
-
-        with open(cmakelog, "w") as fd:
-            fd.write(stdout)
-
-        ei = stderr.find("error")
-        if ei >= 0:
-            errs.append(stderr[ei : ei + 60] + "...")
-        else:
-            errs.append("_")
-
-        if p.stderr:
-            log.warning(
-                dedent(
-                    """
-                    ---------- process warnings/errors ------------
-                    {}
-                    --------------------- end ---------------------"""
-                ).format(stderr)
-            )
-
-        log.info(
-            dedent(
-                """
-                ---------- compilation output ------------
-                {}
-                ------------------- end ------------------"""
-            ).format(stdout)
-        )
-
-    log.info("\n------------- error report -------------")
-    for cmd, err in zip(cmds, errs):
-        if err != "_":
-            log.error(" found error(s) in %s >> %s", " ".join(cmd), err)
-    log.info("------------------ end -----------------")
-
-    # come back from build folder
-    os.chdir(path_current)
-# ===============================================================
-
+    path_source = os.path.join(path_current, "niftypet")
+    cs.cmake_cuda(
+        path_source,
+        path_build,
+        gpuarch,
+        logfile_prefix="nimpa_",
+        msvc_version=Cnt["MSVC_VRSN"],
+    )
 
 # ===============================================================
 # PYTHON SETUP
