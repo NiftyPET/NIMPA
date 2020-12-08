@@ -18,9 +18,7 @@ __author__ = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__ = "Copyright 2020"
 __licence__ = __license__ = "Apache 2.0"
 
-logging.basicConfig(level=logging.INFO)
-logroot = logging.getLogger("nimpa")
-logroot.addHandler(tls.LogHandler())
+logging.basicConfig(level=logging.INFO, format=tls.LOG_FORMAT)
 log = logging.getLogger("nimpa.setup")
 
 tls.check_platform()
@@ -49,7 +47,6 @@ log.info(
         --------------------------------------------------------------"""
     )
 )
-
 # get the local path to NiftyPET resources.py
 path_resources = cs.path_niftypet_local()
 # if exists, import the resources and get the constants
@@ -99,8 +96,6 @@ if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
             )
         )
         Cnt = tls.install_tool("niftyreg", Cnt)
-# -------------------------------------------
-
 log.info(
     dedent(
         """
@@ -109,7 +104,6 @@ log.info(
         --------------------------------------------------------------"""
     )
 )
-
 
 # CUDA installation
 if ext["cuda"] and gpuarch != "":
