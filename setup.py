@@ -35,7 +35,7 @@ if not ext["git"]:
     raise SystemError("Git is missing.")
 
 # install resources.py
-gpuarch = cs.resources_setup(gpu=ext["cuda"] and ext["cmake"])
+gpuarch = cs.resources_setup(gpu=ext["cmake"])
 
 # First install third party apps for NiftyPET tools
 log.info(
@@ -107,7 +107,7 @@ log.info(
 # ===============================================================
 # CUDA BUILD
 # ===============================================================
-if ext["cuda"] and gpuarch != "":
+if gpuarch != "":
     path_current = os.path.dirname(os.path.realpath(__file__))
     path_build = os.path.join(path_current, "build")
     path_source = os.path.join(path_current, "niftypet")
