@@ -1,0 +1,16 @@
+name: Test
+on:
+- push
+jobs:
+  test:
+    runs-on: [self-hosted, cuda]
+    name: Test
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - run: pip install -U -e .[dev]
+    - run: python -m pytest --cov-report=term-missing --cov-report=xml
+    - run: codecov
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

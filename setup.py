@@ -35,7 +35,7 @@ if not ext["git"]:
     raise SystemError("Git is missing.")
 
 # install resources.py
-gpuarch = cs.resources_setup(gpu=ext["cuda"] and ext["cmake"])
+gpuarch = cs.resources_setup(gpu=ext["cmake"])
 
 # First install third party apps for NiftyPET tools
 log.info(
@@ -107,7 +107,7 @@ log.info(
 # ===============================================================
 # CUDA BUILD
 # ===============================================================
-if ext["cuda"] and gpuarch != "":
+if gpuarch != "":
     path_current = os.path.dirname(os.path.realpath(__file__))
     path_build = os.path.join(path_current, "build")
     path_source = os.path.join(path_current, "niftypet")
@@ -151,38 +151,9 @@ elif platform.system() == "Windows":
     fex = "*.pyd"
 # ----------------------------
 setup(
-    name="nimpa",
-    license=__licence__,
     version="2.0.0",
-    description="CUDA-accelerated Python utilities for high-throughput PET/MR image processing and analysis.",
-    long_description=long_description,
-    author=__author__[0],
-    author_email="p.markiewicz@ucl.ac.uk",
-    url="https://github.com/NiftyPET/NIMPA",
-    keywords="PET MR processing analysis",
-    python_requires=">=3.6",
-    packages=find_packages(exclude=["docs"]),
     package_data={
         "niftypet": ["auxdata/*"],
         "niftypet.nimpa.prc": [fex],
     },
-    zip_safe=False,
-    # namespace_packages=['niftypet'],
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Intended Audience :: Education",
-        "Intended Audience :: Healthcare Industry",
-        "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: Apache Software License",
-        "Operating System :: Microsoft :: Windows",
-        "Operating System :: POSIX :: Linux",
-        "Programming Language :: C",
-        "Programming Language :: C++",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3 :: Only",
-        "Topic :: Scientific/Engineering :: Medical Science Apps.",
-    ],
 )
