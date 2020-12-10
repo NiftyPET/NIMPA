@@ -10,3 +10,7 @@ jobs:
       with:
         fetch-depth: 0
     - run: pip install -U -e .[dev]
+    - run: python -m pytest --cov-report=term-missing --cov-report=xml
+    - run: codecov
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
