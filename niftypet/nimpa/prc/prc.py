@@ -28,9 +28,11 @@ from . import imio
 from . import regseg
 from .. import resources as rs
 
-#> GPU routines only on Linux and Windows
-if 'compute' in rs.CC_ARCH and platform.system() in ['Linux', 'Windows']:
+try:
+    # GPU routines if compiled
     from . import improc
+except ImportError:
+    improc = None
 sitk_flag = True
 try:
     import SimpleITK as sitk
@@ -578,8 +580,7 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         #> blur the piece-wise constant image using either:
         #> (1) GPU convolution with a separable kernel (x,y,z), or
         #> (2) CPU, Python-based convolution
-        if 'CCARCH' in Cnt and 'compute' in Cnt['CCARCH']:
-
+        if improc is not None:
             #> convert to dimensions of GPU processing [y,x,z]
             imin_d = np.transpose(imgPWC, (1, 2, 0))
             imout_d = np.zeros(imin_d.shape, dtype=np.float32)

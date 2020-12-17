@@ -35,9 +35,9 @@ static PyMethodDef improc_methods[] = {
 //> Module Definition Structure
 static struct PyModuleDef improc_module = {
 	PyModuleDef_HEAD_INIT,
-	"mmr_lmproc",   //> name of module
+	"improc",   //> name of module
 	//> module documentation, may be NULL
-	"This module provides GPU routines for image processing (mostly PET).",
+	"This module provides GPU routines for image processing (convolving & resampling).",
 	-1,       	//> the module keeps state in global variables.
 	improc_methods
 };
