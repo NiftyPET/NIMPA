@@ -1042,19 +1042,21 @@ def motion_reg(
             del_uncmpr=True)
 
         if any((np.abs(M['rotations'])*180/np.pi) > rot_thresh):
-            log.warning('''at least one rotation is above the threshold of {}, and is:
-                \r {}'''.format(rot_thresh, M['rotations']*180/np.pi))
+            log.warning(dedent('''\
+                at least one rotation is above the threshold of {}, and is:
+                {}''').format(rot_thresh, M['rotations']*180/np.pi))
             motion_rot = True
         if any(np.abs(M['translations']) > trn_thresh):
-            log.warning('''at least one translation is above the threshold of {}, and is:
-                \r {}'''.format(trn_thresh, M['translations']))
+            log.warning(dedent('''\
+                at least one translation is above the threshold of {}, and is:
+                {}''').format(trn_thresh, M['translations']))
             motion_trn = True
 
         lstout.append({
-                'regout':M,
-                'trans_mo':motion_trn,
-                'rotat_mo':motion_rot,
-            })
+            'regout':M,
+            'trans_mo':motion_trn,
+            'rotat_mo':motion_rot,
+        })
 
     return lstout
 

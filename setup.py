@@ -26,7 +26,7 @@ ext = tls.check_depends()  # external dependencies
 if not ext["git"]:
     log.error(
         dedent(
-            """
+            """\
             --------------------------------------------------------------
             Git is not installed but is required for tools installation.
             --------------------------------------------------------------"""
@@ -40,7 +40,7 @@ gpuarch = cs.resources_setup(gpu=ext["cmake"])
 # First install third party apps for NiftyPET tools
 log.info(
     dedent(
-        """
+        """\
         --------------------------------------------------------------
         Setting up NiftyPET tools ...
         --------------------------------------------------------------"""
@@ -64,7 +64,7 @@ if not chck_tls["DCM2NIIX"]:
     # if reply:
     log.info(
         dedent(
-            """
+            """\
         --------------------------------------------------------------
         Installing dcm2niix ...
         --------------------------------------------------------------"""
@@ -80,7 +80,8 @@ if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
     if gpuarch == "":
         try:
             reply = tls.query_yesno(
-                "q> the latest compatible version of NiftyReg seems to be missing.\n   Do you want to install it?"
+                "q> the latest compatible version of NiftyReg seems to be missing.\n"
+                "   Do you want to install it?"
             )
         except:
             pass
@@ -88,16 +89,16 @@ if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
     if reply:
         log.info(
             dedent(
-                """
-            --------------------------------------------------------------
-            Installing NiftyReg ...
-            --------------------------------------------------------------"""
+                """\
+                --------------------------------------------------------------
+                Installing NiftyReg ...
+                --------------------------------------------------------------"""
             )
         )
         Cnt = tls.install_tool("niftyreg", Cnt)
 log.info(
     dedent(
-        """
+        """\
         --------------------------------------------------------------
         Installation of NiftyPET-tools is done.
         --------------------------------------------------------------"""
