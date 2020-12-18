@@ -1410,7 +1410,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
     if os.path.isfile(datain['T1lbl']):
         nilb = nib.load(datain['T1lbl'])
         A = nilb.get_sform()
-        imlb = nilb.get_data()
+        imlb = np.asanyarray(nilb.dataobj)
     else:
         raise ValueError('parcellation label image not present!')
 

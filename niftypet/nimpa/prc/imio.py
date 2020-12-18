@@ -63,7 +63,7 @@ def getnii(fim, nan_replace=None, output='image'):
     dimno = dim[0]
 
     if output=='image' or output=='all':
-        imr = nim.get_data()
+        imr = np.asanyarray(nim.dataobj)
         # replace NaNs if requested
         if isinstance(nan_replace, numbers.Number):
             imr[np.isnan(imr)] = nan_replace
@@ -207,7 +207,7 @@ def orientnii(imfile, Cnt=None):
     niixyz = np.zeros(3,dtype=np.int8)
     if os.path.isfile(imfile):
         nim = nib.load(imfile)
-        pct = nim.get_data()
+        pct = np.asanyarray(nim.dataobj)
         A = nim.get_sform()
         for i in range(3):
             niixyz[i] = np.argmax(abs(A[i,:-1]))
