@@ -253,6 +253,8 @@ def imtrimup( fims,
             except ValueError:
                 ix0, ix1, iy0, iy1, iz0, scale, fmax = (num(s) for s in parstr)
                 scale = [scale, scale, scale]
+            except:
+                log.error('the reference file does not have the trimming information.')
 
             ref_flag = True
             log.info(' using the trimming parameters of the reference image.')
