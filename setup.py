@@ -6,11 +6,13 @@ for namespace 'niftypet'.
 import logging
 import os
 import platform
-from setuptools import setup, find_packages
 import sys
 from textwrap import dedent
 
+from setuptools import find_packages, setup
+
 from niftypet.ninst import cudasetup as cs
+from niftypet.ninst import dinf
 from niftypet.ninst import install_tools as tls
 
 __author__ = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
@@ -24,7 +26,7 @@ tls.check_platform()
 ext = tls.check_depends()  # external dependencies
 
 if not ext["git"]:
-    log.error(
+    raise SystemError(
         dedent(
             """\
             --------------------------------------------------------------
@@ -32,10 +34,13 @@ if not ext["git"]:
             --------------------------------------------------------------"""
         )
     )
-    raise SystemError("Git is missing.")
 
-# install resources.py
-gpuarch = cs.resources_setup(gpu=ext["cmake"])
+cs.resources_setup(gpu=False)  # install resources.py
+try:
+    gpuarch = cs.dev_setup()  # update resources.py with a supported GPU device
+except Exception as exc:
+    log.error("could not set up CUDA:\n%s", exc)
+    gpuarch = None
 
 # First install third party apps for NiftyPET tools
 log.info(
@@ -77,7 +82,7 @@ if not chck_tls["DCM2NIIX"]:
 # NiftyReg
 if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
     reply = True
-    if gpuarch == "":
+    if not gpuarch:
         try:
             reply = tls.query_yesno(
                 "q> the latest compatible version of NiftyReg seems to be missing.\n"
@@ -105,43 +110,27 @@ log.info(
     )
 )
 
-# ===============================================================
-# CUDA BUILD
-# ===============================================================
-if gpuarch != "":
-    path_current = os.path.dirname(os.path.realpath(__file__))
-    path_build = os.path.join(path_current, "build")
-    path_source = os.path.join(path_current, "niftypet")
-    cs.cmake_cuda(
-        path_source,
-        path_build,
-        gpuarch,
-        logfile_prefix="nimpa_",
-        msvc_version=Cnt["MSVC_VRSN"],
+setup_kwargs = {
+    "version": "2.0.0",
+    "packages": find_packages(exclude=["tests"]),
+    "package_data": {"niftypet": ["nimpa/auxdata/*"]},
+}
+
+try:
+    nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo()}
+except Exception as exc:
+    log.warning("could not detect CUDA architectures:\n%s", exc)
+    setup(**setup_kwargs)
+else:
+    from skbuild import setup as sksetup
+
+    sksetup(
+        cmake_source_dir="niftypet",
+        cmake_languages=("C", "CXX", "CUDA"),
+        cmake_minimum_required_version="3.18",
+        cmake_args=[
+            f"-DPython3_ROOT_DIR={sys.prefix}",
+            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)),
+        ],
+        **setup_kwargs
     )
-
-# ===============================================================
-# PYTHON SETUP
-# ===============================================================
-log.info("""found those packages:\n{}""".format(find_packages(exclude=["docs"])))
-
-# ---- for setup logging -----
-stdout = sys.stdout
-stderr = sys.stderr
-log_file = open("setup_nimpa.log", "w")
-sys.stdout = log_file
-sys.stderr = log_file
-# ----------------------------
-
-if platform.system() in ["Linux", "Darwin"]:
-    fex = "*.so"
-elif platform.system() == "Windows":
-    fex = "*.pyd"
-# ----------------------------
-setup(
-    version="2.0.0",
-    package_data={
-        "niftypet": ["nimpa/auxdata/*"],
-        "niftypet.nimpa.prc": [fex],
-    },
-)

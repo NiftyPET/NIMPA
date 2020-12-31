@@ -9,6 +9,7 @@ import sys
 
 import numpy as np
 import scipy.ndimage as ndi
+
 try:
     from miutil.plot import imscroll
 except ImportError as err:
@@ -17,6 +18,7 @@ except ImportError as err:
         raise err
 
 from ..prc import imio
+
 __author__    = "Pawel Markiewicz"
 __copyright__ = "Copyright 2020"
 log = logging.getLogger(__name__)

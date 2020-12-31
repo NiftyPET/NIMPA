@@ -1,25 +1,53 @@
 # initialise the module folder
 
-from .prc import imtrimup, iyang, pvc_iyang, psf_general, psf_measured
-from .prc import imsmooth
-from .prc import ct2mu
-from .prc import nii_modify
-from .prc import bias_field_correction
-from .prc import centre_mass_img
-from .prc import im_cut
-from .imio import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii
-from .imio import orientnii, nii_ugzip, nii_gzip, dcmsort, niisort, dcm2im, dcminfo
-from .imio import dcmanonym, pick_t1w, dcm2nii
-
-from .regseg import realign_mltp_spm, resample_mltp_spm
-
-from .regseg import coreg_spm, resample_spm, affine_niftyreg, resample_niftyreg
-from .regseg import coreg_vinci, resample_vinci
-from .regseg import motion_reg
-from .regseg import dice_coeff, dice_coeff_multiclass
-from .regseg import imfill, create_mask
-
-from .regseg import affine_fsl, resample_fsl
+from .imio import (
+    array2nii,
+    create_dir,
+    dcm2im,
+    dcm2nii,
+    dcmanonym,
+    dcminfo,
+    dcmsort,
+    fwhm2sig,
+    getnii,
+    getnii_descr,
+    nii_gzip,
+    nii_ugzip,
+    niisort,
+    orientnii,
+    pick_t1w,
+    time_stamp,
+)
 
 # will be depreciated
-from .prc import pet2pet_rigid
+from .prc import (
+    bias_field_correction,
+    centre_mass_img,
+    ct2mu,
+    im_cut,
+    imsmooth,
+    imtrimup,
+    iyang,
+    nii_modify,
+    pet2pet_rigid,
+    psf_general,
+    psf_measured,
+    pvc_iyang,
+)
+from .regseg import (
+    affine_fsl,
+    affine_niftyreg,
+    coreg_spm,
+    coreg_vinci,
+    create_mask,
+    dice_coeff,
+    dice_coeff_multiclass,
+    imfill,
+    motion_reg,
+    realign_mltp_spm,
+    resample_fsl,
+    resample_mltp_spm,
+    resample_niftyreg,
+    resample_spm,
+    resample_vinci,
+)

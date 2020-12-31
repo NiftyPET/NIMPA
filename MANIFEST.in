@@ -1,3 +1,0 @@
-graft niftypet/nimpa/prc
-graft niftypet/nimpa/prc/src
-recursive-include niftypet CMakeLists.txt
