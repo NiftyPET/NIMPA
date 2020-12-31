@@ -141,7 +141,7 @@ elif platform.system() == "Windows":
 setup(
     version="2.0.0",
     package_data={
-        "niftypet": ["auxdata/*"],
+        "niftypet": ["nimpa/auxdata/*"],
         "niftypet.nimpa.prc": [fex],
     },
 )

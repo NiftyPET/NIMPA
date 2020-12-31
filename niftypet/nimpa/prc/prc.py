@@ -533,7 +533,7 @@ def psf_measured(scanner='mmr', scale=1):
     if scanner=='mmr':
         # file name for the mMR's PSF and chosen scale
         fnm = 'PSF-17_scl-'+str(int(scale))+'.npy'
-        fpth = resource_filename(__name__, '../../auxdata')
+        fpth = resource_filename(__name__, "auxdata")
         fdat = os.path.join(fpth, fnm)
         # cdir = os.path.dirname(resource_filename(__name__, __file__))
         # niftypet_dir = os.path.dirname(os.path.dirname(cdir))
