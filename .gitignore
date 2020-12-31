@@ -1,8 +1,15 @@
 *.py[co]
-*.so
-*.log
 __pycache__/
+
+# build
+MANIFEST
+*.so
 /build/
 /dist/
-/nimpa.egg*/
-.DS_Store
+/_skbuild/
+/_cmake_test_compile/
+/*.egg*/
+/.eggs/
+
+/.coverage
+/coverage.xml
