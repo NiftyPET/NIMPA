@@ -92,5 +92,3 @@ float *rsmpl(float *imo,
 
 	return imr;
 }
-
-

@@ -15,9 +15,16 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
-    - run: pip install -U twine setuptools wheel ninst scikit-build
+    - name: set PYSHA
+      run: echo "PYSHA=$(python -VV | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
+    - uses: actions/cache@v1
+      with:
+        path: ~/.cache/pre-commit
+        key: pre-commit|${{ env.PYSHA }}|${{ hashFiles('.pre-commit-config.yaml') }}
+    - run: pip install -U pre-commit twine setuptools wheel ninst scikit-build
     - run: PATHTOOLS=$HOME/NiftyPET_tools python setup.py sdist
     - run: twine check dist/*
+    - run: pre-commit run -a --show-diff-on-failure
   test:
     runs-on: [self-hosted, cuda]
     name: Test

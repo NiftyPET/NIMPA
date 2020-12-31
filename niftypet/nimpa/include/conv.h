@@ -23,7 +23,7 @@
 #define   ROWS_HALO_STEPS 1
 
 struct Cnst {
-	char DEVID; 	// device (GPU) ID.  allows choosing the device on which to perform calculations 
+	char DEVID; 	// device (GPU) ID.  allows choosing the device on which to perform calculations
 	char LOG;		// logging
 };
 

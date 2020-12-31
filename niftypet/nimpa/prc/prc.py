@@ -5,28 +5,26 @@ including partial volume correction (PVC) and ROI extraction and analysis.
 __author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__ = "Copyright 2020"
 
-from collections import namedtuple
 import datetime
-from glob import glob
-
 import multiprocessing
 import os
-from pkg_resources import resource_filename
 import platform
 import re
 import shutil
-from subprocess import run
 import sys
+from collections import namedtuple
+from glob import glob
+from subprocess import run
 from textwrap import dedent
 
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
+from pkg_resources import resource_filename
 from tqdm.auto import trange
 
-from . import imio
-from . import regseg
 from .. import resources as rs
+from . import imio, regseg
 
 try:
     # GPU routines if compiled
@@ -40,6 +38,7 @@ except ImportError:
     sitk_flag = False
 
 import logging
+
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
