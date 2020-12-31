@@ -532,13 +532,7 @@ def psf_general(vx_size=(1,1,1), fwhm=(5, 5, 6), hradius=8, scale=2):
 def psf_measured(scanner='mmr', scale=1):
     if scanner=='mmr':
         # file name for the mMR's PSF and chosen scale
-        fnm = 'PSF-17_scl-'+str(int(scale))+'.npy'
-        fpth = resource_filename(__name__, "auxdata")
-        fdat = os.path.join(fpth, fnm)
-        # cdir = os.path.dirname(resource_filename(__name__, __file__))
-        # niftypet_dir = os.path.dirname(os.path.dirname(cdir))
-        # fdat = os.path.join( os.path.join(niftypet_dir , 'auxdata' ), fnm)
-
+        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
         # transaxial and axial PSF
         Hxy, Hz = np.load(fdat)
         krnl = np.array([Hz, Hxy, Hxy], dtype=np.float32)
