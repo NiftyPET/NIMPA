@@ -110,28 +110,27 @@ log.info(
     )
 )
 
-cmake_args = [f"-DPython3_ROOT_DIR={sys.prefix}"]
-try:
-    nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo()}
-except Exception as exc:
-    log.warning("could not detect CUDA architectures:\n%s", exc)
-else:
-    cmake_args.append("-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)))
-log.info("cmake_args:%s", cmake_args)
 setup_kwargs = {
     "version": "2.0.0",
     "packages": find_packages(exclude=["tests"]),
     "package_data": {"niftypet": ["nimpa/auxdata/*"]},
 }
 
-if nvcc_arches:
+try:
+    nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo()}
+except Exception as exc:
+    log.warning("could not detect CUDA architectures:\n%s", exc)
+    setup(**setup_kwargs)
+else:
     from skbuild import setup as sksetup
+
     sksetup(
         cmake_source_dir="niftypet",
         cmake_languages=("C", "CXX", "CUDA"),
         cmake_minimum_required_version="3.18",
-        cmake_args=cmake_args,
+        cmake_args=[
+            f"-DPython3_ROOT_DIR={sys.prefix}",
+            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)),
+        ],
         **setup_kwargs
     )
-else:
-    setup(**setup_kwargs)
