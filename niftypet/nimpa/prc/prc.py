@@ -6,6 +6,7 @@ __author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__ = "Copyright 2020"
 
 import datetime
+import logging
 import multiprocessing
 import os
 import platform
@@ -37,7 +38,6 @@ try:
 except ImportError:
     sitk_flag = False
 
-import logging
 
 log = logging.getLogger(__name__)
 

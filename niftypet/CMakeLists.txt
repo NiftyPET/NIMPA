@@ -25,11 +25,11 @@ add_subdirectory(nimpa)
 include(CMakePackageConfigHelpers)
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/NiftyPET${CMAKE_PROJECT_NAME}Config.cmake"
-  INSTALL_DESTINATION niftypet/cmake)
+  INSTALL_DESTINATION niftypet/${CMAKE_PROJECT_NAME}/cmake)
 write_basic_package_version_file(
   "${CMAKE_CURRENT_BINARY_DIR}/NiftyPET${CMAKE_PROJECT_NAME}ConfigVersion.cmake"
   VERSION "${CMAKE_PROJECT_VERSION}" COMPATIBILITY AnyNewerVersion)
 install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/NiftyPET${CMAKE_PROJECT_NAME}Config.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/NiftyPET${CMAKE_PROJECT_NAME}ConfigVersion.cmake"
-  DESTINATION niftypet/cmake)
+  DESTINATION niftypet/${CMAKE_PROJECT_NAME}/cmake)

@@ -10,6 +10,7 @@ import re
 import sys
 from textwrap import dedent
 
+from pkg_resources import resource_filename
 from tqdm.auto import tqdm
 
 from niftypet.ninst import cudasetup as cs
@@ -69,3 +70,6 @@ from .prc import (
 # technically bad practice to add handlers
 # https://docs.python.org/3/howto/logging.html#library-config
 # log.addHandler(LogHandler())  # do it anyway for convenience
+
+# for use in `cmake -DCMAKE_PREFIX_PATH=...`
+cmake_prefix = resource_filename(__name__, "cmake")

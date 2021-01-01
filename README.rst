@@ -41,16 +41,15 @@ Simply build the project and use ``find_package(NiftyPETnimpa)``.
 
 .. code:: sh
 
-    # install with python & print installation directory...
-    python -m pip install nimpa
-    python -c "from pkg_resources import resource_filename as r; print(r('niftypet', 'cmake'))"
+    # print installation directory (after `pip install nimpa`)...
+    python -c "from niftypet.nimpa import cmake_prefix; print(cmake_prefix)"
 
     # ... or build & install directly with cmake
     mkdir build && cd build
     cmake ../niftypet && cmake --build . && cmake --install . --prefix /my/install/dir
 
 At this point any external project may include NIMPA as follows
-(Once setting ``-DCMAKE_PREFIX_DIR=<installation dir from above>``):
+(Once setting ``-DCMAKE_PREFIX_DIR=<installation prefix from above>``):
 
 .. code:: cmake
 
