@@ -115,7 +115,7 @@ log.info(
 setup_kwargs = {
     "version": "2.0.0",
     "packages": find_packages(exclude=["tests"]),
-    "package_data": {"niftypet": ["nimpa/auxdata/*"]},
+    "package_data": {"niftypet": ["nimpa/auxdata/*", "nimpa/include/*"]},
 }
 
 try:
