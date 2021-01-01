@@ -1,6 +1,6 @@
 project(improc)
 
-file(GLOB SRC LIST_DIRECTORIES false "src/*.cu")
+file(GLOB SRC LIST_DIRECTORIES false "src/*.cu" "src/*.h")
 
 include_directories(${Python3_INCLUDE_DIRS})
 include_directories(${Python3_NumPy_INCLUDE_DIRS})

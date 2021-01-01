@@ -14,6 +14,7 @@ Copyrights: 2019
 #include <stdlib.h>
 #include "rsmpl.h"
 #include "conv.h"
+#include "cuhelpers.h"
 
 
 //=== START PYTHON INIT ===

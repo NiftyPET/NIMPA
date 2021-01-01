@@ -1,5 +1,5 @@
-#ifndef CONVOLUTIONSEPARABLE_H
-#define CONVOLUTIONSEPARABLE_H
+#ifndef _NIMPA_CONV_H_
+#define _NIMPA_CONV_H_
 
 // for logging
 #define LOGDEBUG 10
@@ -27,13 +27,9 @@ struct Cnst {
 	char LOG;		// logging
 };
 
-#define HANDLE_ERROR(err) (HandleError( err, __FILE__, __LINE__ ))
-void HandleError(cudaError_t err, const char *file, int line);
-
-
 // GPU convolution
 void setConvolutionKernel(float *hKrnl);
 
 void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt);
 
-#endif
+#endif  // _NIMPA_CONV_H_

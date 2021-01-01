@@ -1,10 +1,10 @@
+#ifndef _NIMPA_RSMPL_H_
+#define _NIMPA_RSMPL_H_
+
 #include <stdio.h>
 
 // get the CUDA handle error function for here:
 #include "conv.h"
-
-#ifndef RSMPL_H
-#define RSMPL_H
 
 //fine subsampling divisor
 #define VDIV 10
@@ -40,4 +40,4 @@ float *rsmpl(float *imo,
 	float *A,
 	Cimg Cim);
 
-#endif
+#endif  // _NIMPA_RSMPL_H_

@@ -1,4 +1,5 @@
 #include "rsmpl.h"
+#include "cuhelpers.h"
 
 // void HandleError( cudaError_t err, const char *file, int line ){
 //     if (err != cudaSuccess) {
