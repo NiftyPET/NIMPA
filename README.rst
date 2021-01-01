@@ -34,6 +34,33 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     conda activate niftypet
     pip install --verbose "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
 
+External CMake Projects
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The raw C/CUDA libraries may be included in external projects using ``cmake``.
+Simply build the project and use ``find_package(NiftyPETnimpa)``.
+
+.. code:: sh
+
+    # install with python & print installation directory...
+    python -m pip install nimpa
+    python -c "from pkg_resources import resource_filename as r; print(r('niftypet', 'cmake'))"
+
+    # ... or build & install directly with cmake
+    mkdir build && cd build
+    cmake ../niftypet && cmake --build . && cmake --install . --prefix /my/install/dir
+
+At this point any external project may include NIMPA as follows
+(Once setting ``-DCMAKE_PREFIX_DIR=<installation dir from above>``):
+
+.. code:: cmake
+
+    cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
+    project(myproj)
+    find_package(NiftyPETnimpa COMPONENTS improc REQUIRED)
+    add_executable(myexe ...)
+    target_link_libraries(myexe PRIVATE NiftyPET::improc)
+
 Licence
 ~~~~~~~
 
