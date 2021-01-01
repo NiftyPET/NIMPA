@@ -6,7 +6,9 @@ for namespace 'niftypet'.
 import logging
 import os
 import platform
+import re
 import sys
+from pathlib import Path
 from textwrap import dedent
 
 from setuptools import find_packages, setup
@@ -124,6 +126,8 @@ except Exception as exc:
 else:
     from skbuild import setup as sksetup
 
+    for i in (Path(__file__).resolve().parent / "_skbuild").rglob("CMakeCache.txt"):
+        i.write_text(re.sub("^//.*$\n^[^#].*pip-build-env.*$", "", i.read_text(), flags=re.M))
     sksetup(
         cmake_source_dir="niftypet",
         cmake_languages=("C", "CXX", "CUDA"),
