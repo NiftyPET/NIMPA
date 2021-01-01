@@ -29,9 +29,8 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     # optional (Linux syntax) to avoid prompts
     export PATHTOOLS=$HOME/NiftyPET_tools
     # cross-platform install
-    conda create -n niftypet -c conda-forge python=3 \
+    conda install -c conda-forge python=3 \
       ipykernel numpy scipy scikit-image matplotlib ipywidgets
-    conda activate niftypet
     pip install --verbose "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
 
 External CMake Projects
