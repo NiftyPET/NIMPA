@@ -6,9 +6,8 @@
 #define LOGINFO 20
 #define LOGWARNING 30
 
-
-#define KERNEL_RADIUS 8
-#define KERNEL_LENGTH (2*KERNEL_RADIUS + 1)
+#define RSZ_PSF_KRNL 8
+#define KERNEL_LENGTH (2*RSZ_PSF_KRNL + 1)
 
 // Column convolution filter
 #define   COLUMNS_BLOCKDIM_X 8
