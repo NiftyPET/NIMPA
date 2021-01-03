@@ -7,7 +7,7 @@
 ////////////////////////////////////
 // Convolution kernel array
 ////////////////////////////////////
-__constant__ float c_Kernel[3 * KERNEL_LENGTH];
+__constant__ float c_Kernel[3 * `LENGTH];
 void setConvolutionKernel(float *hKrnl) {
 	//hKrnl: separable three kernels for x, y and z
 	cudaMemcpyToSymbol(c_Kernel, hKrnl, 3 * KERNEL_LENGTH * sizeof(float));
@@ -68,9 +68,9 @@ __global__ void cnv_rows(
 
 #pragma unroll
 
-		for (int j = -KERNEL_RADIUS; j <= KERNEL_RADIUS; j++)
+		for (int j = -RSZ_PSF_KRNL; j <= RSZ_PSF_KRNL; j++)
 		{
-			sum += c_Kernel[KERNEL_RADIUS - j] * s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X + j];
+			sum += c_Kernel[RSZ_PSF_KRNL - j] * s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X + j];
 		}
 
 		d_Dst[i * ROWS_BLOCKDIM_X] = sum;
@@ -131,9 +131,9 @@ __global__ void cnv_columns(
 		float sum = 0;
 #pragma unroll
 
-		for (int j = -KERNEL_RADIUS; j <= KERNEL_RADIUS; j++)
+		for (int j = -RSZ_PSF_KRNL; j <= RSZ_PSF_KRNL; j++)
 		{
-			sum += c_Kernel[offKrnl + KERNEL_RADIUS - j] * s_Data[threadIdx.x][threadIdx.y + i * COLUMNS_BLOCKDIM_Y + j];
+			sum += c_Kernel[offKrnl + RSZ_PSF_KRNL - j] * s_Data[threadIdx.x][threadIdx.y + i * COLUMNS_BLOCKDIM_Y + j];
 		}
 
 		d_Dst[i * COLUMNS_BLOCKDIM_Y * pitch] = sum;
@@ -149,11 +149,11 @@ void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) 
 	cudaGetDevice(&dev_id);
 	if (Cnt.LOG <= LOGINFO) printf("ic> using CUDA device #%d\n", dev_id);
 
-	assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= KERNEL_RADIUS);
+	assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= RSZ_PSF_KRNL);
 	assert(Nvk % (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X) == 0);
 	assert(Nvj % ROWS_BLOCKDIM_Y == 0);
 
-	assert(COLUMNS_BLOCKDIM_Y * COLUMNS_HALO_STEPS >= KERNEL_RADIUS);
+	assert(COLUMNS_BLOCKDIM_Y * COLUMNS_HALO_STEPS >= RSZ_PSF_KRNL);
 	assert(Nvk % COLUMNS_BLOCKDIM_X == 0);
 	assert(Nvj % (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y) == 0);
 
