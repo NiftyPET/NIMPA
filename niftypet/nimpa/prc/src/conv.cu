@@ -7,7 +7,7 @@
 ////////////////////////////////////
 // Convolution kernel array
 ////////////////////////////////////
-__constant__ float c_Kernel[3 * `LENGTH];
+__constant__ float c_Kernel[3 * KERNEL_LENGTH];
 void setConvolutionKernel(float *hKrnl) {
 	//hKrnl: separable three kernels for x, y and z
 	cudaMemcpyToSymbol(c_Kernel, hKrnl, 3 * KERNEL_LENGTH * sizeof(float));
