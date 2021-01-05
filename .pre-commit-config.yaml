@@ -16,21 +16,30 @@ repos:
   - id: mixed-line-ending
   - id: sort-simple-yaml
   - id: trailing-whitespace
-- repo: https://github.com/google/yapf
-  rev: 6db9374
+- repo: local
   hooks:
-  - id: yapf
+  - id: todo
+    name: Check TODO
+    language: pygrep
+    entry: TODO
+    types: [text]
+    exclude: ^(.pre-commit-config.yaml|.github/workflows/test.yml)$
     args: [-i]
-- hooks:
-  - id: isort
-  repo: https://github.com/PyCQA/isort
-  rev: 5.7.0
-- hooks:
+- repo: https://gitlab.com/pycqa/flake8
+  rev: 3.8.4
+  hooks:
   - id: flake8
     additional_dependencies:
     - flake8-bugbear
     - flake8-comprehensions
     - flake8-debugger
     - flake8-string-format
-  repo: https://gitlab.com/pycqa/flake8
-  rev: 3.8.4
+- repo: https://github.com/google/yapf
+  rev: 6db9374
+  hooks:
+  - id: yapf
+    args: [-i]
+- repo: https://github.com/PyCQA/isort
+  rev: 5.7.0
+  hooks:
+  - id: isort
