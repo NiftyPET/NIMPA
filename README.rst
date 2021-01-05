@@ -2,7 +2,7 @@
 NIMPA: Neuro and NiftyPET Image Processing and Analysis
 =======================================================
 
-|Docs| |PyPI-Status| |PyPI-Downloads|
+|Docs| |Version| |Downloads| |Py-Versions| |DOI| |Licence| |Tests|
 
 NIMPA is a stand-alone Python sub-package of NiftyPET_, dedicated to high-throughput processing and analysis of brain images, particularly those, which are acquired using positron emission tomography (PET) and magnetic resonance (MR).  Although, it is an essential part of the NiftyPET_ package for seamless PET image reconstruction, NIMPA is equally well suited for independent image processing, including image trimming, upsampling and partial volume correction (PVC).
 
@@ -23,6 +23,7 @@ Quick Install
 
 Note that installation prompts for setting the path to ``NiftyPET_tools``.
 This can be avoided by setting the environment variables ``PATHTOOLS``.
+It's also recommended (but not required) to use `conda`.
 
 .. code:: sh
 
@@ -31,7 +32,7 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     # cross-platform install
     conda install -c conda-forge python=3 \
       ipykernel numpy scipy scikit-image matplotlib ipywidgets
-    pip install --verbose "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
+    pip install "nimpa>=2"
 
 External CMake Projects
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,20 +63,25 @@ At this point any external project may include NIMPA as follows
 Licence
 ~~~~~~~
 
-|Licence|
+|Licence| |DOI|
 
-- Author: `Pawel J. Markiewicz <https://github.com/pjmark>`__ @ University College London
-- `Contributors <https://github.com/NiftyPET/NIMPA/graphs/contributors>`__:
+Copyright 2018-21
 
-  - `Casper O. da Costa-Luis <https://github.com/casperdcl>`__ @ King's College London
-
-Copyright 2018-20
+- `Pawel J. Markiewicz <https://github.com/pjmark>`__ @ University College London
+- `Casper O. da Costa-Luis <https://github.com/casperdcl>`__ @ King's College London
+- `Contributors <https://github.com/NiftyPET/NIMPA/graphs/contributors>`__
 
 .. |Docs| image:: https://readthedocs.org/projects/niftypet/badge/?version=latest
    :target: https://niftypet.readthedocs.io/en/latest/?badge=latest
+.. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4417633.svg
+   :target: https://doi.org/10.5281/zenodo.4417633
 .. |Licence| image:: https://img.shields.io/pypi/l/nimpa.svg?label=licence
    :target: https://github.com/NiftyPET/NIMPA/blob/master/LICENCE
-.. |PyPI-Downloads| image:: https://img.shields.io/pypi/dm/nimpa.svg?label=PyPI%20downloads
+.. |Tests| image:: https://img.shields.io/github/workflow/status/NiftyPET/NIMPA/Test?logo=GitHub
+   :target: https://github.com/NiftyPET/NIMPA/actions
+.. |Downloads| image:: https://img.shields.io/pypi/dm/nimpa.svg?logo=pypi&logoColor=white&label=PyPI%20downloads
    :target: https://pypi.org/project/nimpa
-.. |PyPI-Status| image:: https://img.shields.io/pypi/v/nimpa.svg?label=latest
+.. |Version| image:: https://img.shields.io/pypi/v/nimpa.svg?logo=python&logoColor=white
+   :target: https://github.com/NiftyPET/NIMPA/releases
+.. |Py-Versions| image:: https://img.shields.io/pypi/pyversions/nimpa.svg?logo=python&logoColor=white
    :target: https://pypi.org/project/nimpa
