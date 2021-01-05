@@ -12,7 +12,8 @@ from textwrap import dedent
 
 import numpy as np
 import scipy.ndimage as ndi
-from spm12.regseg import coreg_spm, resample_spm  # SPM registration
+from spm12.regseg import coreg_spm  # SPM registration
+from spm12.regseg import resample_spm
 
 from .. import resources as rs
 from . import imio, prc
@@ -594,13 +595,7 @@ def coreg_vinci(
     sys.path.append(vincipy_path)
 
     try:
-        from VinciPy import (
-            Vinci_Bin,
-            Vinci_Connect,
-            Vinci_Core,
-            Vinci_ImageT,
-            Vinci_XML,
-        )
+        from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT, Vinci_XML
     except ImportError:
         raise ImportError('e> could not import Vinci:\n \
                 check the variable VINCIPATH (path to Vinci) in resources.py')
@@ -736,13 +731,7 @@ def resample_vinci(
     sys.path.append(vincipy_path)
 
     try:
-        from VinciPy import (
-            Vinci_Bin,
-            Vinci_Connect,
-            Vinci_Core,
-            Vinci_ImageT,
-            Vinci_XML,
-        )
+        from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT, Vinci_XML
     except ImportError:
         raise ImportError('e> could not import Vinci:\n \
                 check the variable VINCIPATH (path to Vinci) in resources.py')
