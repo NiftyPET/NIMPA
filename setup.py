@@ -114,7 +114,7 @@ log.info(
     )
 )
 
-build_ver = ".".join(__version__.split('.')[:3])
+build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
 setup_kwargs = {
     "use_scm_version": True,
     "packages": find_packages(exclude=["tests"]),
