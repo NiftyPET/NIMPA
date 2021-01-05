@@ -28,16 +28,18 @@ def create_dir(pth):
 
 
 def time_stamp(simple_ascii=False):
-    now    = datetime.datetime.now()
+    now = datetime.datetime.now()
     if simple_ascii:
-        nowstr = str(now.year)+'-'+str(now.month)+'-'+str(now.day)+'_'+str(now.hour)+'h'+str(now.minute)
+        nowstr = str(now.year) + '-' + str(now.month) + '-' + str(now.day) + '_' + str(
+            now.hour) + 'h' + str(now.minute)
     else:
-        nowstr = str(now.year)+'-'+str(now.month)+'-'+str(now.day)+' '+str(now.hour)+':'+str(now.minute)
+        nowstr = str(now.year) + '-' + str(now.month) + '-' + str(now.day) + ' ' + str(
+            now.hour) + ':' + str(now.minute)
     return nowstr
 
 
 def fwhm2sig(fwhm, voxsize=2.0):
-    return (fwhm/voxsize) / (2*(2*np.log(2))**.5)
+    return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
 
 
 def getnii(fim, nan_replace=None, output='image'):
@@ -61,56 +63,49 @@ def getnii(fim, nan_replace=None, output='image'):
     dim = nim.header.get('dim')
     dimno = dim[0]
 
-    if output=='image' or output=='all':
+    if output == 'image' or output == 'all':
         imr = np.asanyarray(nim.dataobj)
         # replace NaNs if requested
         if isinstance(nan_replace, numbers.Number):
             imr[np.isnan(imr)] = nan_replace
 
         imr = np.squeeze(imr)
-        if dimno!=imr.ndim and dimno==4:
+        if dimno != imr.ndim and dimno == 4:
             dimno = imr.ndim
 
         # > get orientations from the affine
         ornt = nib.io_orientation(nim.affine)
-        trnsp = tuple(2-np.int8(ornt[:,0]))
-        flip  = tuple(np.int8(ornt[:,1]))
+        trnsp = tuple(2 - np.int8(ornt[:, 0]))
+        flip = tuple(np.int8(ornt[:, 1]))
 
         # > voxel size
-        voxsize = nim.header.get('pixdim')[1:nim.header.get('dim')[0]+1]
+        voxsize = nim.header.get('pixdim')[1:nim.header.get('dim')[0] + 1]
         # > rearrange voxel size according to the orientation
         voxsize = voxsize[np.array(trnsp)]
 
         # > dimensions
-        dims = dim[1:nim.header.get('dim')[0]+1]
+        dims = dim[1:nim.header.get('dim')[0] + 1]
         dims = dims[np.array(trnsp)]
 
         # > flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
-        if dimno==4:
-            imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2],:], (3,)+trnsp)
-        elif  dimno==3:
-            imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2]], trnsp)
+        if dimno == 4:
+            imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2], :], (3,) + trnsp)
+        elif dimno == 3:
+            imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2]], trnsp)
 
-    if output=='affine' or output=='all':
+    if output == 'affine' or output == 'all':
         # A = nim.get_sform()
         # if not A[:3,:3].any():
         #     A = nim.get_qform()
         A = nim.affine
 
-    if output=='all':
-        out = { 'im':imr,
-                'affine':A,
-                'fim':fim,
-                'dtype':nim.get_data_dtype(),
-                'shape':imr.shape,
-                'hdr':nim.header,
-                'voxsize':voxsize,
-                'dims':dims,
-                'transpose':trnsp,
-                'flip':flip}
-    elif output=='image':
+    if output == 'all':
+        out = {
+            'im': imr, 'affine': A, 'fim': fim, 'dtype': nim.get_data_dtype(), 'shape': imr.shape,
+            'hdr': nim.header, 'voxsize': voxsize, 'dims': dims, 'transpose': trnsp, 'flip': flip}
+    elif output == 'image':
         out = imr
-    elif output=='affine':
+    elif output == 'affine':
         out = A
     else:
         raise NameError('Unrecognised output request!')
@@ -125,7 +120,7 @@ def getnii_descr(fim):
     rcnlst = hdr['descrip'].item().split(';')
     rcndic = {}
 
-    if rcnlst[0]=='':
+    if rcnlst[0] == '':
         return rcndic
 
     for ci in range(len(rcnlst)):
@@ -151,7 +146,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
                     nimpa.getnii(filepath, output='all').
     '''
 
-    if not len(trnsp) in [0,3,4] and not len(flip) in [0,3]:
+    if not len(trnsp) in [0, 3, 4] and not len(flip) in [0, 3]:
         raise ValueError('e> number of flip and/or transpose elements is incorrect.')
 
     # --------------------------------------------------------------------------
@@ -163,25 +158,22 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
     if isinstance(storage_as, dict) and 'transpose' in storage_as \
             and 'flip' in storage_as:
 
-        trnsp = (storage_as['transpose'].index(0),
-                 storage_as['transpose'].index(1),
+        trnsp = (storage_as['transpose'].index(0), storage_as['transpose'].index(1),
                  storage_as['transpose'].index(2))
 
         flip = storage_as['flip']
 
-
-    if trnsp==():
+    if trnsp == ():
         im = im.transpose()
     # > check if the image is 4D (dynamic) and modify as needed
-    elif len(trnsp)==3 and im.ndim==4:
-        trnsp = tuple([t+1 for t in trnsp] + [0])
+    elif len(trnsp) == 3 and im.ndim == 4:
+        trnsp = tuple([t + 1 for t in trnsp] + [0])
         im = im.transpose(trnsp)
     else:
         im = im.transpose(trnsp)
 
-
     # > perform flip of x,y,z axes after transposition into proper NIfTI order
-    if flip!=() and len(flip)==3:
+    if flip != () and len(flip) == 3:
         im = im[::-flip[0], ::-flip[1], ::-flip[2], ...]
     # --------------------------------------------------------------------------
 
@@ -203,14 +195,14 @@ def orientnii(imfile, Cnt=None):
 
     strorient = ['L-R', 'S-I', 'A-P']
     niiorient = []
-    niixyz = np.zeros(3,dtype=np.int8)
+    niixyz = np.zeros(3, dtype=np.int8)
     if os.path.isfile(imfile):
         nim = nib.load(imfile)
         pct = np.asanyarray(nim.dataobj)
         A = nim.get_sform()
         for i in range(3):
-            niixyz[i] = np.argmax(abs(A[i,:-1]))
-            niiorient.append( strorient[ niixyz[i] ] )
+            niixyz[i] = np.argmax(abs(A[i, :-1]))
+            niiorient.append(strorient[niixyz[i]])
         log.info('NIfTI orientation:\n{}'.format(niiorient))
 
     return niiorient
@@ -222,7 +214,7 @@ def nii_ugzip(imfile, outpath=''):
     with gzip.open(imfile, 'rb') as f:
         s = f.read()
     # Now store the uncompressed data
-    if outpath=='':
+    if outpath == '':
         fout = imfile[:-3]
     else:
         fout = os.path.join(outpath, os.path.basename(imfile)[:-3])
@@ -238,10 +230,10 @@ def nii_gzip(imfile, outpath=''):
     with open(imfile, 'rb') as f:
         d = f.read()
     # Now store the compressed data
-    if outpath=='':
-        fout = imfile+'.gz'
+    if outpath == '':
+        fout = imfile + '.gz'
     else:
-        fout = os.path.join(outpath, os.path.basename(imfile)+'.gz')
+        fout = os.path.join(outpath, os.path.basename(imfile) + '.gz')
     # store compressed file data from 'd' variable
     with gzip.open(fout, 'wb') as f:
         f.write(d)
@@ -263,8 +255,8 @@ def pick_t1w(mri):
         elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
             # create file name for the converted NIfTI image
             fnii = 'converted'
-            run( [rs.DCM2NIIX, '-f', fnii, mri['T1nii'] ] )
-            ft1nii = glob.glob( os.path.join(mri['T1nii'], '*converted*.nii*') )
+            run([rs.DCM2NIIX, '-f', fnii, mri['T1nii']])
+            ft1nii = glob.glob(os.path.join(mri['T1nii'], '*converted*.nii*'))
             ft1w = ft1nii[0]
         else:
             raise IOError('could not find a T1w image!')
@@ -290,7 +282,7 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
     elif isinstance(dcmvar, dcm.dataset.FileDataset):
         dhdr = dcmvar
 
-    dtype   = dhdr[0x08, 0x08].value
+    dtype = dhdr[0x08, 0x08].value
     logger('   Image Type: {}'.format(dtype))
 
     # ------------------------------------------
@@ -304,7 +296,8 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
         scanner_model = dhdr[0x008, 0x1090].value
 
     scanner_id = 'other'
-    if any(s in scanner_model for s in ['mMR', 'Biograph']) and 'siemens' in scanner_vendor.lower():
+    if any(s in scanner_model
+           for s in ['mMR', 'Biograph']) and 'siemens' in scanner_vendor.lower():
         scanner_id = 'mmr'
     # ------------------------------------------
 
@@ -315,7 +308,7 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
         logger('   CSA Data Type: {}'.format(csatype))
 
     # > DICOM comment or on MR parameters
-    cmmnt   = ''
+    cmmnt = ''
     if [0x20, 0x4000] in dhdr:
         cmmnt = dhdr[0x0020, 0x4000].value
         logger('   Comments: {}'.format(cmmnt))
@@ -330,29 +323,30 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
         TE = float(dhdr[0x18, 0x81].value)
         logger('   TE: {}'.format(TE))
 
-
     # > check if it is norm file
-    if any('PET_NORM' in s for s in dtype) or cmmnt=='PET Normalization data' or csatype=='MRPETNORM':
+    if any('PET_NORM' in s
+           for s in dtype) or cmmnt == 'PET Normalization data' or csatype == 'MRPETNORM':
         out = ['raw', 'norm', scanner_id]
 
-    elif any('PET_LISTMODE' in s for s in dtype) or cmmnt=='Listmode' or csatype=='MRPETLM_LARGE':
+    elif any('PET_LISTMODE' in s
+             for s in dtype) or cmmnt == 'Listmode' or csatype == 'MRPETLM_LARGE':
         out = ['raw', 'list', scanner_id]
 
-    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt=='MR based umap':
+    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
         out = ['raw', 'mumap', 'ute', 'mr', scanner_id]
 
-    elif TR>400 and TR<2500 and TE<20:
+    elif TR > 400 and TR < 2500 and TE < 20:
         out = ['mr', 't1', scanner_id]
 
-    elif TR>2500 and TE>50:
+    elif TR > 2500 and TE > 50:
         out = ['mr', 't2', scanner_id]
 
     # > UTE's two sequences: UTE2
-    elif TR<50 and TE<20 and TE>1:
+    elif TR < 50 and TE < 20 and TE > 1:
         out = ['mr', 'ute', 'ute2', scanner_id]
 
     # > UTE1
-    elif TR<50 and TE<20 and TE<0.1 and TR>0 and TE>0:
+    elif TR < 50 and TE < 20 and TE < 0.1 and TR > 0 and TE > 0:
         out = ['mr', 'ute', 'ute1', scanner_id]
 
     # > physio data
@@ -376,31 +370,31 @@ def list_dcm_datain(datain):
     if 'mumapDCM' in datain:
         dcmump = os.listdir(datain['mumapDCM'])
         # accept only *.dcm extensions
-        dcmump = [os.path.join(datain['mumapDCM'],d) for d in dcmump if d.endswith(dcmext)]
+        dcmump = [os.path.join(datain['mumapDCM'], d) for d in dcmump if d.endswith(dcmext)]
         dcmlst += dcmump
 
     if 'T1DCM' in datain:
         dcmt1 = os.listdir(datain['T1DCM'])
         # accept only *.dcm extensions
-        dcmt1 = [os.path.join(datain['T1DCM'],d) for d in dcmt1 if d.endswith(dcmext)]
+        dcmt1 = [os.path.join(datain['T1DCM'], d) for d in dcmt1 if d.endswith(dcmext)]
         dcmlst += dcmt1
 
     if 'T2DCM' in datain:
         dcmt2 = os.listdir(datain['T2DCM'])
         # accept only *.dcm extensions
-        dcmt2 = [os.path.join(datain['T2DCM'],d) for d in dcmt2 if d.endswith(dcmext)]
+        dcmt2 = [os.path.join(datain['T2DCM'], d) for d in dcmt2 if d.endswith(dcmext)]
         dcmlst += dcmt2
 
     if 'UTE1' in datain:
         dcmute1 = os.listdir(datain['UTE1'])
         # accept only *.dcm extensions
-        dcmute1 = [os.path.join(datain['UTE1'],d) for d in dcmute1 if d.endswith(dcmext)]
+        dcmute1 = [os.path.join(datain['UTE1'], d) for d in dcmute1 if d.endswith(dcmext)]
         dcmlst += dcmute1
 
     if 'UTE2' in datain:
         dcmute2 = os.listdir(datain['UTE2'])
         # accept only *.dcm extensions
-        dcmute2 = [os.path.join(datain['UTE2'],d) for d in dcmute2 if d.endswith(dcmext)]
+        dcmute2 = [os.path.join(datain['UTE2'], d) for d in dcmute2 if d.endswith(dcmext)]
         dcmlst += dcmute2
 
     # list-mode data dcm
@@ -420,15 +414,8 @@ def list_dcm_datain(datain):
     return dcmlst
 
 
-def dcmanonym(
-        dcmpth,
-        displayonly=False,
-        patient='anonymised',
-        physician='anonymised',
-        dob='19800101',
-        verbose=True,
-        Cnt=None):
-
+def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonymised',
+              dob='19800101', verbose=True, Cnt=None):
     '''
     Anonymise DICOM file(s)
     Arguments:
@@ -455,7 +442,9 @@ def dcmanonym(
     elif isinstance(dcmpth, str) and os.path.isdir(dcmpth):
         dircontent = os.listdir(dcmpth)
         # > create a list of DICOM files inside the folder
-        dcmlst = [os.path.join(dcmpth,d) for d in dircontent if os.path.isfile(os.path.join(dcmpth,d)) and d.endswith(dcmext)]
+        dcmlst = [
+            os.path.join(dcmpth, d) for d in dircontent
+            if os.path.isfile(os.path.join(dcmpth, d)) and d.endswith(dcmext)]
         logger('recognised the input argument as the folder containing DICOM files.')
 
     # > check if a folder containing DICOM files
@@ -473,14 +462,14 @@ def dcmanonym(
     else:
         raise IOError('Unrecognised input!')
 
-
     for dcmf in dcmlst:
         # > read the file
         dhdr = dcm.dcmread(dcmf)
 
         # > get the basic info about the DICOM file
         dcmtype = dcminfo(dhdr, verbose=False)
-        logger(dedent('''\
+        logger(
+            dedent('''\
             --------------------------------------------------
             DICOM file is for: {}
             --------------------------------------------------''').format(dcmtype))
@@ -488,10 +477,11 @@ def dcmanonym(
         # > anonymise mMR data.
         if 'mmr' in dcmtype:
 
-            if [0x029, 0x1120] in dhdr and dhdr[0x029, 0x1120].name=='[CSA Series Header Info]':
+            if [0x029, 0x1120] in dhdr and dhdr[0x029, 0x1120].name == '[CSA Series Header Info]':
                 csafield = dhdr[0x029, 0x1120]
                 csa = csafield.value
-            elif [0x029, 0x1020] in dhdr and dhdr[0x029, 0x1020].name=='[CSA Series Header Info]':
+            elif [0x029, 0x1020] in dhdr and dhdr[0x029,
+                                                  0x1020].name == '[CSA Series Header Info]':
                 csafield = dhdr[0x029, 0x1020]
                 csa = csafield.value
             else:
@@ -502,8 +492,8 @@ def dcmanonym(
 
             idx = [m.start() for m in re.finditer(r'([Pp]atients{0,1}[Nn]ame)', csa)]
             if idx:
-                logger('DICOM> found sensitive information deep in the headers: {}'.format(dcmtype))
-
+                logger(
+                    'DICOM> found sensitive information deep in the headers: {}'.format(dcmtype))
 
             # > run the anonymisation
             iupdate = 0
@@ -512,57 +502,55 @@ def dcmanonym(
                 ci = i - iupdate
 
                 if displayonly:
-                    logger(dedent('''\
+                    logger(
+                        dedent('''\
                         DICOM> sensitive info:
-                             {}''').format(csa[ci:ci+strlen]))
+                             {}''').format(csa[ci:ci + strlen]))
                     continue
 
-                rplcmnt = re.sub( r'(\{\s*\"{1,2}\W*\w+\W*\w+\W*\"{1,2}\s*\})',
-                        '{ ""' +patient+ '"" }',
-                         csa[ci:ci+strlen]
-                )
+                rplcmnt = re.sub(r'(\{\s*\"{1,2}\W*\w+\W*\w+\W*\"{1,2}\s*\})',
+                                 '{ ""' + patient + '"" }', csa[ci:ci + strlen])
                 # > update string
-                csa = csa[:ci] + rplcmnt + csa[ci+strlen:]
+                csa = csa[:ci] + rplcmnt + csa[ci + strlen:]
                 logger('DICOM> removed sensitive information.')
                 # > correct for the number of removed letters
-                iupdate = strlen-len(rplcmnt)
+                iupdate = strlen - len(rplcmnt)
 
             # > update DICOM
-            if not displayonly and csa!='':
+            if not displayonly and csa != '':
                 csafield.value = csa
 
-
         # > Patient's name
-        if [0x010,0x010] in dhdr:
+        if [0x010, 0x010] in dhdr:
             if displayonly:
-                logger(dedent('''\
+                logger(
+                    dedent('''\
                     DICOM> sensitive info: {}
-                         > {}''').format(
-                         dhdr[0x010,0x010].name, dhdr[0x010,0x010].value))
+                         > {}''').format(dhdr[0x010, 0x010].name, dhdr[0x010, 0x010].value))
             else:
-                dhdr[0x010,0x010].value = patient
+                dhdr[0x010, 0x010].value = patient
                 logger('DICOM> anonymised patients name')
 
         # > date of birth
-        if [0x010,0x030] in dhdr:
+        if [0x010, 0x030] in dhdr:
             if displayonly:
-                logger(dedent('''\
+                logger(
+                    dedent('''\
                 DICOM> sensitive info: {}
-                     > {}''').format(
-                     dhdr[0x010,0x030].name,  dhdr[0x010,0x030].value))
+                     > {}''').format(dhdr[0x010, 0x030].name, dhdr[0x010, 0x030].value))
             else:
-                dhdr[0x010,0x030].value = dob
+                dhdr[0x010, 0x030].value = dob
                 logger('   > anonymised date of birth')
 
         # > physician's name
         if [0x008, 0x090] in dhdr:
             if displayonly:
-                logger(dedent('''\
+                logger(
+                    dedent('''\
                 DICOM> sensitive info: {}
-                     > {}''').format(
-                     dhdr[0x008,0x090].name, dhdr[0x008,0x090].value))
+                     > {}''').format(dhdr[0x008, 0x090].name, dhdr[0x008, 0x090].value))
             else:
-                dhdr[0x008,0x090].value = physician
+                dhdr[0x008, 0x090].value = physician
                 logger('   > anonymised physician name')
 
         dhdr.save_as(dcmf)
@@ -584,32 +572,32 @@ def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
             # --------------------------------
             # image size
             imsz = np.zeros(2, dtype=np.int64)
-            if [0x028,0x010] in dhdr:
-                imsz[0] = dhdr[0x028,0x010].value
-            if [0x028,0x011] in dhdr:
-                imsz[1] = dhdr[0x028,0x011].value
+            if [0x028, 0x010] in dhdr:
+                imsz[0] = dhdr[0x028, 0x010].value
+            if [0x028, 0x011] in dhdr:
+                imsz[1] = dhdr[0x028, 0x011].value
             # voxel size
             vxsz = np.zeros(3, dtype=np.float64)
-            if [0x028,0x030] in dhdr and [0x018,0x050] in dhdr:
-                pxsz =  np.array([float(e) for e in dhdr[0x028,0x030].value])
+            if [0x028, 0x030] in dhdr and [0x018, 0x050] in dhdr:
+                pxsz = np.array([float(e) for e in dhdr[0x028, 0x030].value])
                 vxsz[:2] = pxsz
-                vxsz[2] = float(dhdr[0x018,0x050].value)
+                vxsz[2] = float(dhdr[0x018, 0x050].value)
             # orientation
             ornt = np.zeros(6, dtype=np.float64)
-            if [0x020,0x037] in dhdr:
-                ornt = np.array([float(e) for e in dhdr[0x20,0x37].value])
+            if [0x020, 0x037] in dhdr:
+                ornt = np.array([float(e) for e in dhdr[0x20, 0x37].value])
             # seires description, time and study time
             srs_dcrp = dhdr[0x0008, 0x103e].value
             srs_time = dhdr[0x0008, 0x0031].value[:6]
             std_time = dhdr[0x0008, 0x0030].value[:6]
 
-            log.info(dedent('''\
+            log.info(
+                dedent('''\
                 --------------------------------------
                 DICOM series desciption: {}
                 DICOM series time: {}
                 DICOM study  time: {}
-                --------------------------------------''').format(
-                srs_dcrp,srs_time , std_time))
+                --------------------------------------''').format(srs_dcrp, srs_time, std_time))
 
             # ---------
             # series for any category (can be multiple scans within the same category)
@@ -626,19 +614,19 @@ def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
             if not recognised_series:
                 s = srs_dcrp + '_' + srs_time
                 srs[s] = {}
-                srs[s]['imorient']  = ornt
-                srs[s]['imsize']    = imsz
-                srs[s]['voxsize']   = vxsz
-                srs[s]['tseries']   = srs_time
+                srs[s]['imorient'] = ornt
+                srs[s]['imsize'] = imsz
+                srs[s]['voxsize'] = vxsz
+                srs[s]['tseries'] = srs_time
             # append the file name
             if 'files' not in srs[s]: srs[s]['files'] = []
             if copy_series:
                 srsdir = os.path.join(folder, s)
-                create_dir( srsdir )
+                create_dir(srsdir)
                 shutil.copy(os.path.join(folder, f), srsdir)
-                srs[s]['files'].append( os.path.join(srsdir, f) )
+                srs[s]['files'].append(os.path.join(srsdir, f))
             else:
-                srs[s]['files'].append( os.path.join(folder, f) )
+                srs[s]['files'].append(os.path.join(folder, f))
 
     return srs
 
@@ -664,7 +652,7 @@ def niisort(fims, memlim=True):
             if _match:
                 frm = int(_match.group(0))
                 freelists = [frm not in l for l in sortlist]
-                listidx = [i for i,f in enumerate(freelists) if f]
+                listidx = [i for i, f in enumerate(freelists) if f]
                 if listidx:
                     sortlist[listidx[0]].append(frm)
                 else:
@@ -672,21 +660,20 @@ def niisort(fims, memlim=True):
             else:
                 sortlist.append([None])
 
-    if len(sortlist)>1:
+    if len(sortlist) > 1:
         # if more than one dynamic set is given, the dynamic mode is cancelled.
         dyn_flg = False
         sortlist = list(range(Nim))
-    elif len(sortlist)==1:
+    elif len(sortlist) == 1:
         dyn_flg = True
         sortlist = sortlist[0]
     else:
         raise ValueError('e> niisort input error.')
 
-
     # number of frames (can be larger than the # images)
-    Nfrm = max(sortlist)+1
+    Nfrm = max(sortlist) + 1
     # sort the list according to the frame numbers
-    _fims = ['Blank']*Nfrm
+    _fims = ['Blank'] * Nfrm
     # list of NIfTI image shapes and data types used
     shape = []
     datype = []
@@ -704,32 +691,30 @@ def niisort(fims, memlim=True):
             shape.append(_nii.shape)
 
     # check if all images are of the same shape and data type
-    if _nii and not shape.count(_nii.shape)==len(shape):
+    if _nii and not shape.count(_nii.shape) == len(shape):
         raise ValueError('Input images are of different shapes.')
-    if _nii and not datype.count(_nii.get_data_dtype())==len(datype):
+    if _nii and not datype.count(_nii.get_data_dtype()) == len(datype):
         raise TypeError('Input images are of different data types.')
     # image shape must be 3D
-    if _nii and not len(_nii.shape)==3:
+    if _nii and not len(_nii.shape) == 3:
         raise ValueError('Input image(s) must be 3D.')
 
-    out = {'shape':_nii.shape[::-1],
-            'files':_fims,
-            'sortlist':sortlist,
-            'dtype':_nii.get_data_dtype(),
-            'N':Nim}
+    out = {
+        'shape': _nii.shape[::-1], 'files': _fims, 'sortlist': sortlist,
+        'dtype': _nii.get_data_dtype(), 'N': Nim}
 
-    if memlim and Nfrm>50:
+    if memlim and Nfrm > 50:
         imdic = getnii(_fims[0], output='all')
         affine = imdic['affine']
     else:
         # get the images into an array
-        _imin = np.zeros((Nfrm,)+_nii.shape[::-1], dtype=_nii.get_data_dtype())
+        _imin = np.zeros((Nfrm,) + _nii.shape[::-1], dtype=_nii.get_data_dtype())
         for i in range(Nfrm):
             if i in sortlist:
                 imdic = getnii(_fims[i], output='all')
-                _imin[i,:,:,:] = imdic['im']
+                _imin[i, :, :, :] = imdic['im']
                 affine = imdic['affine']
-        out['im'] = _imin[:Nfrm,:,:,:]
+        out['im'] = _imin[:Nfrm, :, :, :]
 
     out['affine'] = affine
 
@@ -737,15 +722,15 @@ def niisort(fims, memlim=True):
 
 
 def dcm2nii(
-        dcmpth,
-        fimout = '',
-        fprefix = 'converted-from-DICOM_',
-        fcomment = '',
-        outpath = '',
-        timestamp = True,
-        executable = '',
-        force = False,
-    ):
+    dcmpth,
+    fimout='',
+    fprefix='converted-from-DICOM_',
+    fcomment='',
+    outpath='',
+    timestamp=True,
+    executable='',
+    force=False,
+):
     '''
     Convert DICOM files in folder (indicated by <dcmpth>) using DCM2NIIX
     third-party software.
@@ -754,7 +739,7 @@ def dcm2nii(
     if os.path.isfile(fimout) and not force:
         return fimout
 
-    if executable=='':
+    if executable == '':
         try:
             executable = rs.DCM2NIIX
         except AttributeError:
@@ -766,13 +751,13 @@ def dcm2nii(
         raise IOError('e> the provided DICOM path is not a folder!')
 
     # > output path
-    if outpath=='' and fimout!='' and '/' in fimout:
+    if outpath == '' and fimout != '' and '/' in fimout:
         opth = os.path.dirname(fimout)
-        if opth=='':
+        if opth == '':
             opth = dcmpth
         fimout = os.path.basename(fimout)
 
-    elif outpath=='':
+    elif outpath == '':
         opth = dcmpth
 
     else:
@@ -780,18 +765,17 @@ def dcm2nii(
 
     create_dir(opth)
 
-    if fimout=='':
+    if fimout == '':
         fimout = fprefix
         if timestamp:
             fimout += time_stamp(simple_ascii=True)
 
     fimout = fimout.split('.nii')[0]
 
-
     # convert the DICOM mu-map images to nii
     run([executable, '-f', fimout, '-o', opth, dcmpth])
 
-    fniiout = glob.glob( os.path.join(opth, '*'+fimout+'*.nii*') )
+    fniiout = glob.glob(os.path.join(opth, '*' + fimout + '*.nii*'))
 
     if fniiout:
         return fniiout[0]
@@ -812,7 +796,7 @@ def dcm2im(fpth):
         SZ0 = len([d for d in os.listdir(fpth) if d.endswith(ext)])
         # list of DICOM files
         fdcms = os.listdir(fpth)
-        fdcms = [os.path.join(fpth,f) for f in fdcms if f.endswith(ext)]
+        fdcms = [os.path.join(fpth, f) for f in fdcms if f.endswith(ext)]
 
     # case when list of DICOM files is given
     elif isinstance(fpth, list) and os.path.isfile(os.path.join(fpth[0])):
@@ -823,7 +807,7 @@ def dcm2im(fpth):
     else:
         raise NameError('Unrecognised input for DICOM files.')
 
-    if SZ0<1:
+    if SZ0 < 1:
         log.error('No DICOM images in the specified path.')
         raise IOError('Input DICOM images not recognised')
 
@@ -833,7 +817,7 @@ def dcm2im(fpth):
     # -----------------------------------
     # some info, e.g.: patient position and series UID
     if [0x018, 0x5100] in dhdr:
-        ornt = dhdr[0x18,0x5100].value
+        ornt = dhdr[0x18, 0x5100].value
     else:
         ornt = 'unkonwn'
     # Series UID
@@ -843,16 +827,16 @@ def dcm2im(fpth):
     # -----------------------------------
     # INIT
     # image position
-    P = np.zeros((SZ0,3), dtype=np.float64)
+    P = np.zeros((SZ0, 3), dtype=np.float64)
     # image orientation
-    Orn = np.zeros((SZ0,6), dtype=np.float64)
+    Orn = np.zeros((SZ0, 6), dtype=np.float64)
     # xy resolution
-    R = np.zeros((SZ0,2), dtype=np.float64)
+    R = np.zeros((SZ0, 2), dtype=np.float64)
     # slice thickness
-    S = np.zeros((SZ0,1), dtype=np.float64)
+    S = np.zeros((SZ0, 1), dtype=np.float64)
     # slope and intercept
-    SI = np.ones((SZ0,2), dtype=np.float64)
-    SI[:,1] = 0
+    SI = np.ones((SZ0, 2), dtype=np.float64)
+    SI[:, 1] = 0
 
     # image data as an list of array for now
     IM = []
@@ -861,73 +845,69 @@ def dcm2im(fpth):
     c = 0
     for d in fdcms:
         dhdr = dcm.read_file(d)
-        if [0x20,0x32] in dhdr and [0x20,0x37] in dhdr and [0x28,0x30] in dhdr:
-            P[c,:] = np.array([float(f) for f in dhdr[0x20,0x32].value])
-            Orn[c,:] = np.array([float(f) for f in dhdr[0x20,0x37].value])
-            R[c,:] = np.array([float(f) for f in dhdr[0x28,0x30].value])
-            S[c,:] = float(dhdr[0x18,0x50].value)
+        if [0x20, 0x32] in dhdr and [0x20, 0x37] in dhdr and [0x28, 0x30] in dhdr:
+            P[c, :] = np.array([float(f) for f in dhdr[0x20, 0x32].value])
+            Orn[c, :] = np.array([float(f) for f in dhdr[0x20, 0x37].value])
+            R[c, :] = np.array([float(f) for f in dhdr[0x28, 0x30].value])
+            S[c, :] = float(dhdr[0x18, 0x50].value)
         else:
             log.error('could not read all the DICOM tags.')
-            return {'im':[], 'affine':[], 'shape':[], 'orient':ornt, 'sruid':sruid}
+            return {'im': [], 'affine': [], 'shape': [], 'orient': ornt, 'sruid': sruid}
 
-        if [0x28,0x1053] in dhdr and [0x28,0x1052] in dhdr:
-            SI[c,0] = float(dhdr[0x28,0x1053].value)
-            SI[c,1] = float(dhdr[0x28,0x1052].value)
+        if [0x28, 0x1053] in dhdr and [0x28, 0x1052] in dhdr:
+            SI[c, 0] = float(dhdr[0x28, 0x1053].value)
+            SI[c, 1] = float(dhdr[0x28, 0x1052].value)
         IM.append(dhdr.pixel_array)
         c += 1
 
-
     # check if orientation/resolution is the same for all slices
-    if np.sum(Orn-Orn[0,:]) > 1e-6:
+    if np.sum(Orn - Orn[0, :]) > 1e-6:
         log.error('varying orientation for slices')
     else:
-        Orn = Orn[0,:]
-    if np.sum(R-R[0,:]) > 1e-6:
+        Orn = Orn[0, :]
+    if np.sum(R - R[0, :]) > 1e-6:
         log.error('varying resolution for slices')
     else:
-        R = R[0,:]
+        R = R[0, :]
 
     # Patient Position
     # TODO: patpos = dhdr[0x18,0x5100].value
     # Rows and Columns
-    if [0x28,0x10] in dhdr and [0x28,0x11] in dhdr:
-        SZ2 = dhdr[0x28,0x10].value
-        SZ1 = dhdr[0x28,0x11].value
+    if [0x28, 0x10] in dhdr and [0x28, 0x11] in dhdr:
+        SZ2 = dhdr[0x28, 0x10].value
+        SZ1 = dhdr[0x28, 0x11].value
     # image resolution
     SZ_VX2 = R[0]
     SZ_VX1 = R[1]
 
     # now sort the images along k-dimension
-    k = np.argmin(abs(Orn[:3]+Orn[3:]))
+    k = np.argmin(abs(Orn[:3] + Orn[3:]))
     # sorted indeces
-    si = np.argsort(P[:,k])
+    si = np.argsort(P[:, k])
     Pos = np.zeros(P.shape, dtype=np.float64)
-    im = np.zeros((SZ0, SZ1, SZ2 ), dtype=np.float32)
+    im = np.zeros((SZ0, SZ1, SZ2), dtype=np.float32)
 
     # check if the detentions are in agreement (the pixel array could be transposed...)
-    if IM[0].shape[0]==SZ1:
+    if IM[0].shape[0] == SZ1:
         for i in range(SZ0):
-            im[i,:,:] = IM[si[i]]*SI[si[i],0] + SI[si[i],1]
-            Pos[i,:] = P[si[i]]
+            im[i, :, :] = IM[si[i]] * SI[si[i], 0] + SI[si[i], 1]
+            Pos[i, :] = P[si[i]]
     else:
         for i in range(SZ0):
-            im[i,:,:] = IM[si[i]].T * SI[si[i],0] + SI[si[i],1]
-            Pos[i,:] = P[si[i]]
+            im[i, :, :] = IM[si[i]].T * SI[si[i], 0] + SI[si[i], 1]
+            Pos[i, :] = P[si[i]]
 
     # proper slice thickness
-    Zz = (P[si[-1],2] - P[si[0],2])/(SZ0-1)
-    Zy = (P[si[-1],1] - P[si[0],1])/(SZ0-1)
-    Zx = (P[si[-1],0] - P[si[0],0])/(SZ0-1)
-
+    Zz = (P[si[-1], 2] - P[si[0], 2]) / (SZ0-1)
+    Zy = (P[si[-1], 1] - P[si[0], 1]) / (SZ0-1)
+    Zx = (P[si[-1], 0] - P[si[0], 0]) / (SZ0-1)
 
     # dictionary for affine and image size for the image
     A = {
-        'AFFINE':np.array([[SZ_VX2*Orn[0], SZ_VX1*Orn[3], Zx, Pos[0,0]],
-                           [SZ_VX2*Orn[1], SZ_VX1*Orn[4], Zy, Pos[0,1]],
-                           [SZ_VX2*Orn[2], SZ_VX1*Orn[5], Zz, Pos[0,2]],
-                           [0., 0., 0., 1.]]),
-        'SHAPE':(SZ0, SZ1, SZ2)
-    }
+        'AFFINE': np.array([[SZ_VX2 * Orn[0], SZ_VX1 * Orn[3], Zx, Pos[0, 0]],
+                            [SZ_VX2 * Orn[1], SZ_VX1 * Orn[4], Zy, Pos[0, 1]],
+                            [SZ_VX2 * Orn[2], SZ_VX1 * Orn[5], Zz, Pos[0, 2]], [0., 0., 0., 1.]]),
+        'SHAPE': (SZ0, SZ1, SZ2)}
 
     # the returned image is already scaled according to the dcm header
-    return {'im':im, 'affine':A['AFFINE'], 'shape':A['SHAPE'], 'orient':ornt, 'sruid':sruid}
+    return {'im': im, 'affine': A['AFFINE'], 'shape': A['SHAPE'], 'orient': ornt, 'sruid': sruid}
