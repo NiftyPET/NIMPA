@@ -93,8 +93,8 @@ def imsmooth(fim, fwhm=4, fout=''):
     return dctout
 
 
-#===================================================================================================
-#> get projections along 3D image axes
+# ==================================================================================================
+# > get projections along 3D image axes
 def im_project3(im):
     ''' project intensities on the 3 axes x, y ,z.
     '''
@@ -111,7 +111,7 @@ def im_project3(im):
     qz = np.sum(img, axis=(1,2))
 
     return qx, qy, qz
-#===================================================================================================
+# ==================================================================================================
 
 
 
@@ -168,7 +168,7 @@ def imtrimup( fims,
     memlim: Ture for cases when memory is limited and takes more processing time instead.
     verbose: verbose mode [True/False]
     '''
-    #> check if the dictionary of constant is given
+    # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
@@ -239,13 +239,13 @@ def imtrimup( fims,
         raise TypeError('Wrong data type input.')
 
 
-    #> if using reference trimmed image:
+    # > if using reference trimmed image:
     ref_flag = False
     if os.path.isfile(refim):
         refdct = imio.getnii(refim, output='all')
         nii_descrp = refdct['hdr']['descrip'].item().decode('utf-8')
         if 'trim' in nii_descrp:
-            #> find all the numbers (int and floats)
+            # > find all the numbers (int and floats)
             parstr = re.findall(r'\d+\.*\d*', nii_descrp)
             try:
                 ix0, ix1, iy0, iy1, iz0, scale0, scale1, scale2, fmax = (num(s) for s in parstr)
@@ -263,33 +263,33 @@ def imtrimup( fims,
 
 
 
-    #-------------------------------------------------------
+    # ------------------------------------------------------
     # store images in this folder
     if outpath=='':
         petudir = os.path.join(fldrin, 'trimmed')
     else:
         petudir = os.path.join(outpath, 'trimmed')
     imio.create_dir( petudir )
-    #-------------------------------------------------------
+    # ------------------------------------------------------
 
-    #-------------------------------------------------------
+    # ------------------------------------------------------
     # scale is preferred to be integer
     try:
         scale = np.int8(scale)
     except ValueError:
         raise ValueError('scale has to be an integer or array of integers.')
 
-    #> check if scale is given as scalar of array.
-    #> if scalar, change it to an array.
+    # > check if scale is given as scalar of array.
+    # > if scalar, change it to an array.
     if isinstance(scale, np.int8):
         scale = scale*np.ones(3, dtype=np.int8)
 
-    #> scale factor as the inverse of scale
+    # > scale factor as the inverse of scale
     sf = 1/np.float64(scale)
     log.debug(' upsampling scale {}, giving resolution scale factor {} for {} images.'.format(scale, sf, Nim))
-    #-------------------------------------------------------
+    # ------------------------------------------------------
 
-    #-------------------------------------------------------
+    # ------------------------------------------------------
     # scaled input image and get a sum image as the base for trimming
     if any(scale>1):
         newshape = (scale[0]*imshape[0], scale[1]*imshape[1], scale[2]*imshape[2])
@@ -322,10 +322,10 @@ def imtrimup( fims,
         imscl = imin
         imsum = np.sum(imin, axis=0)
 
-    #> smooth the sum image for improving trimming (if any)
-    #imsum = ndi.filters.gaussian_filter(imsum, imio.fwhm2sig(4.0, voxsize=abs(affine[0,0])), mode='mirror')
+    # > smooth the sum image for improving trimming (if any)
+    # TODO: imsum = ndi.filters.gaussian_filter(imsum, imio.fwhm2sig(4.0, voxsize=abs(affine[0,0])), mode='mirror')
     # import pdb; pdb.set_trace()
-    #-------------------------------------------------------
+    # ------------------------------------------------------
 
 
 
@@ -347,8 +347,8 @@ def imtrimup( fims,
         IX = ix1-ix0+1
         IY = iy1-iy0+1
         tmp = max(IX, IY)
-        #> get the range such that it is divisible by
-        #> divdim (64 by default) for GPU execution
+        # > get the range such that it is divisible by
+        # > divdim (64 by default) for GPU execution
         IXY = divdim * ((tmp+divdim-1)//divdim)
         div = (IXY-IX)//2
         # x
@@ -403,12 +403,12 @@ def imtrimup( fims,
             Correcting for trimming outside the original image (x-axis)
             -----------------------------------------------------------------'''))
 
-    #> in case the upper index goes beyond the scaled but untrimmed image
+    # > in case the upper index goes beyond the scaled but untrimmed image
     iy1t = imsumt.shape[1]
     if iy1>=imsum.shape[1]:
         iy1t -= iy1+1
 
-    #> the same for x
+    # > the same for x
     ix1t = imsumt.shape[2]
     if ix1>=imsum.shape[2]:
         ix1t -= ix1+1
@@ -417,11 +417,11 @@ def imtrimup( fims,
     # first trim the sum image
     imsumt[iz0t:, iy0t:iy1t, ix0t:ix1t] = imsum[iz0s:, iy0s:iy1+1, ix0s:ix1+1]
 
-    #> new affine matrix for the upscaled and trimmed image
-    #> use the scale factor reversely for consistency
+    # > new affine matrix for the upscaled and trimmed image
+    # > use the scale factor reversely for consistency
     A = np.diag(np.append(sf[::-1], 1.) * np.diag(affine))
 
-    #> note half of new voxel offset is used for the new centre of voxels
+    # > note half of new voxel offset is used for the new centre of voxels
     A[0,3] = affine[0,3] + A[0,0]*(ix0-0.5)
     A[1,3] = affine[1,3] + (affine[1,1]*(imshape[1]-1) - A[1,1]*(iy1-0.5))
     A[2,3] = affine[2,3] - A[1,1]*0.5
@@ -439,7 +439,7 @@ def imtrimup( fims,
                + ';scale='+str(scale) \
                + ';fmx='+str(fmax)
 
-    #> remove brackets and spaces from the file name
+    # > remove brackets and spaces from the file name
     scale_fnm = str(scale).replace('[','').replace(']','').replace(' ','-')
 
     # store the sum image
@@ -451,7 +451,7 @@ def imtrimup( fims,
 
     # list of file names for the upsampled and trimmed images
     fpetu = []
-    #> perform the trimming and save the intermediate images if requested
+    # > perform the trimming and save the intermediate images if requested
     with trange(
         Nim, desc="finalising trimming/scaling",
         disable=log.getEffectiveLevel() > logging.INFO,
@@ -572,11 +572,11 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         for jr in range(0,m+1):
             imgPWC[imgSeg==jr] = np.mean( imgPWC[imgSeg==jr] )
 
-        #> blur the piece-wise constant image using either:
-        #> (1) GPU convolution with a separable kernel (x,y,z), or
-        #> (2) CPU, Python-based convolution
+        # > blur the piece-wise constant image using either:
+        # > (1) GPU convolution with a separable kernel (x,y,z), or
+        # > (2) CPU, Python-based convolution
         if improc is not None:
-            #> convert to dimensions of GPU processing [y,x,z]
+            # > convert to dimensions of GPU processing [y,x,z]
             imin_d = np.transpose(imgPWC, (1, 2, 0))
             imout_d = np.zeros(imin_d.shape, dtype=np.float32)
             improc.convolve(imout_d, imin_d, krnl, Cnt)
@@ -669,8 +669,8 @@ def pvc_iyang(
     if im.ndim!=3:
         raise IndexError('Only 3D images are expected in this method of partial volume correction.')
 
-    #> avoid registration if the provided parcellation is already in PET space
-    #> it is assumed so if the parcellation is given as a file path and no affine is given
+    # > avoid registration if the provided parcellation is already in PET space
+    # > it is assumed so if the parcellation is given as a file path and no affine is given
     noreg = False
     if isinstance(mrin, str) and os.path.isfile(mrin):
         prcl_dir = os.path.dirname(mrin)
@@ -698,18 +698,18 @@ def pvc_iyang(
         oprcl = os.path.join(outpath, 'PVC-preprocessed')
         opvc =  os.path.join(outpath, 'PVC')
 
-    #> create folders
+    # > create folders
     imio.create_dir(oprcl)
     imio.create_dir(opvc)
     if store_rois:
         orois = os.path.join(opvc, 'ROIs')
         imio.create_dir(orois)
 
-    #> output dictionary
+    # > output dictionary
     outdct = {}
 
-    #==================================================================
-    #> if affine transformation (faff) is not given then register T1 to PET and resample parcellations.
+    # =================================================================
+    # > if affine transformation (faff) is not given then register T1 to PET and resample parcellations.
     if not noreg and faff is None:
 
         ft1w = imio.pick_t1w(mrin)
@@ -750,11 +750,7 @@ def pvc_iyang(
     # resample the T1/labels to upsampled PET
     # file name of the parcellation (e.g., GIF-based) upsampled to PET
     if not faff is None and os.path.isfile(faff):
-        fprcu = os.path.join(
-            oprcl,
-            os.path.basename(fprc.split('.')[0]\
-                +'_registered_trimmed'+fcomment+'.nii.gz')
-            )
+        fprcu = os.path.join(oprcl, os.path.basename(fprc.split('.')[0]+'_registered_trimmed'+fcomment+'.nii.gz'))
 
         if tool == 'niftyreg':
             if os.path.isfile( Cnt['RESPATH'] ):
@@ -776,28 +772,28 @@ def pvc_iyang(
                     del_flo_uncmpr=True,
                     del_out_uncmpr=True,
                 )
-    #==================================================================
+    # =================================================================
 
-    #> get the parcellation labels in the upsampled PET space
+    # > get the parcellation labels in the upsampled PET space
     prcdct = imio.getnii(fprcu, output='all')
     prcu = prcdct['im']
 
-    #> path to parcellations in NIfTI format
+    # > path to parcellations in NIfTI format
     prcl_pth = os.path.split(fprc)
 
-    #---------------------------------------------------------------------------
-    #> get the parcellation specific for PVC based on the current parcellations
+    # --------------------------------------------------------------------------
+    # > get the parcellation specific for PVC based on the current parcellations
     imgroi = prcu.copy();  imgroi[:] = 0
 
-    #> number of segments, without the background
+    # > number of segments, without the background
     nSeg = len(pvcroi)
 
-    #> create the image of numbered parcellations
+    # > create the image of numbered parcellations
     for k in range(nSeg):
         for m in pvcroi[k]:
             imgroi[prcu==m] = k+1
 
-    #> save the PCV ROIs to a new NIfTI file
+    # > save the PCV ROIs to a new NIfTI file
     if store_rois:
         froi = os.path.join(orois, prcl_pth[1].split('.nii')[0]+'_PVC-ROIs-inPET.nii.gz')
         imio.array2nii(
@@ -809,13 +805,13 @@ def pvc_iyang(
                      prcdct['transpose'].index(2)),
             flip = prcdct['flip'])
         outdct['froi'] = froi
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # run iterative Yang PVC
     imgpvc, m_a = iyang(im, krnl, imgroi, Cnt, itr=itr)
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     outdct['im'] = imgpvc
     outdct['imroi'] = imgroi
@@ -833,7 +829,7 @@ def pvc_iyang(
     return outdct
 
 
-#==============================================================
+# =============================================================
 # Convert CT units (HU) to PET mu-values
 def ct2mu(im):
     '''HU units to 511keV PET mu-values
@@ -854,11 +850,11 @@ def ct2mu(im):
     # remove negative values
     uim[uim<0] = 0
     return uim
-#==============================================================
+# =============================================================
 
 
 
-#===============================================================================
+# ==============================================================================
 def centre_mass_img(imdct, output='mm'):
     ''' Calculate the centre of mass of an image along each axes (x,y,z),
         separately.
@@ -867,23 +863,22 @@ def centre_mass_img(imdct, output='mm'):
         Output the list of the centre of mass for each axis.
     '''
 
-    #> initialise centre of mass array in mm and in voxel indexes
+    # > initialise centre of mass array in mm and in voxel indexes
     com = np.zeros(3, dtype=np.float32)
     icom = np.zeros(3, dtype=np.float32)
-    #> total image sum
+    # > total image sum
     imsum = np.sum(imdct['im'])
 
     for ind_ax in [-1, -2, -3]:
-        #> list of axes
+        # > list of axes
         axs = list(range(imdct['im'].ndim))
         del axs[ind_ax]
-        #> indexed centre of mass
-        icom[ind_ax] = np.sum( np.sum(imdct['im'], axis=tuple(axs)) \
-                * np.arange(imdct['shape'][ind_ax]))/imsum
-        #> centre of mass in mm (zyx)
+        # > indexed centre of mass
+        icom[ind_ax] = np.sum( np.sum(imdct['im'], axis=tuple(axs)) * np.arange(imdct['shape'][ind_ax]))/imsum
+        # > centre of mass in mm (zyx)
         com[ind_ax] = icom[ind_ax] * imdct['voxsize'][ind_ax]
 
-    #> correct due to flipped indexing and world mm
+    # > correct due to flipped indexing and world mm
     com[-1] = imdct['shape'][-1]*imdct['voxsize'][-1] - com[-1]
     com[-2] = imdct['shape'][-2]*imdct['voxsize'][-2] - com[-2]
     com[-3] = imdct['shape'][-3]*imdct['voxsize'][-3] - com[-3]
@@ -895,10 +890,10 @@ def centre_mass_img(imdct, output='mm'):
     else:
         raise ValueError('unrecognised output option')
 
-#===============================================================================
+# ==============================================================================
 
 
-#===============================================================================
+# ==============================================================================
 def nii_modify(
         nii,
         fimout = '',
@@ -918,8 +913,8 @@ def nii_modify(
         if 'fim' in dctnii:
             fnii = dctnii['fim']
 
-    #---------------------------------------------------------------------------
-    #> output path
+    # --------------------------------------------------------------------------
+    # > output path
     if outpath=='' and fimout!='' and '/' in fimout:
         opth = os.path.dirname(fimout)
         if opth=='' and isinstance(fnii, str) and os.path.isfile(fnii):
@@ -932,7 +927,7 @@ def nii_modify(
         opth = outpath
     imio.create_dir(opth)
 
-    #> output floating and affine file names
+    # > output floating and affine file names
     if fimout=='':
 
         if fcomment=='':
@@ -945,21 +940,21 @@ def nii_modify(
         fout = os.path.join(
                 opth,
                 fimout.split('.')[0]+'.nii.gz')
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 
-    #> reduce the max value to 255
+    # > reduce the max value to 255
     if voxel_range and len(voxel_range)==1:
         im = voxel_range[0] * dctnii['im']/np.max(dctnii['im'])
     elif voxel_range and len(voxel_range)==2:
-        #> normalise into range 0-1
+        # > normalise into range 0-1
         im = (dctnii['im'] - np.min(dctnii['im'])) / np.ptp(dctnii['im'])
-        #> convert to voxel_range
+        # > convert to voxel_range
         im = voxel_range[0] + im*(voxel_range[1] - voxel_range[0])
     else:
         return None
 
-    #> output file name for the extra reference image
+    # > output file name for the extra reference image
     imio.array2nii(
         im,
         dctnii['affine'],
@@ -975,12 +970,12 @@ def nii_modify(
 
 
 
-#===============================================================================
+# ==============================================================================
 
 
 
 
-#> used for cutting out part of image for face de-identification
+# > used for cutting out part of image for face de-identification
 def im_cut(im, i_cut, fout=None):
     ''' cut the part of image like the face for de-identification purposes.
         assumes that image is in the form of im[z,y,x].
@@ -991,7 +986,7 @@ def im_cut(im, i_cut, fout=None):
     else:
         save_nii = True
 
-    #> output dictionary
+    # > output dictionary
     out = {}
 
     if isinstance(im, str):
@@ -1026,7 +1021,7 @@ def im_cut(im, i_cut, fout=None):
 
     return out
 
-#===============================================================================
+# ==============================================================================
 
 
 
@@ -1066,7 +1061,7 @@ def bias_field_correction(
         - sitk_image_mask:  Image masking will be used if SimpleITK is
                             chosen.
     '''
-    #> check if the dictionary of constant is given
+    # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
@@ -1078,20 +1073,20 @@ def bias_field_correction(
             or pip install SimpleITK'''))
         return None
 
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # INPUT
-    #---------------------------------------------------------------------------
-    #> path to a single file
+    # --------------------------------------------------------------------------
+    # > path to a single file
     if isinstance(fmr, str) and os.path.isfile(fmr):
         fins = [fmr]
 
-    #> list of file paths
+    # > list of file paths
     elif isinstance(fmr, list) and all([os.path.isfile(f) for f in fmr]):
         fins = fmr
         log.info('multiple input files => ignoring the single output file name.')
         fimout = ''
 
-    #> path to a folder
+    # > path to a folder
     elif isinstance(fmr, str) and os.path.isdir(fmr):
         fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
         log.info('multiple input files from input folder.')
@@ -1099,13 +1094,13 @@ def bias_field_correction(
 
     else:
         raise ValueError('could not decode the input of floating images.')
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # OUTPUT
-    #---------------------------------------------------------------------------
-    #> output path
+    # --------------------------------------------------------------------------
+    # > output path
     if outpath=='' and fimout!='':
         opth = os.path.dirname(fimout)
         if opth=='':
@@ -1115,17 +1110,17 @@ def bias_field_correction(
         fcomment = ''
     elif outpath=='':
         opth = os.path.dirname(fmr)
-        #> N4 bias correction specific folder
+        # > N4 bias correction specific folder
         n4opth = os.path.join(opth, 'N4bias')
     else:
         opth = outpath
-        #> N4 bias correction specific folder
+        # > N4 bias correction specific folder
         n4opth = os.path.join(opth, 'N4bias')
 
     imio.create_dir(n4opth)
 
     outdct = {}
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 
     for fin in fins:
@@ -1136,37 +1131,36 @@ def bias_field_correction(
             fspl = os.path.split(fin)
 
             # N4 bias correction file output paths
-            fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]\
-                                + fcomment +'.nii.gz')
+            fn4 = os.path.join( n4opth, fspl[1].split('.nii')[0]+ fcomment +'.nii.gz')
         else:
             fn4 = fimout
 
         if not os.path.exists(fn4):
 
             if executable=='sitk':
-                #==============================================
+                # =============================================
                 # SimpleITK Bias field correction for T1 and T2
-                #==============================================
-                #> initialise the corrector
+                # =============================================
+                # > initialise the corrector
                 corrector = sitk.N4BiasFieldCorrectionImageFilter()
                 # numberFilltingLevels = 4
 
                 # read input file
                 im = sitk.ReadImage(fin)
 
-                #> create a object specific mask
+                # > create a object specific mask
                 fmsk = os.path.join( n4opth, fspl[1].split('.nii')[0] +'_sitk_mask.nii.gz')
                 msk = sitk.OtsuThreshold(im, 0, 1, 200)
                 sitk.WriteImage(msk, fmsk)
 
-                #> cast to 32-bit float
+                # > cast to 32-bit float
                 im = sitk.Cast( im, sitk.sitkFloat32 )
 
-                #-------------------------------------------
+                # ------------------------------------------
                 log.info('correcting bias field for {}'.format(fin))
                 n4out = corrector.Execute(im, msk)
                 sitk.WriteImage(n4out, fn4)
-                #-------------------------------------------
+                # ------------------------------------------
 
                 if sitk_image_mask:
                     outdct.setdefault('fmsk', [])
@@ -1200,7 +1194,7 @@ def bias_field_correction(
         else:
             log.info('N4 bias corrected file seems already existing.')
 
-        #> output to dictionary
+        # > output to dictionary
         outdct.setdefault('fim', [])
         outdct['fim'].append(fn4)
 
@@ -1208,10 +1202,10 @@ def bias_field_correction(
     return outdct
 
 
-#-------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
 def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05, pi=50, pv=50, smof=0, smor=0):
 
-    #create a folder for PET images registered to ref PET
+    # create a folder for PET images registered to ref PET
     if outpath=='':
         outpath = os.path.dirname(fflo)
     odir = os.path.join(outpath,'PET2PET')
@@ -1295,7 +1289,7 @@ def mr2pet_rigid(
     else:
         raise ValueError('disaster: no T1w image!')
 
-    #create a folder for MR images registered to PET
+    # create a folder for MR images registered to PET
     if outpath!='':
         mrodir = os.path.join(outpath,'T1w2PET')
         fimdir = os.path.join(outpath, os.path.join('T1w2PET','tmp'))
@@ -1398,7 +1392,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
         impvc = True
         log.debug('the provided image is partial volume corrected.')
 
-    #------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------
     # next steps after having sorted out the upsampled input image and the rigid transformation for the T1w -> PET:
 
     # Get the labels before resampling to PET space so that the regions can be separated (more difficult to separate after resampling)
@@ -1440,8 +1434,9 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
                 '-ref', fpet,
                 '-flo', froi1,
                 '-trans', faff,
-                '-res', froi2]#,
-                #'-pad', '0']
+                '-res', froi2,
+                # TODO: '-pad', '0'
+                ]
             if not Cnt['VERBOSE']: cmd.append('-voff')
             run(cmd)
         # get the resampled ROI mask image
@@ -1493,7 +1488,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
         impvc = True
         log.debug('the provided image is partial volume corrected.')
 
-    #------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------
     # next steps after having sorted out the upsampled input image and the rigid transformation for the T1w -> PET:
 
     # Get the labels before resampling to PET space so that the regions can be separated (more difficult to separate after resampling)
@@ -1603,7 +1598,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 #             btpout.M2ute   = np.zeros(imuute['im'].shape, dtype=np.float32)
 #             btpout.M2utepvc= np.zeros(imuute['im'].shape, dtype=np.float32)
 
-#         #-----------------------------
+#         # ----------------------------
 #         # PCT ANALYSIS
 #         if Cnt['BTP']==0:
 #             cmmnt = '(pct-P)'
@@ -1634,7 +1629,7 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
 #             print 'e> Omitting on-line variance calculations. Check the shape of images.'
 
 
-#         #-----------------------------
+#         # ----------------------------
 #         # UTE ANALYSIS
 #         if Cnt['BTP']==0:
 #             cmmnt = '(ute-P)'

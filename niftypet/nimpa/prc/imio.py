@@ -13,7 +13,7 @@ import nibabel as nib
 import numpy as np
 import pydicom as dcm
 
-#> NiftyPET resources
+# > NiftyPET resources
 from .. import resources as rs
 
 __author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
@@ -73,21 +73,21 @@ def getnii(fim, nan_replace=None, output='image'):
         if dimno!=imr.ndim and dimno==4:
             dimno = imr.ndim
 
-        #> get orientations from the affine
+        # > get orientations from the affine
         ornt = nib.io_orientation(nim.affine)
         trnsp = tuple(2-np.int8(ornt[:,0]))
         flip  = tuple(np.int8(ornt[:,1]))
 
-        #> voxel size
+        # > voxel size
         voxsize = nim.header.get('pixdim')[1:nim.header.get('dim')[0]+1]
-        #> rearrange voxel size according to the orientation
+        # > rearrange voxel size according to the orientation
         voxsize = voxsize[np.array(trnsp)]
 
-        #> dimensions
+        # > dimensions
         dims = dim[1:nim.header.get('dim')[0]+1]
         dims = dims[np.array(trnsp)]
 
-        #> flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
+        # > flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
         if dimno==4:
             imr = np.transpose(imr[::-flip[0],::-flip[1],::-flip[2],:], (3,)+trnsp)
         elif  dimno==3:
@@ -156,12 +156,12 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
     if not len(trnsp) in [0,3,4] and not len(flip) in [0,3]:
         raise ValueError('e> number of flip and/or transpose elements is incorrect.')
 
-    #---------------------------------------------------------------------------
-    #> TRANSLATIONS and FLIPS
-    #> get the same geometry as the input NIfTI file in the form of dictionary,
-    #>>as obtained from getnii(..., output='all')
+    # --------------------------------------------------------------------------
+    # > TRANSLATIONS and FLIPS
+    # > get the same geometry as the input NIfTI file in the form of dictionary,
+    # >>as obtained from getnii(..., output='all')
 
-    #> permute the axis order in the image array
+    # > permute the axis order in the image array
     if isinstance(storage_as, dict) and 'transpose' in storage_as \
             and 'flip' in storage_as:
 
@@ -174,7 +174,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
 
     if trnsp==():
         im = im.transpose()
-    #> check if the image is 4D (dynamic) and modify as needed
+    # > check if the image is 4D (dynamic) and modify as needed
     elif len(trnsp)==3 and im.ndim==4:
         trnsp = tuple([t+1 for t in trnsp] + [0])
         im = im.transpose(trnsp)
@@ -182,15 +182,15 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
         im = im.transpose(trnsp)
 
 
-    #> perform flip of x,y,z axes after transposition into proper NIfTI order
+    # > perform flip of x,y,z axes after transposition into proper NIfTI order
     if flip!=() and len(flip)==3:
         im = im[::-flip[0], ::-flip[1], ::-flip[2], ...]
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     nii = nib.Nifti1Image(im, A)
     hdr = nii.header
     hdr.set_sform(None, code='scanner')
-    hdr['cal_max'] = np.max(im) #np.percentile(im, 90) #
+    hdr['cal_max'] = np.max(im) # TODO: np.percentile(im, 90) #
     hdr['cal_min'] = np.min(im)
     hdr['descrip'] = descrip
     nib.save(nii, fnii)
@@ -199,7 +199,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
 def orientnii(imfile, Cnt=None):
     '''Get the orientation from NIfTI sform.  Not fully functional yet.'''
 
-    #> check if the dictionary of constant is given
+    # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
@@ -295,8 +295,8 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
     dtype   = dhdr[0x08, 0x08].value
     logger('   Image Type: {}'.format(dtype))
 
-    #-------------------------------------------
-    #> scanner ID
+    # ------------------------------------------
+    # > scanner ID
     scanner_vendor = 'unknown'
     if [0x008, 0x070] in dhdr:
         scanner_vendor = dhdr[0x008, 0x070].value
@@ -308,21 +308,21 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
     scanner_id = 'other'
     if any(s in scanner_model for s in ['mMR', 'Biograph']) and 'siemens' in scanner_vendor.lower():
         scanner_id = 'mmr'
-    #-------------------------------------------
+    # ------------------------------------------
 
-    #> CSA type (mMR)
+    # > CSA type (mMR)
     csatype = ''
     if [0x29, 0x1108] in dhdr:
         csatype = dhdr[0x29, 0x1108].value
         logger('   CSA Data Type: {}'.format(csatype))
 
-    #> DICOM comment or on MR parameters
+    # > DICOM comment or on MR parameters
     cmmnt   = ''
     if [0x20, 0x4000] in dhdr:
         cmmnt = dhdr[0x0020, 0x4000].value
         logger('   Comments: {}'.format(cmmnt))
 
-    #> MR parameters (echo time, etc)
+    # > MR parameters (echo time, etc)
     TR = 0
     TE = 0
     if [0x18, 0x80] in dhdr:
@@ -333,7 +333,7 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
         logger('   TE: {}'.format(TE))
 
 
-    #> check if it is norm file
+    # > check if it is norm file
     if any('PET_NORM' in s for s in dtype) or cmmnt=='PET Normalization data' or csatype=='MRPETNORM':
         out = ['raw', 'norm', scanner_id]
 
@@ -349,15 +349,15 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
     elif TR>2500 and TE>50:
         out = ['mr', 't2', scanner_id]
 
-    #> UTE's two sequences: UTE2
+    # > UTE's two sequences: UTE2
     elif TR<50 and TE<20 and TE>1:
         out = ['mr', 'ute', 'ute2', scanner_id]
 
-    #> UTE1
+    # > UTE1
     elif TR<50 and TE<20 and TE<0.1 and TR>0 and TE>0:
         out = ['mr', 'ute', 'ute1', scanner_id]
 
-    #> physio data
+    # > physio data
     elif 'PET_PHYSIO' in dtype or 'physio' in cmmnt.lower():
         out = ['raw', 'physio', scanner_id]
 
@@ -405,14 +405,14 @@ def list_dcm_datain(datain):
         dcmute2 = [os.path.join(datain['UTE2'],d) for d in dcmute2 if d.endswith(dcmext)]
         dcmlst += dcmute2
 
-    #-list-mode data dcm
+    # list-mode data dcm
     if 'lm_dcm' in datain:
         dcmlst += [datain['lm_dcm']]
 
     if 'lm_ima' in datain:
         dcmlst += [datain['lm_ima']]
 
-    #-norm
+    # norm
     if 'nrm_dcm' in datain:
         dcmlst += [datain['nrm_dcm']]
 
@@ -444,30 +444,30 @@ def dcmanonym(
     '''
     logger = log.info if verbose else log.debug
 
-    #> check if the dictionary of constant is given
+    # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
-    #> check if a single DICOM file
+    # > check if a single DICOM file
     if isinstance(dcmpth, str) and os.path.isfile(dcmpth):
         dcmlst = [dcmpth]
         logger('recognised the input argument as a single DICOM file.')
 
-    #> check if a folder containing DICOM files
+    # > check if a folder containing DICOM files
     elif isinstance(dcmpth, str) and os.path.isdir(dcmpth):
         dircontent = os.listdir(dcmpth)
-        #> create a list of DICOM files inside the folder
+        # > create a list of DICOM files inside the folder
         dcmlst = [os.path.join(dcmpth,d) for d in dircontent if os.path.isfile(os.path.join(dcmpth,d)) and d.endswith(dcmext)]
         logger('recognised the input argument as the folder containing DICOM files.')
 
-    #> check if a folder containing DICOM files
+    # > check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
         if not all([os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth]):
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
         logger('recognised the input argument as the list of DICOM file paths.')
 
-    #> check if dictionary of data input <datain>
+    # > check if dictionary of data input <datain>
     elif isinstance(dcmpth, dict) and 'corepath' in dcmpth:
         dcmlst = list_dcm_datain(dcmpth)
         logger('recognised the input argument as the dictionary of scanner data.')
@@ -477,17 +477,17 @@ def dcmanonym(
 
 
     for dcmf in dcmlst:
-        #> read the file
+        # > read the file
         dhdr = dcm.dcmread(dcmf)
 
-        #> get the basic info about the DICOM file
+        # > get the basic info about the DICOM file
         dcmtype = dcminfo(dhdr, verbose=False)
         logger(dedent('''\
             --------------------------------------------------
             DICOM file is for: {}
             --------------------------------------------------''').format(dcmtype))
 
-        #> anonymise mMR data.
+        # > anonymise mMR data.
         if 'mmr' in dcmtype:
 
             if [0x029, 0x1120] in dhdr and dhdr[0x029, 0x1120].name=='[CSA Series Header Info]':
@@ -507,7 +507,7 @@ def dcmanonym(
                 logger('DICOM> found sensitive information deep in the headers: {}'.format(dcmtype))
 
 
-            #> run the anonymisation
+            # > run the anonymisation
             iupdate = 0
 
             for i in idx:
@@ -523,18 +523,18 @@ def dcmanonym(
                         '{ ""' +patient+ '"" }',
                          csa[ci:ci+strlen]
                 )
-                #> update string
+                # > update string
                 csa = csa[:ci] + rplcmnt + csa[ci+strlen:]
                 logger('DICOM> removed sensitive information.')
-                #> correct for the number of removed letters
+                # > correct for the number of removed letters
                 iupdate = strlen-len(rplcmnt)
 
-            #> update DICOM
+            # > update DICOM
             if not displayonly and csa!='':
                 csafield.value = csa
 
 
-        #> Patient's name
+        # > Patient's name
         if [0x010,0x010] in dhdr:
             if displayonly:
                 logger(dedent('''\
@@ -545,7 +545,7 @@ def dcmanonym(
                 dhdr[0x010,0x010].value = patient
                 logger('DICOM> anonymised patients name')
 
-        #> date of birth
+        # > date of birth
         if [0x010,0x030] in dhdr:
             if displayonly:
                 logger(dedent('''\
@@ -556,7 +556,7 @@ def dcmanonym(
                 dhdr[0x010,0x030].value = dob
                 logger('   > anonymised date of birth')
 
-        #> physician's name
+        # > physician's name
         if [0x008, 0x090] in dhdr:
             if displayonly:
                 logger(dedent('''\
@@ -572,7 +572,7 @@ def dcmanonym(
 
 def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
     '''Sort out the DICOM files in the folder according to the recorded series.'''
-    #> check if the dictionary of constant is given
+    # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
@@ -583,7 +583,7 @@ def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
     for f in files:
         if os.path.isfile(os.path.join(folder, f)) and f.endswith(dcmext):
             dhdr = dcm.read_file(os.path.join(folder, f))
-            #---------------------------------
+            # --------------------------------
             # image size
             imsz = np.zeros(2, dtype=np.int64)
             if [0x028,0x010] in dhdr:
@@ -613,7 +613,7 @@ def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
                 --------------------------------------''').format(
                 srs_dcrp,srs_time , std_time))
 
-            #----------
+            # ---------
             # series for any category (can be multiple scans within the same category)
             recognised_series = False
             srs_k = list(srs.keys())
@@ -767,7 +767,7 @@ def dcm2nii(
     if not os.path.isdir(dcmpth):
         raise IOError('e> the provided DICOM path is not a folder!')
 
-    #> output path
+    # > output path
     if outpath=='' and fimout!='' and '/' in fimout:
         opth = os.path.dirname(fimout)
         if opth=='':
@@ -832,7 +832,7 @@ def dcm2im(fpth):
     # pick single DICOM header
     dhdr = dcm.read_file(fdcms[0])
 
-    #------------------------------------
+    # -----------------------------------
     # some info, e.g.: patient position and series UID
     if [0x018, 0x5100] in dhdr:
         ornt = dhdr[0x18,0x5100].value
@@ -840,25 +840,25 @@ def dcm2im(fpth):
         ornt = 'unkonwn'
     # Series UID
     sruid = dhdr[0x0020, 0x000e].value
-    #------------------------------------
+    # -----------------------------------
 
-    #------------------------------------
+    # -----------------------------------
     # INIT
     # image position
     P = np.zeros((SZ0,3), dtype=np.float64)
-    #image orientation
+    # image orientation
     Orn = np.zeros((SZ0,6), dtype=np.float64)
-    #xy resolution
+    # xy resolution
     R = np.zeros((SZ0,2), dtype=np.float64)
-    #slice thickness
+    # slice thickness
     S = np.zeros((SZ0,1), dtype=np.float64)
-    #slope and intercept
+    # slope and intercept
     SI = np.ones((SZ0,2), dtype=np.float64)
     SI[:,1] = 0
 
-    #image data as an list of array for now
+    # image data as an list of array for now
     IM = []
-    #------------------------------------
+    # -----------------------------------
 
     c = 0
     for d in fdcms:
@@ -879,7 +879,7 @@ def dcm2im(fpth):
         c += 1
 
 
-    #check if orientation/resolution is the same for all slices
+    # check if orientation/resolution is the same for all slices
     if np.sum(Orn-Orn[0,:]) > 1e-6:
         log.error('varying orientation for slices')
     else:
@@ -890,7 +890,7 @@ def dcm2im(fpth):
         R = R[0,:]
 
     # Patient Position
-    #patpos = dhdr[0x18,0x5100].value
+    # TODO: patpos = dhdr[0x18,0x5100].value
     # Rows and Columns
     if [0x28,0x10] in dhdr and [0x28,0x11] in dhdr:
         SZ2 = dhdr[0x28,0x10].value
@@ -899,14 +899,14 @@ def dcm2im(fpth):
     SZ_VX2 = R[0]
     SZ_VX1 = R[1]
 
-    #now sort the images along k-dimension
+    # now sort the images along k-dimension
     k = np.argmin(abs(Orn[:3]+Orn[3:]))
-    #sorted indeces
+    # sorted indeces
     si = np.argsort(P[:,k])
     Pos = np.zeros(P.shape, dtype=np.float64)
     im = np.zeros((SZ0, SZ1, SZ2 ), dtype=np.float32)
 
-    #check if the detentions are in agreement (the pixel array could be transposed...)
+    # check if the detentions are in agreement (the pixel array could be transposed...)
     if IM[0].shape[0]==SZ1:
         for i in range(SZ0):
             im[i,:,:] = IM[si[i]]*SI[si[i],0] + SI[si[i],1]
@@ -931,5 +931,5 @@ def dcm2im(fpth):
         'SHAPE':(SZ0, SZ1, SZ2)
     }
 
-    #the returned image is already scaled according to the dcm header
+    # the returned image is already scaled according to the dcm header
     return {'im':im, 'affine':A['AFFINE'], 'shape':A['SHAPE'], 'orient':ornt, 'sruid':sruid}

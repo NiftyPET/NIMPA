@@ -33,9 +33,9 @@ def imfill(immsk):
     return immsk
 
 
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Create object mask for the input image
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 def create_mask(
@@ -48,7 +48,7 @@ def create_mask(
     fwhm=0.,
 ):
     '''create mask over the whole image or over the threshold area'''
-    #> output path
+    # > output path
     if outpath=='' and fimout!='':
         opth = os.path.dirname(fimout)
         if opth=='':
@@ -61,7 +61,7 @@ def create_mask(
     else:
         opth = outpath
 
-    #> output file name if not given
+    # > output file name if not given
     if fimout=='':
         fniis = os.path.split(fnii)
         fimout = os.path.join(opth, fniis[1].split('.nii')[0]+'_mask.nii.gz')
@@ -73,7 +73,7 @@ def create_mask(
     if im.ndim>3:
         raise ValueError('The masking function only accepts 3-D images.')
 
-    #> generate output image
+    # > generate output image
     if thrsh>0.:
         smoim = ndi.filters.gaussian_filter(
                     im,
@@ -83,12 +83,12 @@ def create_mask(
         immsk = np.int8(smoim>thrsh)
         immsk = imfill(immsk)
 
-        #> output image
+        # > output image
         imo = fill * immsk.astype(dtype_fill)
     else:
         imo = fill * np.ones(im.shape, dtype = dtype_fill)
 
-    #> save output image
+    # > save output image
     imio.array2nii(
                 imo,
                 niidct['affine'],
@@ -134,7 +134,7 @@ def affine_niftyreg(
     if not os.path.isfile(executable):
         raise IOError('Incorrect path to executable file for registration.')
 
-    #create a folder for images registered to ref
+    # create a folder for images registered to ref
     if outpath!='':
         odir = os.path.join(outpath,'affine-niftyreg')
         fimdir = os.path.join(outpath, os.path.join('affine-niftyreg','mask'))
@@ -158,15 +158,11 @@ def affine_niftyreg(
         faff = os.path.join(odir, fname_aff)
     else:
         if pickname=='ref':
-            fout = os.path.join(odir, 'affine_ref-' \
-                +os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
-            faff = os.path.join(odir, 'affine_ref-' \
-                +os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
+            fout = os.path.join(odir, 'affine_ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+            faff = os.path.join(odir, 'affine_ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
         elif pickname=='flo':
-            fout = os.path.join(odir, 'affine_flo-' \
-                +os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
-            faff = os.path.join(odir, 'affine_flo-' \
-                +os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
+            fout = os.path.join(odir, 'affine_flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+            faff = os.path.join(odir, 'affine_flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
 
     # call the registration routine
     cmd = [executable,
@@ -197,7 +193,7 @@ def affine_niftyreg(
 
     call(cmd)
 
-    #> affine to Numpy array
+    # > affine to Numpy array
     aff = np.loadtxt(faff)
 
     return {'affine':aff, 'faff':faff, 'fim':fout} #faff, fout
@@ -223,7 +219,7 @@ def resample_niftyreg(
     if not os.path.isfile(executable):
         raise IOError('Incorrect path to executable file for registration.')
 
-    #> output path
+    # > output path
     if outpath=='' and fimout!='':
         opth = os.path.dirname(fimout)
         if opth=='':
@@ -235,17 +231,15 @@ def resample_niftyreg(
 
     imio.create_dir(opth)
 
-    #> the output naming
+    # > the output naming
     if '/' in fimout:
         fout = fimout
     elif fimout!='' and not os.path.isfile(fimout):
         fout = os.path.join(opth, fimout)
     elif pickname=='ref':
-        fout = os.path.join(opth, 'affine_ref-' \
-                + os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+        fout = os.path.join(opth, 'affine_ref-'+ os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
     elif pickname=='flo':
-        fout = os.path.join(opth, 'affine_flo-' \
-                + os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+        fout = os.path.join(opth, 'affine_flo-'+ os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
 
     if isinstance(intrp, int):
         intrp = str(intrp)
@@ -265,9 +259,9 @@ def resample_niftyreg(
     return fout
 
 
-#===============================================================================
+# ==============================================================================
 # S P M realignment of multiple images through m-scripting (dynamic PET)
-#===============================================================================
+# ==============================================================================
 
 
 def realign_mltp_spm(
@@ -288,10 +282,10 @@ def realign_mltp_spm(
         fims:   has to be a list of at least two files with the first one acting
                 as a reference.
     '''
-    #> input folder
+    # > input folder
     inpath = os.path.dirname(fims[0])
 
-    #> output folder
+    # > output folder
     if outpath=='':
         outpath = os.path.join(inpath, 'align')
     else:
@@ -306,7 +300,7 @@ def realign_mltp_spm(
 
     imio.create_dir(tmpth)
 
-    #> uncompress for SPM
+    # > uncompress for SPM
     fungz = []
     for f in fims:
         if f[-3:]=='.gz':
@@ -322,23 +316,21 @@ def realign_mltp_spm(
         fungz.append(fun)
 
     if niisort:
-        niisrt = imio.niisort([os.path.join(tmpth,f) for f in os.listdir(tmpth) \
-                if os.path.isfile(os.path.join(tmpth,f))])
+        niisrt = imio.niisort([os.path.join(tmpth,f) for f in os.listdir(tmpth) if os.path.isfile(os.path.join(tmpth,f))])
         fsrt = niisrt['files']
     else:
         fsrt = fungz
 
-    P_input = [f+',1' for f in fsrt\
-        if f.endswith('nii') and f[0]!='r' and 'mean' not in f]
+    P_input = [f+',1' for f in fsrt if f.endswith('nii') and f[0]!='r' and 'mean' not in f]
 
-    #> maximal number of characters per line (for Matlab array)
+    # > maximal number of characters per line (for Matlab array)
     Pinmx = max([len(f) for f in P_input])
 
-    #> equalise the input char array
+    # > equalise the input char array
     Pineq = [f.ljust(Pinmx) for f in P_input]
 
-    #---------------------------------------------------------------------------
-    #> MATLAB realign flags for SPM
+    # --------------------------------------------------------------------------
+    # > MATLAB realign flags for SPM
     flgs = []
     pw = '\'\''
 
@@ -352,7 +344,7 @@ def realign_mltp_spm(
     flgs.append('flgs.wrap = [0 0 0]')
 
     flgs.append('disp(flgs)')
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     fscript = os.path.join(outpath,'pyauto_script_realign.m')
 
@@ -385,9 +377,9 @@ def realign_mltp_spm(
     return {'fout':fres, 'outarray': res, 'P':Pineq, 'fims':fsrt}
 
 
-#===============================================================================
+# ==============================================================================
 # S P M resampling of multiple images through m-scripting (dynamic PET)
-#===============================================================================
+# ==============================================================================
 
 
 def resample_mltp_spm(
@@ -418,7 +410,7 @@ def resample_mltp_spm(
     if not os.path.isfile(ftr):
         raise IOError('e> cannot open the file with translations and rotations')
 
-    #> output path
+    # > output path
     if outpath=='':
         opth = os.path.dirname(fims[0])
     else:
@@ -426,10 +418,10 @@ def resample_mltp_spm(
 
     imio.create_dir(opth)
 
-    #> working file names (not touching the original ones)
+    # > working file names (not touching the original ones)
     _fims = []
 
-    #> decompress if necessary
+    # > decompress if necessary
     for f in fims:
         if not os.path.isfile(f) and not (f.endswith('nii') or f.endswith('nii.gz')):
             raise IOError('e> could not open file:', f)
@@ -450,14 +442,14 @@ def resample_mltp_spm(
         _fims = niisrt['files']
 
 
-    #> maximal number of characters per line (for Matlab array)
+    # > maximal number of characters per line (for Matlab array)
     Pinmx = max([len(f) for f in _fims])
 
-    #> equalise the input char array
+    # > equalise the input char array
     Pineq = [f.ljust(Pinmx) for f in _fims]
 
-    #---------------------------------------------------------------------------
-    #> SPM reslicing (resampling) flags
+    # --------------------------------------------------------------------------
+    # > SPM reslicing (resampling) flags
     flgs = []
 
     flgs.append('flgs.mask = '+str(mask))
@@ -470,7 +462,7 @@ def resample_mltp_spm(
     flgs.append('flgs.prefix = '+"'"+prefix+"'")
 
     flgs.append('disp(flgs)')
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     fsrpt = os.path.join(opth,'pyauto_script_resampling.m')
     with open(fsrpt, 'w') as f:
@@ -510,9 +502,9 @@ def resample_mltp_spm(
             os.remove(fpth)
 
 
-#===============================================================================
+# ==============================================================================
 # V I N C I  registration and resampling
-#===============================================================================
+# ==============================================================================
 
 
 def coreg_vinci(
@@ -536,8 +528,8 @@ def coreg_vinci(
         raise IOError('e> the Vinci schema *.xml file is not provided. \n \
                 i> please add the schema file in the call: scheme_xml=...')
 
-    #---------------------------------------------------------------------------
-    #> output path
+    # --------------------------------------------------------------------------
+    # > output path
     if outpath=='' and fname_aff!='' and '/' in fname_aff:
         opth = os.path.dirname(fname_aff)
         if opth=='':
@@ -552,38 +544,34 @@ def coreg_vinci(
 
     imio.create_dir(os.path.join(opth, 'affine-vinci'))
 
-    #> output floating and affine file names
+    # > output floating and affine file names
     if fname_aff=='':
         if pickname=='ref':
 
             faff = os.path.join(
                     opth,
                     'affine-vinci',
-                    'affine-ref-' \
-                    +os.path.basename(fref).split('.nii')[0]+fcomment+'.xml')
+                    'affine-ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.xml')
 
             fout = os.path.join(
                     opth,
                     'affine-vinci',
-                    'affine-ref-' \
-                    +os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+                    'affine-ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
 
         else:
             faff = os.path.join(
                     opth,
                     'affine-vinci',
-                    'affine-flo-' \
-                    +os.path.basename(fflo).split('.nii')[0]+fcomment+'.xml')
+                    'affine-flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.xml')
 
             fout = os.path.join(
                     opth,
                     'affine-vinci',
-                    'affine-flo-' \
-                    +os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+                    'affine-flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
 
     else:
 
-        #> add '.xml' extension if not in the affine output file name
+        # > add '.xml' extension if not in the affine output file name
         if not fname_aff.endswith('.xml'):
             fname_aff += '.xml'
 
@@ -595,7 +583,7 @@ def coreg_vinci(
         fout = os.path.join(
                 opth,
                 fname_aff.split('.')[0]+'.nii.gz')
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     if vincipy_path=='':
         try:
@@ -617,9 +605,9 @@ def coreg_vinci(
         raise ImportError('e> could not import Vinci:\n \
                 check the variable VINCIPATH (path to Vinci) in resources.py')
 
-    #> start Vinci core engine if it is not running/given
+    # > start Vinci core engine if it is not running/given
     if vc=='' or con=='':
-        #> adopted from the Vinci's example RunMMMJob.py
+        # > adopted from the Vinci's example RunMMMJob.py
         bin = Vinci_Bin.Vinci_Bin()
         con = Vinci_Connect.Vinci_Connect(bin)
         vinci_binpath = con.StartMyVinci()
@@ -627,12 +615,12 @@ def coreg_vinci(
         vc = Vinci_Core.Vinci_CoreCalc(con)
         vc.StdProject()
 
-    #> read the registration schema file
+    # > read the registration schema file
     f = open(scheme_xml, 'rb')
     reg_scheme = f.read()
     f.close()
 
-    #> check scheme data file and remove possible XML comments at its beginning
+    # > check scheme data file and remove possible XML comments at its beginning
     root = Vinci_XML.ElementTree.fromstring(reg_scheme)
     if root.tag != "MMM":
         sys.exit("scheme data file %s does not contain tag MMM\n"%scheme_xml)
@@ -640,21 +628,21 @@ def coreg_vinci(
     # bytes -> str
     reg_scheme = reg_scheme.decode("utf-8")
 
-    #> pick reference and floating images
+    # > pick reference and floating images
     ref = Vinci_ImageT.newTemporary(vc, szFileName=fref)
     rsl = Vinci_ImageT.newTemporary(vc, szFileName=fflo)
 
-    #> set the colour map for the floating image
+    # > set the colour map for the floating image
     rsl.setColorSettings(CTable = flo_colourmap)
 
-    #---------------------------------------------------------------------------
-    #> perform the registration
+    # --------------------------------------------------------------------------
+    # > perform the registration
     rsl.alignToRef(ref, reg_scheme, szRegistrationSummaryFile=faff)
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
-    #> find the weird folder name created and to be disposed of.
+    # > find the weird folder name created and to be disposed of.
     if cleanup:
-        #> get the folder name (going to rubbish)
+        # > get the folder name (going to rubbish)
         del_dir = os.path.normpath(faff).split(os.sep)[1]
         fflo_dir = os.path.split(fflo)[0]
         del_dir = os.path.join(
@@ -665,25 +653,25 @@ def coreg_vinci(
 
 
 
-    #> save the registered image
+    # > save the registered image
     if save_res:
         rsl.saveYourselfAs(bUseOffsetRotation=True, szFullFileName=fout)
 
-    #> close image buffers for reference and floating
+    # > close image buffers for reference and floating
     if close_buff:
         rsl.killYourself()
         ref.killYourself()
 
     if close_vinci: con.CloseVinci(True)
-    #else:          con.CloseSockets()
+    # TODO: else:          con.CloseSockets()
 
 
     return {'faff':faff, 'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
 
 
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # VINCI RESAMPLE
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 def resample_vinci(
@@ -709,7 +697,7 @@ def resample_vinci(
     using the Vinci transformation output <faff> (an *.xml file).
     Output the NIfTI file path of the resampled/resliced image.
     '''
-    #> output path
+    # > output path
     if outpath=='' and fimout!='' and '/' in fimout:
         opth = os.path.dirname(fimout)
         if opth=='':
@@ -722,23 +710,21 @@ def resample_vinci(
         opth = outpath
     imio.create_dir(opth)
 
-    #> output floating and affine file names
+    # > output floating and affine file names
     if fimout=='':
         if pickname=='ref':
             fout = os.path.join(
                     opth,
-                    'affine-ref-' \
-                    +os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
+                    'affine-ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.nii.gz')
         else:
             fout = os.path.join(
                     opth,
-                    'affine-flo-' \
-                    +os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
+                    'affine-flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.nii.gz')
     else:
         fout = os.path.join(
                 opth,
                 fimout.split('.')[0]+'.nii.gz')
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 
     if vincipy_path=='':
@@ -762,28 +748,28 @@ def resample_vinci(
                 check the variable VINCIPATH (path to Vinci) in resources.py')
 
 
-    #---------------------------------------------------------------------------
-    #> start Vinci core engine if it is not running/given
+    # --------------------------------------------------------------------------
+    # > start Vinci core engine if it is not running/given
     if vc=='' or con=='':
-        #> adopted from the Vinci's example RunMMMJob.py
+        # > adopted from the Vinci's example RunMMMJob.py
         bin = Vinci_Bin.Vinci_Bin()
         con = Vinci_Connect.Vinci_Connect(bin)
         vinci_binpath = con.StartMyVinci()
 
         vc = Vinci_Core.Vinci_CoreCalc(con)
         vc.StdProject()
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     if int(intrp)==0:
         interp_nn = True
     else:
         interp_nn = False
 
-    #---------------------------------------------------------------------------
-    #> change the reference image to be loaded as atlas
+    # --------------------------------------------------------------------------
+    # > change the reference image to be loaded as atlas
     if atlas_resample and atlas_ref_make:
 
-        #> output file name for the extra reference image
+        # > output file name for the extra reference image
         fextref = os.path.join(opth, 'reference-as-atlas.nii.gz')
 
         prc.nii_modify(fref, fimout=fextref, voxel_range=[0., 255.])
@@ -801,10 +787,10 @@ def resample_vinci(
                 vc,
                 szFileName = fref,
                 bLoadAsAtlas = atlas_resample)
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
-    #---------------------------------------------------------------------------
-    #> reapply rigid transformation to new image
+    # --------------------------------------------------------------------------
+    # > reapply rigid transformation to new image
 
 
     flo = Vinci_ImageT.newTemporary(
@@ -821,10 +807,10 @@ def resample_vinci(
             bUseOffsetRotation = True,
             bUseNextNeighbourInterp = interp_nn,
             szFullFileName = fout)
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
 
-    #> close image buffers for reference and floating
+    # > close image buffers for reference and floating
     if close_buff:
         ref.killYourself()
         flo.killYourself()
@@ -835,12 +821,12 @@ def resample_vinci(
     if close_vinci: con.CloseVinci(True)
 
     return fout
-    #return {'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
+    # TODO: return {'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
 
 
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # FSL-FLIRT REGISTRATION (AFFINE/RIGID)
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 def affine_fsl(
@@ -865,8 +851,8 @@ def affine_fsl(
     if not os.path.isfile(executable) or not call([executable, '-version'])==0:
         raise IOError('e> no valid FSL executable provided!')
 
-    #---------------------------------------------------------------------------
-    #> output path
+    # --------------------------------------------------------------------------
+    # > output path
     if outpath=='' and fname_aff!='' and os.path.isfile(fname_aff):
         opth = os.path.dirname(fname_aff)
         if opth=='':
@@ -881,26 +867,24 @@ def affine_fsl(
 
     imio.create_dir(os.path.join(opth, 'affine-fsl'))
 
-    #> output floating and affine file names
+    # > output floating and affine file names
     if fname_aff=='':
 
         if pickname=='ref':
             faff = os.path.join(
                     opth,
                     'affine-fsl',
-                    'affine-ref-' \
-                    +os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
+                    'affine-ref-'+os.path.basename(fref).split('.nii')[0]+fcomment+'.txt')
 
         else:
             faff = os.path.join(
                     opth,
                     'affine-fsl',
-                    'affine-flo-' \
-                    +os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
+                    'affine-flo-'+os.path.basename(fflo).split('.nii')[0]+fcomment+'.txt')
 
     else:
 
-        #> add '.xml' extension if not in the affine output file name
+        # > add '.xml' extension if not in the affine output file name
         if not fname_aff.endswith('.txt'):
             fname_aff += '.txt'
 
@@ -908,9 +892,9 @@ def affine_fsl(
                 opth,
                 'affine-vinci',
                 fname_aff)
-    #---------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
-    #> command with options for FSL-FLIRT registration
+    # > command with options for FSL-FLIRT registration
     cmd = [ executable,
             '-cost', costfun,
             '-dof', str(dof),
@@ -919,11 +903,11 @@ def affine_fsl(
             '-ref', fref,
             '-bins', str(hstbins)]
 
-    #> add verbose mode if requested
+    # > add verbose mode if requested
     if isinstance(verbose, bool): verbose = int(verbose)
     if verbose>0: cmd.extend(['-verbose', str(verbose)])
 
-    #> execute FSL-FLIRT command with the above options
+    # > execute FSL-FLIRT command with the above options
     call(cmd)
 
     # convert to Numpy float
@@ -932,9 +916,9 @@ def affine_fsl(
     return {'affine':aff, 'faff':faff}
 
 
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # FSL RESAMPLING
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 def resample_fsl(
@@ -962,7 +946,7 @@ def resample_fsl(
         F S L  resampling...
         ==================================================================='''))
 
-    #> output path
+    # > output path
     if outpath=='' and fimout!='':
         opth = os.path.dirname(fimout)
         if opth=='':
@@ -975,17 +959,15 @@ def resample_fsl(
 
     imio.create_dir(opth)
 
-    #> the output naming
+    # > the output naming
     if '/' in fimout:
         fout = fimout
     elif fimout!='' and not os.path.isfile(fimout):
         fout = os.path.join(opth, fimout)
     elif pickname=='ref':
-        fout = os.path.join(opth, 'affine_ref-' \
-                + os.path.basename(imref).split('.nii')[0]+fcomment+'.nii.gz')
+        fout = os.path.join(opth, 'affine_ref-'+ os.path.basename(imref).split('.nii')[0]+fcomment+'.nii.gz')
     elif pickname=='flo':
-        fout = os.path.join(opth, 'affine_flo-' \
-                + os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
+        fout = os.path.join(opth, 'affine_flo-'+ os.path.basename(imflo).split('.nii')[0]+fcomment+'.nii.gz')
 
     intrp = int(intrp)
     if isinstance(intrp, int): intrp = str(intrp)
@@ -1120,7 +1102,7 @@ def dice_coeff(im1, im2, val=1):
     if imv1.shape != imv2.shape:
         raise ValueError('Shape Mismatch: Input images must have the same shape.')
 
-    #-compute Dice coefficient
+    # compute Dice coefficient
     intrsctn = np.logical_and(imv1, imv2)
 
     return 2. * intrsctn.sum() / (imv1.sum() + imv2.sum())
@@ -1160,7 +1142,7 @@ def dice_coeff_multiclass(im1, im2, roi2ind):
             imv1 += (imn1==v)
             imv2 += (imn2==v)
 
-        #-compute Dice coefficient
+        # compute Dice coefficient
         intrsctn = np.logical_and(imv1, imv2)
         out[k] = 2. * intrsctn.sum() / (imv1.sum() + imv2.sum())
 
