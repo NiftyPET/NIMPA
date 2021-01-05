@@ -29,11 +29,35 @@ This can be avoided by setting the environment variables ``PATHTOOLS``.
     # optional (Linux syntax) to avoid prompts
     export PATHTOOLS=$HOME/NiftyPET_tools
     # cross-platform install
-    conda create -n niftypet -c conda-forge python=2.7 \
-      ipykernel matplotlib numpy scikit-image ipywidgets
-    git clone https://github.com/NiftyPET/NIMPA.git nimpa
-    conda activate niftypet
-    pip install --no-binary :all: --verbose -e ./nimpa
+    conda install -c conda-forge python=3 \
+      ipykernel numpy scipy scikit-image matplotlib ipywidgets
+    pip install --verbose "git+https://github.com/NiftyPET/NIMPA@dev2#egg=nimpa"
+
+External CMake Projects
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The raw C/CUDA libraries may be included in external projects using ``cmake``.
+Simply build the project and use ``find_package(NiftyPETnimpa)``.
+
+.. code:: sh
+
+    # print installation directory (after `pip install nimpa`)...
+    python -c "from niftypet.nimpa import cmake_prefix; print(cmake_prefix)"
+
+    # ... or build & install directly with cmake
+    mkdir build && cd build
+    cmake ../niftypet && cmake --build . && cmake --install . --prefix /my/install/dir
+
+At this point any external project may include NIMPA as follows
+(Once setting ``-DCMAKE_PREFIX_DIR=<installation prefix from above>``):
+
+.. code:: cmake
+
+    cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
+    project(myproj)
+    find_package(NiftyPETnimpa COMPONENTS improc REQUIRED)
+    add_executable(myexe ...)
+    target_link_libraries(myexe PRIVATE NiftyPET::improc)
 
 Licence
 ~~~~~~~
@@ -45,7 +69,7 @@ Licence
 
   - `Casper O. da Costa-Luis <https://github.com/casperdcl>`__ @ King's College London
 
-Copyright 2018-19
+Copyright 2018-20
 
 .. |Docs| image:: https://readthedocs.org/projects/niftypet/badge/?version=latest
    :target: https://niftypet.readthedocs.io/en/latest/?badge=latest

@@ -1,58 +1,85 @@
 #!/usr/bin/env python
-"""initialise the NIMPA package (part of NiftyPET package)"""
-__author__      = "Pawel Markiewicz"
-__copyright__   = "Copyright 2018 Pawel Markiewicz @ University College London"
-#------------------------------------------------------------------------------
-
-import os
-import sys
-import platform
-
-# if using conda put the resources in the folder with the environment name
-if 'CONDA_DEFAULT_ENV' in os.environ:
-	env = os.environ['CONDA_DEFAULT_ENV']
-	print 'i> conda environment found:', env
-else:
-	env = ''
-# create the path for the resources files according to the OS platform
-if platform.system() in ['Linux', 'Darwin']:
-	path_resources = os.path.join( os.path.join(os.path.expanduser('~'),   '.niftypet'), env )
-elif platform.system() == 'Windows' :
-	path_resources = os.path.join( os.path.join(os.getenv('LOCALAPPDATA'), '.niftypet'), env )
-else:
-	print 'e> unrecognised operating system!'
-	
-sys.path.append(path_resources)
+"""initialise the NiftyPET NIMPA package"""
+__author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
+__copyright__   = "Copyright 2020"
+# version detector. Precedence: installed dist, git, 'UNKNOWN'
 try:
-    import resources
-except ImportError as ie:
-    print '----------------------------'
-    print 'e> Import Error: NiftyPET''s resources file <resources.py> could not be imported.  It should be in ''~/.niftypet/resources.py'' (Linux) or ''//Users//USERNAME//AppData//Local//niftypet//resources.py'' (Windows) but likely it does not exists.'
-    print '----------------------------'
-#===========================
+    from ._dist_ver import __version__
+except ImportError:
+    try:
+        from setuptools_scm import get_version
 
-if resources.CC_ARCH != '' and platform.system() in ['Linux', 'Windows']:
-	from dinf import gpuinfo, dev_info
-	
-from prc import trimim, iyang, pvc_iyang, psf_general, psf_measured
+        __version__ = get_version(root="../..", relative_to=__file__)
+    except (ImportError, LookupError):
+        __version__ = "UNKNOWN"
 
-from prc import realign_mltp_spm, resample_mltp_spm
-from prc import coreg_spm, coreg_vinci, resample_spm, resample_vinci
-from prc import affine_fsl, resample_fsl
-from prc import affine_niftyreg, resample_niftyreg, pet2pet_rigid
-from prc import create_dir, time_stamp, fwhm2sig, getnii, getnii_descr, array2nii, dcm2im
-from prc import orientnii, nii_ugzip, nii_gzip, niisort, dcmsort, dcminfo, dcmanonym
+import logging
+import os
+import platform
+import re
+import sys
+from textwrap import dedent
 
-from prc import dice_coeff, dice_coeff_multiclass
-from prc import imfill, create_mask
-from prc import bias_field_correction
-from prc import pick_t1w
+from pkg_resources import resource_filename
+from tqdm.auto import tqdm
 
-from prc import motion_reg
+from niftypet.ninst import cudasetup as cs
 
-from prc import ct2mu
-from prc import nii_modify
+# if getattr(resources, "CC_ARCH", "") and platform.system() in ['Linux', 'Windows']:
+from niftypet.ninst.dinf import dev_info, gpuinfo
+from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resources
 
-from prc import dcm2nii
+from .img import create_disk, imdiff, imscroll, profile_points
+from .prc import imtrimup  # for backward compatibility
+from .prc import (
+    affine_fsl,
+    affine_niftyreg,
+    array2nii,
+    bias_field_correction,
+    centre_mass_img,
+    coreg_spm,
+    coreg_vinci,
+    create_dir,
+    create_mask,
+    ct2mu,
+    dcm2im,
+    dcm2nii,
+    dcmanonym,
+    dcminfo,
+    dcmsort,
+    dice_coeff,
+    dice_coeff_multiclass,
+    fwhm2sig,
+    getnii,
+    getnii_descr,
+    im_cut,
+    imfill,
+    imsmooth,
+    iyang,
+    motion_reg,
+    nii_gzip,
+    nii_modify,
+    nii_ugzip,
+    niisort,
+    orientnii,
+    pet2pet_rigid,
+    pick_t1w,
+    psf_general,
+    psf_measured,
+    pvc_iyang,
+    realign_mltp_spm,
+    resample_fsl,
+    resample_mltp_spm,
+    resample_niftyreg,
+    resample_spm,
+    resample_vinci,
+    time_stamp,
+)
 
-from img import create_disk, profile_points
+# log = logging.getLogger(__name__)
+# technically bad practice to add handlers
+# https://docs.python.org/3/howto/logging.html#library-config
+# log.addHandler(LogHandler())  # do it anyway for convenience
+
+# for use in `cmake -DCMAKE_PREFIX_PATH=...`
+cmake_prefix = resource_filename(__name__, "cmake")

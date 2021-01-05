@@ -1,8 +1,13 @@
-#ifndef CONVOLUTIONSEPARABLE_H
-#define CONVOLUTIONSEPARABLE_H
+#ifndef _NIMPA_CONV_H_
+#define _NIMPA_CONV_H_
 
-#define KERNEL_RADIUS 8
-#define KERNEL_LENGTH (2*KERNEL_RADIUS + 1)
+// for logging
+#define LOGDEBUG 10
+#define LOGINFO 20
+#define LOGWARNING 30
+
+#define RSZ_PSF_KRNL 8
+#define KERNEL_LENGTH (2*RSZ_PSF_KRNL + 1)
 
 // Column convolution filter
 #define   COLUMNS_BLOCKDIM_X 8
@@ -17,17 +22,13 @@
 #define   ROWS_HALO_STEPS 1
 
 struct Cnst {
-	char DEVID; 	// device (GPU) ID.  allows choosing the device on which to perform calculations 
-	bool VERBOSE;
+	char DEVID; 	// device (GPU) ID.  allows choosing the device on which to perform calculations
+	char LOG;		// logging
 };
-
-#define HANDLE_ERROR(err) (HandleError( err, __FILE__, __LINE__ ))
-void HandleError(cudaError_t err, const char *file, int line);
-
 
 // GPU convolution
 void setConvolutionKernel(float *hKrnl);
 
 void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt);
 
-#endif
+#endif  // _NIMPA_CONV_H_
