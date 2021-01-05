@@ -56,42 +56,49 @@ chck_tls = tls.check_version(Cnt, chcklst=["RESPATH", "REGPATH", "DCM2NIIX"])
 # -------------------------------------------
 # NiftyPET tools:
 # -------------------------------------------
-# DCM2NIIX
-if not chck_tls["DCM2NIIX"]:
-    # reply = tls.query_yesno("q> dcm2niix not found.\n   Install it?")
-    # if reply:
-    log.info(
-        dedent("""\
-        --------------------------------------------------------------
-        Installing dcm2niix ...
-        --------------------------------------------------------------"""))
-    Cnt = tls.install_tool("dcm2niix", Cnt)
-# ---------------------------------------
-
-# -------------------------------------------
-# NiftyReg
-if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
-    reply = True
-    if not gpuarch:
-        try:
-            reply = tls.query_yesno(
-                "q> the latest compatible version of NiftyReg seems to be missing.\n"
-                "   Do you want to install it?")
-        except BaseException:
-            pass
-
-    if reply:
+if "sdist" not in sys.argv or any(i in sys.argv for i in ["build", "bdist", "wheel"]):
+    # DCM2NIIX
+    if not chck_tls["DCM2NIIX"]:
+        # reply = tls.query_yesno("q> dcm2niix not found.\n   Install it?")
+        # if reply:
         log.info(
             dedent("""\
-                --------------------------------------------------------------
-                Installing NiftyReg ...
-                --------------------------------------------------------------"""))
-        Cnt = tls.install_tool("niftyreg", Cnt)
-log.info(
-    dedent("""\
-        --------------------------------------------------------------
-        Installation of NiftyPET-tools is done.
-        --------------------------------------------------------------"""))
+            --------------------------------------------------------------
+            Installing dcm2niix ...
+            --------------------------------------------------------------"""))
+        Cnt = tls.install_tool("dcm2niix", Cnt)
+    # ---------------------------------------
+
+    # -------------------------------------------
+    # NiftyReg
+    if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
+        reply = True
+        if not gpuarch:
+            try:
+                reply = tls.query_yesno(
+                    "q> the latest compatible version of NiftyReg seems to be missing.\n"
+                    "   Do you want to install it?")
+            except BaseException:
+                pass
+
+        if reply:
+            log.info(
+                dedent("""\
+                    --------------------------------------------------------------
+                    Installing NiftyReg ...
+                    --------------------------------------------------------------"""))
+            Cnt = tls.install_tool("niftyreg", Cnt)
+    log.info(
+        dedent("""\
+            --------------------------------------------------------------
+            Installation of NiftyPET-tools is done.
+            --------------------------------------------------------------"""))
+else:
+    log.info(
+        dedent("""\
+            --------------------------------------------------------------
+            Skipping installation of NiftyPET-tools.
+            --------------------------------------------------------------"""))
 
 build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
 setup_kwargs = {
