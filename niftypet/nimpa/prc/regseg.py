@@ -12,14 +12,11 @@ from textwrap import dedent
 
 import numpy as np
 import scipy.ndimage as ndi
-from spm12.regseg import coreg_spm  # SPM registration
-from spm12.regseg import resample_spm
+from spm12.regseg import coreg_spm, resample_spm
 
 from .. import resources as rs
 from . import imio, prc
 
-__author__    = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
-__copyright__ = "Copyright 2020"
 log = logging.getLogger(__name__)
 
 

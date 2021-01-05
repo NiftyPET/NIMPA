@@ -16,8 +16,6 @@ import pydicom as dcm
 # > NiftyPET resources
 from .. import resources as rs
 
-__author__      = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
-__copyright__   = "Copyright 2020"
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files

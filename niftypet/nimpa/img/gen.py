@@ -19,8 +19,6 @@ except ImportError as err:
 
 from ..prc import imio
 
-__author__    = "Pawel Markiewicz"
-__copyright__ = "Copyright 2020"
 log = logging.getLogger(__name__)
 
 
