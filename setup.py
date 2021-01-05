@@ -4,8 +4,6 @@ Compile CUDA source code and setup Python 3 package 'nimpa'
 for namespace 'niftypet'.
 """
 import logging
-import os
-import platform
 import re
 import sys
 from pathlib import Path
@@ -60,7 +58,7 @@ chck_tls = tls.check_version(Cnt, chcklst=["RESPATH", "REGPATH", "DCM2NIIX"])
 # -------------------------------------------
 # DCM2NIIX
 if not chck_tls["DCM2NIIX"]:
-    # reply = tls.query_yesno('q> the latest compatible version of dcm2niix seems to be missing.\n   Do you want to install it?')
+    # reply = tls.query_yesno("q> dcm2niix not found.\n   Install it?")
     # if reply:
     log.info(
         dedent("""\
@@ -79,7 +77,7 @@ if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
             reply = tls.query_yesno(
                 "q> the latest compatible version of NiftyReg seems to be missing.\n"
                 "   Do you want to install it?")
-        except:
+        except BaseException:
             pass
 
     if reply:
@@ -97,9 +95,8 @@ log.info(
 
 build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
 setup_kwargs = {
-    "use_scm_version": True,
-    "packages": find_packages(exclude=["tests"]),
-    "package_data": {"niftypet": ["nimpa/auxdata/*"]},}
+    "use_scm_version": True, "packages": find_packages(exclude=["tests"]),
+    "package_data": {"niftypet": ["nimpa/auxdata/*"]}}
 
 try:
     nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo()}
@@ -114,6 +111,5 @@ else:
     sksetup(
         cmake_source_dir="niftypet", cmake_languages=("C", "CXX", "CUDA"),
         cmake_minimum_required_version="3.18", cmake_args=[
-            f"-DNIMPA_BUILD_VERSION={build_ver}",
-            f"-DPython3_ROOT_DIR={sys.prefix}",
-            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)),], **setup_kwargs)
+            f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",
+            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches))], **setup_kwargs)

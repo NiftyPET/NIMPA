@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import shutil
-import sys
 from subprocess import run
 from textwrap import dedent
 
@@ -87,10 +86,10 @@ def getnii(fim, nan_replace=None, output='image'):
         dims = dim[1:nim.header.get('dim')[0] + 1]
         dims = dims[np.array(trnsp)]
 
-        # > flip y-axis and z-axis and then transpose.  Depends if dynamic (4 dimensions) or static (3 dimensions)
-        if dimno == 4:
+        # > flip y-axis and z-axis and then transpose
+        if dimno == 4:   # dynamic
             imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2], :], (3,) + trnsp)
-        elif dimno == 3:
+        elif dimno == 3: # static
             imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2]], trnsp)
 
     if output == 'affine' or output == 'all':
@@ -129,7 +128,7 @@ def getnii_descr(fim):
     return rcndic
 
 
-def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
+def array2nii(im, A, fnii, descrip='', trnsp=None, flip=None, storage_as=None):
     '''
     Store the numpy array 'im' to a NIfTI file 'fnii'.
     Arguments:
@@ -145,6 +144,13 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
                     NifTI dictionary, obtained using
                     nimpa.getnii(filepath, output='all').
     '''
+
+    if trnsp is None:
+        trnsp = ()
+    if flip is None:
+        flip = ()
+    if storage_as is None:
+        storage_as = []
 
     if not len(trnsp) in [0, 3, 4] and not len(flip) in [0, 3]:
         raise ValueError('e> number of flip and/or transpose elements is incorrect.')
@@ -163,7 +169,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
 
         flip = storage_as['flip']
 
-    if trnsp == ():
+    if not trnsp:
         im = im.transpose()
     # > check if the image is 4D (dynamic) and modify as needed
     elif len(trnsp) == 3 and im.ndim == 4:
@@ -173,7 +179,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=(), flip=(), storage_as=[]):
         im = im.transpose(trnsp)
 
     # > perform flip of x,y,z axes after transposition into proper NIfTI order
-    if flip != () and len(flip) == 3:
+    if flip and len(flip) == 3:
         im = im[::-flip[0], ::-flip[1], ::-flip[2], ...]
     # --------------------------------------------------------------------------
 
@@ -198,7 +204,6 @@ def orientnii(imfile, Cnt=None):
     niixyz = np.zeros(3, dtype=np.int8)
     if os.path.isfile(imfile):
         nim = nib.load(imfile)
-        pct = np.asanyarray(nim.dataobj)
         A = nim.get_sform()
         for i in range(3):
             niixyz[i] = np.argmax(abs(A[i, :-1]))
@@ -449,7 +454,7 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
 
     # > check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
-        if not all([os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth]):
+        if not all(os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth):
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
         logger('recognised the input argument as the list of DICOM file paths.')
@@ -604,10 +609,10 @@ def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
             recognised_series = False
             srs_k = list(srs.keys())
             for s in srs_k:
-                if  np.array_equal(srs[s]['imorient'],  ornt) and \
-                    np.array_equal(srs[s]['imsize'],    imsz) and \
-                    np.array_equal(srs[s]['voxsize'],   vxsz) and \
-                    srs[s]['tseries'] == srs_time:
+                if (np.array_equal(srs[s]['imorient'], ornt)
+                        and np.array_equal(srs[s]['imsize'], imsz)
+                        and np.array_equal(srs[s]['voxsize'], vxsz)
+                        and srs[s]['tseries'] == srs_time):
                     recognised_series = True
                     break
             # if series was not found, create one
@@ -651,7 +656,7 @@ def niisort(fims, memlim=True):
             _match = re.search(r'(?<=_frm)\d*', f)
             if _match:
                 frm = int(_match.group(0))
-                freelists = [frm not in l for l in sortlist]
+                freelists = [frm not in i for i in sortlist]
                 listidx = [i for i, f in enumerate(freelists) if f]
                 if listidx:
                     sortlist[listidx[0]].append(frm)

@@ -4,19 +4,17 @@ Generates images.
 """
 import logging
 import math
-import os
-import sys
 
 import numpy as np
 import scipy.ndimage as ndi
 
 try:
     from miutil.plot import imscroll
-except ImportError as err:
+except ImportError as err: # NOQA: F841
 
     def imscroll(*_, **__):
         """delay matplotlib import error for later"""
-        raise err
+        raise err  # NOQA: F821
 
 
 from ..prc import imio
@@ -80,9 +78,10 @@ def profile_points(im, p0, p1, steps=100):
 
 # ----------------------------------------------------------------------------------------------------------------------------
 def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
-    ''' Compare the new image (imnew) to the reference image and return and plot (optional) the difference.
-    '''
-
+    """
+    Compare the new image (imnew) to the reference image (imref),
+    returning (and optionallt plotting) the difference.
+    """
     if isinstance(imref, str):
         imref = imio.getnii(imref)
         log.info('using NIfTI files as image input for the reference')
@@ -198,8 +197,8 @@ def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
             plt.show()
 
     if Nim > 1:
-        out = dict(mape=mape, mae=mae, mad=mad)
+        out = {'mape': mape, 'mae': mae, 'mad': mad}
     else:
-        out = dict(mape=mape[0], mae=mae[0], mad=mad[0])
+        out = {'mape': mape[0], 'mae': mae[0], 'mad': mad[0]}
 
     return out

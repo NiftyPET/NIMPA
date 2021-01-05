@@ -12,7 +12,8 @@ from textwrap import dedent
 
 import numpy as np
 import scipy.ndimage as ndi
-from spm12.regseg import coreg_spm, resample_spm
+from miutil.fdio import hasext
+from spm12.regseg import coreg_spm
 
 from .. import resources as rs
 from . import imio, prc
@@ -194,7 +195,7 @@ def affine_niftyreg(
     # > affine to Numpy array
     aff = np.loadtxt(faff)
 
-    return {'affine': aff, 'faff': faff, 'fim': fout} #faff, fout
+    return {'affine': aff, 'faff': faff, 'fim': fout} # faff, fout
 
 
 def resample_niftyreg(
@@ -244,18 +245,7 @@ def resample_niftyreg(
     if isinstance(intrp, int):
         intrp = str(intrp)
 
-    cmd = [
-        executable,
-        '-ref',
-        fref,
-        '-flo',
-        fflo,
-        '-trans',
-        faff,
-        '-res',
-        fout,
-        '-inter',
-        intrp,]
+    cmd = [executable, '-ref', fref, '-flo', fflo, '-trans', faff, '-res', fout, '-inter', intrp]
     if not verbose:
         cmd.append('-voff')
     call(cmd)
@@ -296,7 +286,7 @@ def realign_mltp_spm(
         outpath = os.path.join(outpath, 'align')
 
     if fims[0][-3:] == '.gz' or niicopy:
-        tmpth = outpath #os.path.join(outpath, 'tmp')
+        tmpth = outpath # os.path.join(outpath, 'tmp')
         rpth = tmpth
     else:
         tmpth = outpath
@@ -330,7 +320,7 @@ def realign_mltp_spm(
     P_input = [f + ',1' for f in fsrt if f.endswith('nii') and f[0] != 'r' and 'mean' not in f]
 
     # > maximal number of characters per line (for Matlab array)
-    Pinmx = max([len(f) for f in P_input])
+    Pinmx = max(map(len, P_input))
 
     # > equalise the input char array
     Pineq = [f.ljust(Pinmx) for f in P_input]
@@ -447,7 +437,7 @@ def resample_mltp_spm(
         _fims = niisrt['files']
 
     # > maximal number of characters per line (for Matlab array)
-    Pinmx = max([len(f) for f in _fims])
+    Pinmx = max(map(len, _fims))
 
     # > equalise the input char array
     Pineq = [f.ljust(Pinmx) for f in _fims]
@@ -486,7 +476,8 @@ def resample_mltp_spm(
         f.write('];\n\n')
         f.write('disp(P{1,1});\n')
 
-        # f.write('\n%> the following PET images will be aligned using the translations and rotations in X:\n')
+        # f.write('\n%> the following PET images will be aligned using'
+        #         ' the translations and rotations in X:\n')
         # f.write("X = dlmread('"+ftr+"');\n")
         # f.write('for fi = 2:'+str(len(fims))+'\n')
         # f.write("    VF = strcat(P{1,1}(fi,:),',1');\n")
@@ -599,7 +590,7 @@ def coreg_vinci(
         # > adopted from the Vinci's example RunMMMJob.py
         bin = Vinci_Bin.Vinci_Bin()
         con = Vinci_Connect.Vinci_Connect(bin)
-        vinci_binpath = con.StartMyVinci()
+        con.StartMyVinci()
 
         vc = Vinci_Core.Vinci_CoreCalc(con)
         vc.StdProject()
@@ -633,7 +624,6 @@ def coreg_vinci(
     if cleanup:
         # > get the folder name (going to rubbish)
         del_dir = os.path.normpath(faff).split(os.sep)[1]
-        fflo_dir = os.path.split(fflo)[0]
         del_dir = os.path.join(os.path.split(fflo)[0], os.path.normpath(faff).split(os.sep)[1])
         if os.path.isdir(del_dir):
             shutil.rmtree(del_dir)
@@ -717,7 +707,7 @@ def resample_vinci(
     sys.path.append(vincipy_path)
 
     try:
-        from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT, Vinci_XML
+        from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT
     except ImportError:
         raise ImportError('e> could not import Vinci:\n \
                 check the variable VINCIPATH (path to Vinci) in resources.py')
@@ -728,7 +718,7 @@ def resample_vinci(
         # > adopted from the Vinci's example RunMMMJob.py
         bin = Vinci_Bin.Vinci_Bin()
         con = Vinci_Connect.Vinci_Connect(bin)
-        vinci_binpath = con.StartMyVinci()
+        con.StartMyVinci()
 
         vc = Vinci_Core.Vinci_CoreCalc(con)
         vc.StdProject()
@@ -959,7 +949,7 @@ def motion_reg(
 ):
     if isinstance(flo, str):
         flolst = [flo]
-    elif isinstance(flo, list) and all([os.path.isfile(f) for f in flo]):
+    elif isinstance(flo, list) and all(os.path.isfile(f) for f in flo):
         flolst = flo
     else:
         raise OSError('could not decode the input of floating images.')
@@ -987,10 +977,7 @@ def motion_reg(
                 {}''').format(trn_thresh, M['translations']))
             motion_trn = True
 
-        lstout.append({
-            'regout': M,
-            'trans_mo': motion_trn,
-            'rotat_mo': motion_rot,})
+        lstout.append({'regout': M, 'trans_mo': motion_trn, 'rotat_mo': motion_rot})
 
     return lstout
 
@@ -1012,9 +999,9 @@ def dice_coeff(im1, im2, val=1):
         2. a list of integers to form a composite ROI used for the association test.
     Outputs a float number representing the Dice score.
     '''
-    if isinstance(im1, str) and isinstance(im2, str) \
-    and os.path.isfile(im1) and os.path.basename(im1).endswith(('nii', 'nii.gz')) \
-    and os.path.isfile(im2) and os.path.basename(im2).endswith(('nii', 'nii.gz')):
+    if all(
+            isinstance(i, str) and os.path.isfile(i) and hasext(i, ('nii', 'nii.gz'))
+            for i in [im1, im2]):
         imn1 = imio.getnii(im1, output='image')
         imn2 = imio.getnii(im2, output='image')
     elif isinstance(im1, (np.ndarray, np.generic)) and isinstance(im1, (np.ndarray, np.generic)):
@@ -1028,7 +1015,7 @@ def dice_coeff(im1, im2, val=1):
         imv1 = (imn1 == val)
         imv2 = (imn2 == val)
     # multiple values in list corresponding to a composite ROI
-    elif isinstance(val, list) and all([isinstance(v, int) for v in val]):
+    elif isinstance(val, list) and all(isinstance(v, int) for v in val):
         imv1 = (imn1 == val[0])
         imv2 = (imn2 == val[0])
         for v in val[1:]:
@@ -1056,9 +1043,9 @@ def dice_coeff_multiclass(im1, im2, roi2ind):
     The ROI value must be given as a dictionary of lists of indexes for each ROI
     Outputs a float number representing the Dice score.
     '''
-    if isinstance(im1, str) and isinstance(im2, str) \
-    and os.path.isfile(im1) and os.path.basename(im1).endswith(('nii', 'nii.gz')) \
-    and os.path.isfile(im2) and os.path.basename(im2).endswith(('nii', 'nii.gz')):
+    if all(
+            isinstance(i, str) and os.path.isfile(i) and hasext(i, ('nii', 'nii.gz'))
+            for i in [im1, im2]):
         imn1 = imio.getnii(im1, output='image')
         imn2 = imio.getnii(im2, output='image')
     elif isinstance(im1, (np.ndarray, np.generic)) and isinstance(im1, (np.ndarray, np.generic)):
