@@ -5,6 +5,7 @@ __pycache__/
 MANIFEST
 *.so
 /niftypet/nimpa/cmake/
+/niftypet/nimpa/_dist_ver.py
 /build/
 /dist/
 /_skbuild/

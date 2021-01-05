@@ -12,6 +12,7 @@ from pathlib import Path
 from textwrap import dedent
 
 from setuptools import find_packages, setup
+from setuptools_scm import get_version
 
 from niftypet.ninst import cudasetup as cs
 from niftypet.ninst import dinf
@@ -20,6 +21,7 @@ from niftypet.ninst import install_tools as tls
 __author__ = ("Pawel J. Markiewicz", "Casper O. da Costa-Luis")
 __copyright__ = "Copyright 2020"
 __licence__ = __license__ = "Apache 2.0"
+__version__ = get_version(root=".", relative_to=__file__)
 
 logging.basicConfig(level=logging.INFO, format=tls.LOG_FORMAT)
 log = logging.getLogger("nimpa.setup")
@@ -112,8 +114,9 @@ log.info(
     )
 )
 
+build_ver = ".".join(__version__.split('.')[:3])
 setup_kwargs = {
-    "version": "2.0.0",
+    "use_scm_version": True,
     "packages": find_packages(exclude=["tests"]),
     "package_data": {"niftypet": ["nimpa/auxdata/*"]},
 }
@@ -133,7 +136,7 @@ else:
         cmake_languages=("C", "CXX", "CUDA"),
         cmake_minimum_required_version="3.18",
         cmake_args=[
-            f"-DNIMPA_BUILD_VERSION={setup_kwargs['version']}",
+            f"-DNIMPA_BUILD_VERSION={build_ver}",
             f"-DPython3_ROOT_DIR={sys.prefix}",
             "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)),
         ],
