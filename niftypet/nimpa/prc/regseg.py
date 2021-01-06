@@ -13,6 +13,7 @@ from textwrap import dedent
 import numpy as np
 import scipy.ndimage as ndi
 from miutil.fdio import hasext
+from spm12.regseg import resample_spm  # NOQA: F401 yapf: disable
 from spm12.regseg import coreg_spm
 
 from .. import resources as rs
