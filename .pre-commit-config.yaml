@@ -25,6 +25,12 @@ repos:
     types: [text]
     exclude: ^(.pre-commit-config.yaml|.github/workflows/test.yml)$
     args: [-i]
+- repo: https://github.com/doublify/pre-commit-clang-format
+  rev: master
+  hooks:
+  - id: clang-format
+    files: \.(cc?|cuh?|cxx|cpp|h|hpp|hxx|java|js)$
+    args: ['-fallback-style=none', '-style={BasedOnStyle: LLVM, ColumnLimit: 99}']
 - repo: https://gitlab.com/pycqa/flake8
   rev: 3.8.4
   hooks:

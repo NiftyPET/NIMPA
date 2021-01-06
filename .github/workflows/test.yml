@@ -20,7 +20,10 @@ jobs:
       with:
         path: ~/.cache/pre-commit
         key: pre-commit|${{ env.PYSHA }}|${{ hashFiles('.pre-commit-config.yaml') }}
-    - run: pip install -U pre-commit twine setuptools wheel setuptools_scm[toml] ninst scikit-build
+    - name: dependencies
+      run: |
+        pip install -U pre-commit twine setuptools wheel setuptools_scm[toml] ninst scikit-build
+        sudo apt-get install -yqq clang-format
     - run: PATHTOOLS=$HOME/NiftyPET_tools python setup.py sdist
     - run: twine check dist/*
     - uses: reviewdog/action-setup@v1
