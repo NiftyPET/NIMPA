@@ -282,10 +282,6 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         imscl = imin
         imsum = np.sum(imin, axis=0)
 
-    # > smooth the sum image for improving trimming (if any)
-    # TODO: imsum = ndi.filters.gaussian_filter(
-    #   imsum, imio.fwhm2sig(4.0, voxsize=abs(affine[0,0])), mode='mirror')
-
     # import pdb; pdb.set_trace()
     # ------------------------------------------------------
 
@@ -1278,7 +1274,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
 # OUTDATED
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-
+"""
 def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
     '''
     Extracting ROI values of upsampled PET.  If not provided it will be upsampled.
@@ -1357,7 +1353,6 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
             os.path.basename(datain['T1lbl']).split('.')[0] + '_toPET_' + k + '.nii.gz')
         if not use_stored and os.path.isfile(Cnt['RESPATH']):
             cmd = [Cnt['RESPATH'], '-ref', fpet, '-flo', froi1, '-trans', faff, '-res', froi2]
-            # TODO: '-pad', '0'
             if not Cnt['VERBOSE']: cmd.append('-voff')
             run(cmd) # get the resampled ROI mask image
 
@@ -1375,7 +1370,7 @@ def roi_extraction(imdic, amyroi, datain, Cnt, use_stored=False):
             froi3 = os.path.join(
                 prcl_dir,
                 os.path.basename(datain['T1lbl']).split('.')[0] + '_toPET_' + k + '_eroded.nii.gz')
-            savenii(rmsk, froi3, B, Cnt) # TODO
+            savenii(rmsk, froi3, B, Cnt)
 
         # ROI value and mask sums:
         rvsum = np.sum(im * rmsk)
@@ -1463,3 +1458,4 @@ def roi_extraction_spm(imdic, amyroi, datain, Cnt, dirout, r_prefix='r_', use_st
                 k, rvsum, rmsum))
 
     return roisum, roimsk
+"""

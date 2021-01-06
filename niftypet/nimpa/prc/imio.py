@@ -186,7 +186,7 @@ def array2nii(im, A, fnii, descrip='', trnsp=None, flip=None, storage_as=None):
     nii = nib.Nifti1Image(im, A)
     hdr = nii.header
     hdr.set_sform(None, code='scanner')
-    hdr['cal_max'] = np.max(im) # TODO: np.percentile(im, 90) #
+    hdr['cal_max'] = np.max(im)
     hdr['cal_min'] = np.min(im)
     hdr['descrip'] = descrip
     nib.save(nii, fnii)
@@ -876,7 +876,6 @@ def dcm2im(fpth):
         R = R[0, :]
 
     # Patient Position
-    # TODO: patpos = dhdr[0x18,0x5100].value
     # Rows and Columns
     if [0x28, 0x10] in dhdr and [0x28, 0x11] in dhdr:
         SZ2 = dhdr[0x28, 0x10].value

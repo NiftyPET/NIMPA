@@ -638,7 +638,6 @@ def coreg_vinci(
         ref.killYourself()
 
     if close_vinci: con.CloseVinci(True)
-    # TODO: else:          con.CloseSockets()
 
     return {'faff': faff, 'fim': fout, 'vinci_con': con, 'vinci_vc': vc}
 
@@ -767,8 +766,6 @@ def resample_vinci(
     if close_vinci: con.CloseVinci(True)
 
     return fout
-    # TODO: return {'fim':fout, 'vinci_con':con, 'vinci_vc':vc}
-
 
 # ------------------------------------------------------------------------------
 # FSL-FLIRT REGISTRATION (AFFINE/RIGID)
