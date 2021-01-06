@@ -767,10 +767,6 @@ def resample_vinci(
 
     return fout
 
-# ------------------------------------------------------------------------------
-# FSL-FLIRT REGISTRATION (AFFINE/RIGID)
-# ------------------------------------------------------------------------------
-
 
 def affine_fsl(
     fref,
@@ -785,6 +781,9 @@ def affine_fsl(
     hstbins=256,
     verbose=True,
 ):
+    """
+    FSL-FLIRT REGISTRATION (AFFINE/RIGID)
+    """
     if executable == '':
         if 'FSLDIR' not in os.environ:
             raise IOError('e> no FSL executable provided!')
