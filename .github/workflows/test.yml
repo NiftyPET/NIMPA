@@ -47,14 +47,14 @@ jobs:
       with:
         fetch-depth: 0
     - name: Run setup-python
-      run: setup-python -p3.7 -m ${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}
+      run: setup-python -p3.7
     - run: pip install -U -e .[dev]
     - run: pytest
     - run: codecov
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     - name: Post Run setup-python
-      run: setup-python -p3.7 -m ${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER} -r
+      run: setup-python -p3.7 -Dr
       if: ${{ always() }}
   deploy:
     needs: [check, test]
@@ -88,7 +88,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        release_name: nimpa ${{ github.ref }} beta
+        release_name: nimpa ${{ github.ref }} stable
         body_path: _CHANGES.md
         draft: true
     - if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
