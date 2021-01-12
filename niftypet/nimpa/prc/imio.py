@@ -272,15 +272,13 @@ def pick_t1w(mri):
     return ft1w
 
 
-def dcminfo(dcmvar, verbose=True, Cnt=None):
+def dcminfo(dcmvar, Cnt=None):
     '''Get basic info about the DICOM file/header.'''
-    logger = log.info if verbose else log.debug
-
     if Cnt is None:
         Cnt = {}
 
     if isinstance(dcmvar, str):
-        logger('provided DICOM file: {}'.format(dcmvar))
+        log.debug('provided DICOM file: {}'.format(dcmvar))
         dhdr = dcm.dcmread(dcmvar)
     elif isinstance(dcmvar, dict):
         dhdr = dcmvar
@@ -288,7 +286,7 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
         dhdr = dcmvar
 
     dtype = dhdr[0x08, 0x08].value
-    logger('   Image Type: {}'.format(dtype))
+    log.debug('   Image Type: {}'.format(dtype))
 
     # ------------------------------------------
     # > scanner ID
@@ -310,23 +308,23 @@ def dcminfo(dcmvar, verbose=True, Cnt=None):
     csatype = ''
     if [0x29, 0x1108] in dhdr:
         csatype = dhdr[0x29, 0x1108].value
-        logger('   CSA Data Type: {}'.format(csatype))
+        log.debug('   CSA Data Type: {}'.format(csatype))
 
     # > DICOM comment or on MR parameters
     cmmnt = ''
     if [0x20, 0x4000] in dhdr:
         cmmnt = dhdr[0x0020, 0x4000].value
-        logger('   Comments: {}'.format(cmmnt))
+        log.debug('   Comments: {}'.format(cmmnt))
 
     # > MR parameters (echo time, etc)
     TR = 0
     TE = 0
     if [0x18, 0x80] in dhdr:
         TR = float(dhdr[0x18, 0x80].value)
-        logger('   TR: {}'.format(TR))
+        log.debug('   TR: {}'.format(TR))
     if [0x18, 0x81] in dhdr:
         TE = float(dhdr[0x18, 0x81].value)
-        logger('   TE: {}'.format(TE))
+        log.debug('   TE: {}'.format(TE))
 
     # > check if it is norm file
     if any('PET_NORM' in s
@@ -420,7 +418,7 @@ def list_dcm_datain(datain):
 
 
 def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonymised',
-              dob='19800101', verbose=True, Cnt=None):
+              dob='19800101', Cnt=None):
     '''
     Anonymise DICOM file(s)
     Arguments:
@@ -429,11 +427,8 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         > patient:  the name of the patient.
         > physician:the name of the referring physician.
         > dob:      patient's date of birth.
-        > verbose:  display processing output.
         > Cnt:      dictionary of constants (containing logging variable)
     '''
-    logger = log.info if verbose else log.debug
-
     # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
@@ -441,7 +436,7 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
     # > check if a single DICOM file
     if isinstance(dcmpth, str) and os.path.isfile(dcmpth):
         dcmlst = [dcmpth]
-        logger('recognised the input argument as a single DICOM file.')
+        log.debug('recognised the input argument as a single DICOM file.')
 
     # > check if a folder containing DICOM files
     elif isinstance(dcmpth, str) and os.path.isdir(dcmpth):
@@ -450,19 +445,19 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         dcmlst = [
             os.path.join(dcmpth, d) for d in dircontent
             if os.path.isfile(os.path.join(dcmpth, d)) and d.endswith(dcmext)]
-        logger('recognised the input argument as the folder containing DICOM files.')
+        log.debug('recognised the input argument as the folder containing DICOM files.')
 
     # > check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
         if not all(os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth):
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
-        logger('recognised the input argument as the list of DICOM file paths.')
+        log.debug('recognised the input argument as the list of DICOM file paths.')
 
     # > check if dictionary of data input <datain>
     elif isinstance(dcmpth, dict) and 'corepath' in dcmpth:
         dcmlst = list_dcm_datain(dcmpth)
-        logger('recognised the input argument as the dictionary of scanner data.')
+        log.debug('recognised the input argument as the dictionary of scanner data.')
 
     else:
         raise IOError('Unrecognised input!')
@@ -472,8 +467,8 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         dhdr = dcm.dcmread(dcmf)
 
         # > get the basic info about the DICOM file
-        dcmtype = dcminfo(dhdr, verbose=False)
-        logger(
+        dcmtype = dcminfo(dhdr)
+        log.debug(
             dedent('''\
             --------------------------------------------------
             DICOM file is for: {}
@@ -497,7 +492,7 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
 
             idx = [m.start() for m in re.finditer(r'([Pp]atients{0,1}[Nn]ame)', csa)]
             if idx:
-                logger(
+                log.debug(
                     'DICOM> found sensitive information deep in the headers: {}'.format(dcmtype))
 
             # > run the anonymisation
@@ -507,7 +502,7 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
                 ci = i - iupdate
 
                 if displayonly:
-                    logger(
+                    log.debug(
                         dedent('''\
                         DICOM> sensitive info:
                              {}''').format(csa[ci:ci + strlen]))
@@ -517,7 +512,7 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
                                  '{ ""' + patient + '"" }', csa[ci:ci + strlen])
                 # > update string
                 csa = csa[:ci] + rplcmnt + csa[ci + strlen:]
-                logger('DICOM> removed sensitive information.')
+                log.debug('DICOM> removed sensitive information.')
                 # > correct for the number of removed letters
                 iupdate = strlen - len(rplcmnt)
 
@@ -528,40 +523,40 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         # > Patient's name
         if [0x010, 0x010] in dhdr:
             if displayonly:
-                logger(
+                log.debug(
                     dedent('''\
                     DICOM> sensitive info: {}
                          > {}''').format(dhdr[0x010, 0x010].name, dhdr[0x010, 0x010].value))
             else:
                 dhdr[0x010, 0x010].value = patient
-                logger('DICOM> anonymised patients name')
+                log.debug('DICOM> anonymised patients name')
 
         # > date of birth
         if [0x010, 0x030] in dhdr:
             if displayonly:
-                logger(
+                log.debug(
                     dedent('''\
                 DICOM> sensitive info: {}
                      > {}''').format(dhdr[0x010, 0x030].name, dhdr[0x010, 0x030].value))
             else:
                 dhdr[0x010, 0x030].value = dob
-                logger('   > anonymised date of birth')
+                log.debug('   > anonymised date of birth')
 
         # > physician's name
         if [0x008, 0x090] in dhdr:
             if displayonly:
-                logger(
+                log.debug(
                     dedent('''\
                 DICOM> sensitive info: {}
                      > {}''').format(dhdr[0x008, 0x090].name, dhdr[0x008, 0x090].value))
             else:
                 dhdr[0x008, 0x090].value = physician
-                logger('   > anonymised physician name')
+                log.debug('   > anonymised physician name')
 
         dhdr.save_as(dcmf)
 
 
-def dcmsort(folder, copy_series=False, verbose=False, Cnt=None):
+def dcmsort(folder, copy_series=False, Cnt=None):
     '''Sort out the DICOM files in the folder according to the recorded series.'''
     # > check if the dictionary of constant is given
     if Cnt is None:
