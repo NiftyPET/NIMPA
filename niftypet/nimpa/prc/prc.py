@@ -591,7 +591,6 @@ def pvc_iyang(
                 * dcm2niix: Cnt['DCM2NIIX']
                 * niftyreg, resample: Cnt['RESPATH']
                 * niftyreg, rigid-reg: Cnt['REGPATH']
-                * verbose mode on/off: Cnt['VERBOSE'] = True/False
         pvcroi: list of regions (also a list) with number label to distinguish
                 the parcellations.  The numbers correspond to the image values
                 of the parcellated T1w image.  E.g.:
@@ -699,8 +698,7 @@ def pvc_iyang(
                 rfwhm=15.,                                           # millilitres
                 rthrsh=0.05,
                 ffwhm=15.,                                           # millilitres
-                fthrsh=0.05,
-                verbose=Cnt['VERBOSE'])
+                fthrsh=0.05)
         faff = regdct['faff']
 
     # resample the T1/labels to upsampled PET
@@ -715,7 +713,8 @@ def pvc_iyang(
                 cmd = [
                     Cnt['RESPATH'], '-ref', fpet, '-flo', fprc, '-trans', faff, '-res', fprcu,
                     '-inter', '0']
-                if not Cnt['VERBOSE']: cmd.append('-voff')
+                if log.getEffectiveLevel() >= logging.INFO:
+                    cmd.append('-voff')
                 run(cmd)
             else:
                 raise IOError('e> path to resampling executable is incorrect!')
@@ -1173,7 +1172,7 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05
         if rmsk:
             cmd.append('-rmask')
             cmd.append(fmsk)
-        if not Cnt['VERBOSE']:
+        if log.getEffectiveLevel() >= logging.INFO:
             cmd.append('-voff')
         log.info('Executing command:\n{}'.format(cmd))
         run(cmd)
