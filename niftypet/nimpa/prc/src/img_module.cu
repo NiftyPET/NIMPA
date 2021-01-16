@@ -198,11 +198,14 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   }
 
   if (LOG <= LOGDEBUG) printf("d> using device: %d\n", DEVID);
-  HANDLE_ERROR(cudaSetDevice(DEVID));
+  if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
 
   //=================================================================
-  setConvolutionKernel(krnl);
+  setConvolutionKernel(krnl, false);
+  if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
+
   gpu_cnv(imo, imi, Nvk, Nvj, Nvi, MEMSET, SYNC);
+  if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
   //=================================================================
 
   Py_INCREF(Py_None);
