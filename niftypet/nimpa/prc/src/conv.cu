@@ -136,8 +136,7 @@ void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) 
 
   int dev_id;
   cudaGetDevice(&dev_id);
-  if (Cnt.LOG <= LOGINFO)
-    printf("ic> using CUDA device #%d\n", dev_id);
+  if (Cnt.LOG <= LOGINFO) printf("ic> using CUDA device #%d\n", dev_id);
 
   assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= RSZ_PSF_KRNL);
   assert(Nvk % (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X) == 0);
@@ -222,6 +221,5 @@ void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) 
   cudaEventElapsedTime(&elapsedTime, start, stop);
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
-  if (Cnt.LOG <= LOGINFO)
-    printf("i> elapsed time of convolution: %f\n", 0.001 * elapsedTime);
+  if (Cnt.LOG <= LOGINFO) printf("i> elapsed time of convolution: %f\n", 0.001 * elapsedTime);
 }

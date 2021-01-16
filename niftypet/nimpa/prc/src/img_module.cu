@@ -66,8 +66,7 @@ static PyObject *img_resample(PyObject *self, PyObject *args) {
   PyObject *o_imo;
 
   /* Parse the input tuple */
-  if (!PyArg_ParseTuple(args, "OOO", &o_imo, &o_A, &o_Cim))
-    return NULL;
+  if (!PyArg_ParseTuple(args, "OOO", &o_imo, &o_A, &o_Cim)) return NULL;
 
   // the dictionary of constants
   PyObject *pd_vxsox = PyDict_GetItemString(o_Cim, "VXSOx");
@@ -171,8 +170,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args) {
   PyObject *o_imo;
 
   /* Parse the input tuple */
-  if (!PyArg_ParseTuple(args, "OOOO", &o_imo, &o_imi, &o_krnl, &o_mmrcnst))
-    return NULL;
+  if (!PyArg_ParseTuple(args, "OOOO", &o_imo, &o_imi, &o_krnl, &o_mmrcnst)) return NULL;
 
   PyArrayObject *p_imo = NULL;
   p_imo = (PyArrayObject *)PyArray_FROM_OTF(o_imo, NPY_FLOAT32, NPY_ARRAY_INOUT_ARRAY2);
@@ -202,16 +200,13 @@ static PyObject *img_convolve(PyObject *self, PyObject *args) {
   int Nvk = (int)PyArray_DIM(p_imi, 0);
   int Nvj = (int)PyArray_DIM(p_imi, 1);
   int Nvi = (int)PyArray_DIM(p_imi, 2);
-  if (Cnt.LOG <= LOGINFO)
-    printf("i> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
+  if (Cnt.LOG <= LOGINFO) printf("i> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
 
   int Nkr = (int)PyArray_DIM(p_krnl, 1);
-  if (Cnt.LOG <= LOGINFO)
-    printf("i> kernel size [voxels]: %d\n", Nkr);
+  if (Cnt.LOG <= LOGINFO) printf("i> kernel size [voxels]: %d\n", Nkr);
 
   if (Nkr != KERNEL_LENGTH) {
-    if (Cnt.LOG <= LOGWARNING)
-      printf("w> wrong kernel size.\n");
+    if (Cnt.LOG <= LOGWARNING) printf("w> wrong kernel size.\n");
     return Py_None;
   }
 
