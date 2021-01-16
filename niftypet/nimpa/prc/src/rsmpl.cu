@@ -55,7 +55,7 @@ float *rsmpl(float *imo, float *A, Cimg Cim)
   // HANDLE_ERROR( cudaMemcpy(d_A, A, 12*sizeof(double), cudaMemcpyHostToDevice) );
 
   //<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-  printf("i> calculating transformation with %d samples per voxel...", VDIV);
+  fprintf(stderr, "i> calculating transformation with %d samples per voxel...", VDIV);
   dim3 grid(Cim.VXNOx, Cim.VXNOy, Cim.VXNOz);
   dim3 block(VDIV, VDIV, VDIV);
   cudaEvent_t start, stop;
@@ -65,7 +65,7 @@ float *rsmpl(float *imo, float *A, Cimg Cim)
   d_rsmpl<<<grid, block>>>(d_imr, d_imo, Cim);
   cudaError_t error = cudaGetLastError();
   if (error != cudaSuccess) {
-    printf("CUDA kernel for image resampling: error: %s\n", cudaGetErrorString(error));
+    fprintf(stderr, "CUDA kernel for image resampling: error: %s\n", cudaGetErrorString(error));
     exit(-1);
   }
   cudaEventRecord(stop, 0);
@@ -74,7 +74,7 @@ float *rsmpl(float *imo, float *A, Cimg Cim)
   cudaEventElapsedTime(&elapsedTime, start, stop);
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
-  printf("DONE in %fs.\n\n", 0.001 * elapsedTime);
+  fprintf(stderr, "DONE in %fs.\n\n", 0.001 * elapsedTime);
   //<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
   // allocate memory for the resampled image for the return

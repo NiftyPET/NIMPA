@@ -124,14 +124,14 @@ static PyObject *img_resample(PyObject *self, PyObject *args) {
   float *A = (float *)PyArray_DATA(p_A);
   float *imo = (float *)PyArray_DATA(p_imo);
 
-  // for (int i=0; i<12; i++) printf("A[%d] = %f\n",i,A[i] );
+  // for (int i=0; i<12; i++) fprintf(stderr, "A[%d] = %f\n",i,A[i] );
 
   //=================================================================
   float *imr = rsmpl(imo, A, Cim);
   //=================================================================
 
-  printf("i> new image (x,y,z) = (%d,%d,%d)\n   voxel size: (%6.4f, %6.4f, %6.4f)\n", Cim.VXNRx,
-         Cim.VXNRy, Cim.VXNRz, Cim.VXSRx, Cim.VXSRy, Cim.VXSRz);
+  fprintf(stderr, "i> new image (x,y,z) = (%d,%d,%d)\n   voxel size: (%6.4f, %6.4f, %6.4f)\n",
+          Cim.VXNRx, Cim.VXNRy, Cim.VXNRz, Cim.VXSRx, Cim.VXSRy, Cim.VXSRz);
 
   npy_intp dims[3];
   dims[2] = Cim.VXNRx;
@@ -188,16 +188,16 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   int Nvk = p_imi->shape[0];
   int Nvj = p_imi->shape[1];
   int Nvi = p_imi->shape[2];
-  if (LOG <= LOGDEBUG) printf("d> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
 
   int Nkr = (int)p_krnl->shape[1];
-  if (LOG <= LOGDEBUG) printf("d> kernel size [voxels]: %d\n", Nkr);
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> kernel size [voxels]: %d\n", Nkr);
   if (Nkr != KERNEL_LENGTH || p_krnl->shape[0] != 3) {
     PyErr_SetString(PyExc_IndexError, "wrong kernel size");
     return NULL;
   }
 
-  if (LOG <= LOGDEBUG) printf("d> using device: %d\n", DEVID);
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
 
   //=================================================================

@@ -165,7 +165,7 @@ void gpu_cnv(float *d_imgout, float *d_imgint, int Nvk, int Nvj, int Nvi, bool _
                                   Nvi);
     cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {
-      printf("CUDA kernel ROWS error: %s\n", cudaGetErrorString(error));
+      fprintf(stderr, "CUDA kernel ROWS error: %s\n", cudaGetErrorString(error));
       exit(-1);
     }
 
@@ -176,7 +176,7 @@ void gpu_cnv(float *d_imgout, float *d_imgint, int Nvk, int Nvj, int Nvi, bool _
                                        Nvi, KERNEL_LENGTH);
     error = cudaGetLastError();
     if (error != cudaSuccess) {
-      printf("CUDA kernel COLUMNS error: %s\n", cudaGetErrorString(error));
+      fprintf(stderr, "CUDA kernel COLUMNS error: %s\n", cudaGetErrorString(error));
       exit(-1);
     }
   }
@@ -189,7 +189,7 @@ void gpu_cnv(float *d_imgout, float *d_imgint, int Nvk, int Nvj, int Nvi, bool _
                                        2 * KERNEL_LENGTH);
     cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {
-      printf("CUDA kernel DEPTH error: %s\n", cudaGetErrorString(error));
+      fprintf(stderr, "CUDA kernel DEPTH error: %s\n", cudaGetErrorString(error));
       exit(-1);
     }
   }
