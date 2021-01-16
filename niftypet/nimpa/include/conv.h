@@ -29,6 +29,7 @@ struct Cnst {
 // GPU convolution
 void setConvolutionKernel(float *hKrnl);
 
-void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt);
+void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, bool _memset = true,
+             bool _sync = true);
 
 #endif // _NIMPA_CONV_H_

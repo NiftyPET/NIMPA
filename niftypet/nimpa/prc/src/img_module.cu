@@ -11,6 +11,7 @@ Copyrights: 2019
 
 #include "conv.h"
 #include "cuhelpers.h"
+#include "pycuvec.cuh"
 #include "rsmpl.h"
 #include <Python.h>
 #include <numpy/arrayobject.h>
@@ -20,14 +21,15 @@ Copyrights: 2019
 
 //--- Available functions
 static PyObject *img_resample(PyObject *self, PyObject *args);
-static PyObject *img_convolve(PyObject *self, PyObject *args);
+static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs);
 //---
 
 //> Module Method Table
 static PyMethodDef improc_methods[] = {
     {"resample", img_resample, METH_VARARGS,
      "Does rigid body transformation with very fine sampling."},
-    {"convolve", img_convolve, METH_VARARGS, "Fast 3D image convolution with separable kernel."},
+    {"convolve", (PyCFunction)img_convolve, METH_VARARGS | METH_KEYWORDS,
+     "Fast 3D image convolution with separable kernel."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 
@@ -154,74 +156,54 @@ static PyObject *img_resample(PyObject *self, PyObject *args) {
 // I M A G E    C O N V O L U T I O N
 //--------------------------------------------------------------------------------------
 
-static PyObject *img_convolve(PyObject *self, PyObject *args) {
+static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) {
+  int DEVID = 0;
+  bool MEMSET = true; // whether to zero `dst` first
+  bool SYNC = true;   // whether to ensure deviceToHost copy on return
+  int LOG = LOGDEBUG;
+  PyObject *o_krnl; // kernel matrix, for x, y, and z dimensions
+  PyObject *o_imi;  // input image
+  PyObject *o_imo;  // output image
 
-  // Structure of constants
-  Cnst Cnt;
+  // Parse the input tuple
+  static const char *kwds[] = {"dst", "src", "knl", "dev_id", "memset", "sync", "log", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ibbi", (char **)kwds, &o_imo, &o_imi,
+                                   &o_krnl, &DEVID, &MEMSET, &SYNC, &LOG))
+    return NULL;
+  if (!o_imo || !o_imi || !o_krnl) return NULL;
 
-  // Dictionary of scanner constants
-  PyObject *o_mmrcnst;
+  PyCuVec<float> *p_imo = (PyCuVec<float> *)o_imo;
+  PyCuVec<float> *p_imi = (PyCuVec<float> *)o_imi;
+  PyCuVec<float> *p_krnl = (PyCuVec<float> *)o_krnl;
 
-  // kernel matrix, for x, y, and z dimensions
-  PyObject *o_krnl;
-  // input image
-  PyObject *o_imi;
-  // output image
-  PyObject *o_imo;
+  if (p_imo->shape.size() != 3 || p_imi->shape.size() != 3) {
+    PyErr_SetString(PyExc_IndexError, "input & output volumes must have ndim == 3");
+    return NULL;
+  };
 
-  /* Parse the input tuple */
-  if (!PyArg_ParseTuple(args, "OOOO", &o_imo, &o_imi, &o_krnl, &o_mmrcnst)) return NULL;
+  float *imo = p_imo->vec.data();
+  float *imi = p_imi->vec.data();
+  float *krnl = p_krnl->vec.data();
 
-  PyArrayObject *p_imo = NULL;
-  p_imo = (PyArrayObject *)PyArray_FROM_OTF(o_imo, NPY_FLOAT32, NPY_ARRAY_INOUT_ARRAY2);
-  PyArrayObject *p_imi = NULL;
-  p_imi = (PyArrayObject *)PyArray_FROM_OTF(o_imi, NPY_FLOAT32, NPY_ARRAY_IN_ARRAY);
-  PyArrayObject *p_krnl = NULL;
-  p_krnl = (PyArrayObject *)PyArray_FROM_OTF(o_krnl, NPY_FLOAT32, NPY_ARRAY_IN_ARRAY);
+  int Nvk = p_imi->shape[0];
+  int Nvj = p_imi->shape[1];
+  int Nvi = p_imi->shape[2];
+  if (LOG <= LOGDEBUG) printf("d> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
 
-  PyObject *pd_log = PyDict_GetItemString(o_mmrcnst, "LOG");
-  Cnt.LOG = (char)PyLong_AsLong(pd_log);
-  PyObject *pd_devid = PyDict_GetItemString(o_mmrcnst, "DEVID");
-  Cnt.DEVID = (char)PyLong_AsLong(pd_devid);
-
-  /* If that didn't work, throw an exception. */
-  if (p_imo == NULL || p_imi == NULL || p_krnl == NULL) {
-    PyArray_DiscardWritebackIfCopy(p_imo);
-    Py_XDECREF(p_imo);
-    Py_XDECREF(p_imi);
-    Py_XDECREF(p_krnl);
+  int Nkr = (int)p_krnl->shape[1];
+  if (LOG <= LOGDEBUG) printf("d> kernel size [voxels]: %d\n", Nkr);
+  if (Nkr != KERNEL_LENGTH || p_krnl->shape[0] != 3) {
+    PyErr_SetString(PyExc_IndexError, "wrong kernel size");
     return NULL;
   }
 
-  float *imo = (float *)PyArray_DATA(p_imo);
-  float *imi = (float *)PyArray_DATA(p_imi);
-  float *krnl = (float *)PyArray_DATA(p_krnl);
-
-  int Nvk = (int)PyArray_DIM(p_imi, 0);
-  int Nvj = (int)PyArray_DIM(p_imi, 1);
-  int Nvi = (int)PyArray_DIM(p_imi, 2);
-  if (Cnt.LOG <= LOGINFO) printf("i> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
-
-  int Nkr = (int)PyArray_DIM(p_krnl, 1);
-  if (Cnt.LOG <= LOGINFO) printf("i> kernel size [voxels]: %d\n", Nkr);
-
-  if (Nkr != KERNEL_LENGTH) {
-    if (Cnt.LOG <= LOGWARNING) printf("w> wrong kernel size.\n");
-    return Py_None;
-  }
-
-  // sets the device on which to calculate
-  HANDLE_ERROR(cudaSetDevice(Cnt.DEVID));
+  if (LOG <= LOGDEBUG) printf("d> using device: %d\n", DEVID);
+  HANDLE_ERROR(cudaSetDevice(DEVID));
 
   //=================================================================
   setConvolutionKernel(krnl);
-  gpu_cnv(imo, imi, Nvk, Nvj, Nvi, Cnt);
+  gpu_cnv(imo, imi, Nvk, Nvj, Nvi, MEMSET, SYNC);
   //=================================================================
-
-  PyArray_ResolveWritebackIfCopy(p_imo);
-  Py_DECREF(p_imo);
-  Py_DECREF(p_imi);
-  Py_DECREF(p_krnl);
 
   Py_INCREF(Py_None);
   return Py_None;

@@ -132,12 +132,8 @@ __global__ void cnv_columns(
 
 //-----------------------------------------------------------------------------------------------
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) {
-
-  int dev_id;
-  cudaGetDevice(&dev_id);
-  if (Cnt.LOG <= LOGINFO) printf("ic> using CUDA device #%d\n", dev_id);
-
+void gpu_cnv(float *d_imgout, float *d_imgint, int Nvk, int Nvj, int Nvi, bool _memset,
+             bool _sync) {
   assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= RSZ_PSF_KRNL);
   assert(Nvk % (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X) == 0);
   assert(Nvj % ROWS_BLOCKDIM_Y == 0);
@@ -148,18 +144,7 @@ void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) 
 
   assert(Nvi % COLUMNS_BLOCKDIM_X == 0);
 
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start, 0);
-
-  float *d_imgout;
-  HANDLE_ERROR(cudaMalloc((void **)&d_imgout, Nvk * Nvj * Nvi * sizeof(float)));
-  cudaMemset(d_imgout, 0, Nvk * Nvj * Nvi * sizeof(float));
-
-  float *d_imgint;
-  HANDLE_ERROR(cudaMalloc((void **)&d_imgint, Nvk * Nvj * Nvi * sizeof(float)));
-  cudaMemcpy(d_imgint, imgint, Nvk * Nvj * Nvi * sizeof(float), cudaMemcpyHostToDevice);
+  if (_memset) memset(d_imgout, 0, Nvk * Nvj * Nvi * sizeof(float));
 
   // temporary image for intermediate results
   float *d_buff;
@@ -203,23 +188,11 @@ void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) 
                                        2 * KERNEL_LENGTH);
     cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {
-      printf("CUDA kernel THIRD DIM error: %s\n", cudaGetErrorString(error));
+      printf("CUDA kernel DEPTH error: %s\n", cudaGetErrorString(error));
       exit(-1);
     }
   }
 
-  HANDLE_ERROR(
-      cudaMemcpy(imgout, d_imgout, Nvi * Nvj * Nvk * sizeof(float), cudaMemcpyDeviceToHost));
-
-  cudaFree(d_buff);
-  cudaFree(d_imgint);
-  cudaFree(d_imgout);
-
-  cudaEventRecord(stop, 0);
-  cudaEventSynchronize(stop);
-  float elapsedTime;
-  cudaEventElapsedTime(&elapsedTime, start, stop);
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
-  if (Cnt.LOG <= LOGINFO) printf("i> elapsed time of convolution: %f\n", 0.001 * elapsedTime);
+  HANDLE_ERROR(cudaFree(d_buff));
+  if (_sync) HANDLE_ERROR(cudaDeviceSynchronize()); // unified memcpy device2host
 }
