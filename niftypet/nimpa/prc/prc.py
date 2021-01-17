@@ -538,17 +538,10 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         # > (1) GPU convolution with a separable kernel (x,y,z), or
         # > (2) CPU, Python-based convolution
         if improc is not None:
-
-            def to_d(arr):
-                res = cuvec.vector(arr.shape, arr.dtype)
-                np.asarray(res)[:] = arr[:]
-                return res
-
             # > convert to dimensions of GPU processing [y,x,z]
-            imin = np.transpose(imgPWC, (1, 2, 0))
-            imout_d = cuvec.vector(imin.shape, imin.dtype)
-            improc.convolve(imout_d, to_d(imin), to_d(krnl), log=log.getEffectiveLevel(),
-                            dev_id=Cnt['DEVID'], memset=False)
+            imin = cuvec.from_numpy(np.transpose(imgPWC, (1, 2, 0)))
+            knl = cuvec.from_numpy(krnl)
+            imout_d = improc.convolve(imin, knl, log=log.getEffectiveLevel(), dev_id=Cnt['DEVID'])
             imgSmo = np.transpose(np.asarray(imout_d), (2, 0, 1))
         else:
             hxy = np.outer(krnl[1, :], krnl[2, :])

@@ -136,42 +136,44 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
 //--------------------------------------------------------------------------------------
 
 static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) {
+  PyCuVec<float> *src = NULL; // input image
+  PyCuVec<float> *knl = NULL; // kernel matrix, for x, y, and z dimensions
+  PyCuVec<float> *dst = NULL; // output image
   int DEVID = 0;
   bool MEMSET = true; // whether to zero `dst` first
   bool SYNC = true;   // whether to ensure deviceToHost copy on return
   int LOG = LOGDEBUG;
-  PyObject *o_krnl; // kernel matrix, for x, y, and z dimensions
-  PyObject *o_imi;  // input image
-  PyObject *o_imo;  // output image
 
   // Parse the input tuple
-  static const char *kwds[] = {"dst", "src", "knl", "dev_id", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ibbi", (char **)kwds, &o_imo, &o_imi,
-                                   &o_krnl, &DEVID, &MEMSET, &SYNC, &LOG))
+  static const char *kwds[] = {"img", "knl", "output", "dev_id", "memset", "sync", "log", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Oibbi", (char **)kwds, (PyObject **)&src,
+                                   (PyObject **)&knl, (PyObject **)&dst, &DEVID, &MEMSET, &SYNC,
+                                   &LOG))
     return NULL;
-  if (!o_imo || !o_imi || !o_krnl) return NULL;
+  if (!src || !knl) return NULL;
 
-  PyCuVec<float> *p_imo = (PyCuVec<float> *)o_imo;
-  PyCuVec<float> *p_imi = (PyCuVec<float> *)o_imi;
-  PyCuVec<float> *p_krnl = (PyCuVec<float> *)o_krnl;
+  if (dst) {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+  } else {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
+    dst = PyCuVec_zeros_like(src);
+    if (!dst) return NULL;
+    MEMSET = false;
+  }
 
-  if (p_imo->shape.size() != 3 || p_imi->shape.size() != 3) {
+  if (dst->shape.size() != 3 || src->shape.size() != 3) {
     PyErr_SetString(PyExc_IndexError, "input & output volumes must have ndim == 3");
     return NULL;
   }
 
-  float *imo = p_imo->vec.data();
-  float *imi = p_imi->vec.data();
-  float *krnl = p_krnl->vec.data();
-
-  int Nvk = p_imi->shape[0];
-  int Nvj = p_imi->shape[1];
-  int Nvi = p_imi->shape[2];
+  int Nvk = src->shape[0];
+  int Nvj = src->shape[1];
+  int Nvi = src->shape[2];
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> input image size x,y,z=%d,%d,%d\n", Nvk, Nvj, Nvi);
 
-  int Nkr = (int)p_krnl->shape[1];
+  int Nkr = (int)knl->shape[1];
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> kernel size [voxels]: %d\n", Nkr);
-  if (Nkr != KERNEL_LENGTH || p_krnl->shape.size() != 2 || p_krnl->shape[0] != 3) {
+  if (Nkr != KERNEL_LENGTH || knl->shape.size() != 2 || knl->shape[0] != 3) {
     PyErr_SetString(PyExc_IndexError, "wrong kernel size");
     return NULL;
   }
@@ -180,13 +182,13 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
 
   //=================================================================
-  setConvolutionKernel(krnl, false);
+  setConvolutionKernel(knl->vec.data(), false);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
-  gpu_cnv(imo, imi, Nvk, Nvj, Nvi, MEMSET, SYNC);
+  gpu_cnv(dst->vec.data(), src->vec.data(), Nvk, Nvj, Nvi, MEMSET, SYNC);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
   //=================================================================
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  Py_INCREF((PyObject *)dst);
+  return (PyObject *)dst;
 }
