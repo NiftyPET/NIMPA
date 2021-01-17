@@ -106,13 +106,12 @@ setup_kwargs = {
     "package_data": {"niftypet": ["nimpa/auxdata/*"]}}
 
 try:
+    from skbuild import setup as sksetup
     nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo()}
 except Exception as exc:
     log.warning("could not detect CUDA architectures:\n%s", exc)
     setup(**setup_kwargs)
 else:
-    from skbuild import setup as sksetup
-
     for i in (Path(__file__).resolve().parent / "_skbuild").rglob("CMakeCache.txt"):
         i.write_text(re.sub("^//.*$\n^[^#].*pip-build-env.*$", "", i.read_text(), flags=re.M))
     sksetup(

@@ -108,13 +108,9 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   PyObject *pd_offrz = PyDict_GetItemString(o_Cim, "OFFRz");
   Cim.OFFRz = (float)PyFloat_AsDouble(pd_offrz);
 
-  PyCuVec<float> *p_A = (PyCuVec<float> *)o_A;
-  PyCuVec<float> *p_imo = (PyCuVec<float> *)o_imo;
-  PyCuVec<float> *p_imr = (PyCuVec<float> *)o_imr;
-
-  float *A = p_A->vec.data();
-  float *imo = p_imo->vec.data();
-  float *imr = p_imr->vec.data();
+  float *A = ((PyCuVec<float> *)o_A)->vec.data();
+  float *imo = ((PyCuVec<float> *)o_imo)->vec.data();
+  float *imr = ((PyCuVec<float> *)o_imr)->vec.data();
 
   // for (int i=0; i<12; i++) fprintf(stderr, "A[%d] = %f\n",i,A[i] );
 
@@ -162,7 +158,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   if (p_imo->shape.size() != 3 || p_imi->shape.size() != 3) {
     PyErr_SetString(PyExc_IndexError, "input & output volumes must have ndim == 3");
     return NULL;
-  };
+  }
 
   float *imo = p_imo->vec.data();
   float *imi = p_imi->vec.data();
@@ -175,7 +171,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   int Nkr = (int)p_krnl->shape[1];
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> kernel size [voxels]: %d\n", Nkr);
-  if (Nkr != KERNEL_LENGTH || p_krnl->shape[0] != 3) {
+  if (Nkr != KERNEL_LENGTH || p_krnl->shape.size() != 2 || p_krnl->shape[0] != 3) {
     PyErr_SetString(PyExc_IndexError, "wrong kernel size");
     return NULL;
   }
