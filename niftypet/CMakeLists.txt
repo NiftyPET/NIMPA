@@ -7,8 +7,17 @@ project(nimpa LANGUAGES C CXX CUDA VERSION "${NIMPA_BUILD_VERSION}")
 cmake_policy(PUSH)
 cmake_policy(SET CMP0074 NEW)  # <PackageName>_ROOT hints for find_package
 cmake_policy(SET CMP0104 NEW)  # CMAKE_CUDA_ARCHITECTURES
-find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(CUDAToolkit REQUIRED)
+execute_process(
+  COMMAND "${Python3_EXECUTABLE}" -c "import cuvec; print(cuvec.include_path)"
+  OUTPUT_VARIABLE CUVEC_INCLUDE_DIRS
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+if("${CUVEC_INCLUDE_DIRS}" STREQUAL "")
+message(WARNING "Could not find cuvec includes")
+else()
+message(STATUS "Found cuvec includes: ${CUVEC_INCLUDE_DIRS}")
+endif()
 if(SKBUILD)
 find_package(PythonExtensions REQUIRED)
 set(LIB_TYPE "MODULE")

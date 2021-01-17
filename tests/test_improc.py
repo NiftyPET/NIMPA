@@ -3,14 +3,14 @@ import logging
 import numpy as np
 from pytest import importorskip
 
-cuvec = importorskip("niftypet.nimpa.cuvec")
+cuvec = importorskip("cuvec")
 improc = importorskip("niftypet.nimpa.prc.improc")
 
 
 def test_convolve():
-    dst = cuvec.Vector_f((64, 64, 64))
-    src = cuvec.Vector_f((64, 64, 64))
-    knl = cuvec.Vector_f((3, 17))
+    dst = cuvec.vector((64, 64, 64))
+    src = cuvec.vector((64, 64, 64))
+    knl = cuvec.vector((3, 17))
 
     dst_arr = np.asarray(dst)
     src_arr = np.asarray(src)
