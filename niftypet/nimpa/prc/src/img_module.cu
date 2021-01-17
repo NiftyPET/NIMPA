@@ -54,19 +54,28 @@ PyMODINIT_FUNC PyInit_improc(void) {
 //--------------------------------------------------------------------------------------
 
 static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) {
-  PyObject *o_imr;    // output image
-  PyObject *o_imo;    // original image (to be transformed)
-  PyObject *o_A;      // transformation matrix
-  PyObject *o_Cim;    // Dictionary of image constants
-  bool MEMSET = true; // whether to zero `dst` first
-  bool SYNC = true;   // whether to ensure deviceToHost copy on return
+  PyCuVec<float> *dst = NULL; // output image
+  PyCuVec<float> *src = NULL; // original image (to be transformed)
+  PyCuVec<float> *A = NULL;   // transformation matrix
+  PyObject *o_Cim;            // Dictionary of image constants
+  bool MEMSET = true;         // whether to zero `dst` first
+  bool SYNC = true;           // whether to ensure deviceToHost copy on return
 
   // Parse the input tuple
-  static const char *kwds[] = {"dst", "src", "A", "Cnt", "memset", "sync", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOOO|bb", (char **)kwds, &o_imr, &o_imo, &o_A,
-                                   &o_Cim, &MEMSET, &SYNC))
+  static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|Obb", (char **)kwds, (PyObject **)&src,
+                                   (PyObject **)&A, &o_Cim, (PyObject **)&dst, &MEMSET, &SYNC))
     return NULL;
-  if (!o_A || !o_imo || !o_imr) return NULL;
+  if (!A || !src) return NULL;
+
+  if (dst) {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+  } else {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
+    dst = PyCuVec_zeros_like(src);
+    if (!dst) return NULL;
+    MEMSET = false;
+  }
 
   // Structure for constants
   Cimg Cim;
@@ -108,14 +117,10 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   PyObject *pd_offrz = PyDict_GetItemString(o_Cim, "OFFRz");
   Cim.OFFRz = (float)PyFloat_AsDouble(pd_offrz);
 
-  float *A = ((PyCuVec<float> *)o_A)->vec.data();
-  float *imo = ((PyCuVec<float> *)o_imo)->vec.data();
-  float *imr = ((PyCuVec<float> *)o_imr)->vec.data();
-
   // for (int i=0; i<12; i++) fprintf(stderr, "A[%d] = %f\n",i,A[i] );
 
   //=================================================================
-  rsmpl(imr, imo, A, Cim, MEMSET, SYNC);
+  rsmpl(dst->vec.data(), src->vec.data(), A->vec.data(), Cim, MEMSET, SYNC);
   //=================================================================
 
   fprintf(stderr, "i> new image (x,y,z) = (%d,%d,%d)\n   voxel size: (%6.4f, %6.4f, %6.4f)\n",
@@ -127,8 +132,8 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   // PyTuple_SetItem(tuple_out, 1, PyArray_Return(p_imr));
   // //---
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  Py_INCREF((PyObject *)dst);
+  return (PyObject *)dst;
 }
 
 //======================================================================================
