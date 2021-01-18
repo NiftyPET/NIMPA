@@ -20,11 +20,11 @@ from . import imio, regseg
 
 try:
     # GPU routines if compiled
-    import cuvec
+    import cuvec as cu
 
     from . import improc
 except ImportError:
-    cuvec = None
+    cu = None
     improc = None
 sitk_flag = True
 try:
@@ -539,9 +539,10 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         # > (2) CPU, Python-based convolution
         if improc is not None:
             # > convert to dimensions of GPU processing [y,x,z]
-            imin = cuvec.from_numpy(np.transpose(imgPWC, (1, 2, 0)))
-            knl = cuvec.from_numpy(krnl)
-            imout_d = improc.convolve(imin, knl, log=log.getEffectiveLevel(), dev_id=Cnt['DEVID'])
+            imin = cu.CuVec(np.transpose(imgPWC, (1, 2, 0)))
+            knl = cu.CuVec(krnl)
+            imout_d = improc.convolve(imin.cuvec, knl.cuvec, log=log.getEffectiveLevel(),
+                                      dev_id=Cnt['DEVID'])
             imgSmo = np.transpose(np.asarray(imout_d), (2, 0, 1))
         else:
             hxy = np.outer(krnl[1, :], krnl[2, :])
