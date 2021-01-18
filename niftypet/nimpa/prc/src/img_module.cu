@@ -60,11 +60,13 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   PyObject *o_Cim;            // Dictionary of image constants
   bool MEMSET = true;         // whether to zero `dst` first
   bool SYNC = true;           // whether to ensure deviceToHost copy on return
+  int LOG = LOGDEBUG;
 
   // Parse the input tuple
-  static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", NULL};
+  static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", "log", NULL};
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|Obb", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&A, &o_Cim, (PyObject **)&dst, &MEMSET, &SYNC))
+                                   (PyObject **)&A, &o_Cim, (PyObject **)&dst, &MEMSET, &SYNC,
+                                   &LOG))
     return NULL;
   if (!A || !src) return NULL;
 
