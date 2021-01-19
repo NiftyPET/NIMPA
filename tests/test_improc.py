@@ -8,16 +8,18 @@ improc = importorskip("niftypet.nimpa.prc.improc")
 
 
 def test_convolve():
-    src = cu.zeros((64, 64, 64), dtype='float32')
-    np_knl = np.zeros((3, 17), dtype='float32')
+    src_np = np.zeros((64, 64, 64), dtype='float32')
+    src_np[32, 32, 32] = 1
 
-    src[32, 32, 32] = 1
-    np_knl[:, 17//2 - 1] = 0.25
-    np_knl[:, 17 // 2] = 0.5
-    np_knl[:, 17//2 + 1] = 0.25
+    knl = cu.zeros((3, 17), dtype='float32')
+    knl[:, 17//2 - 1] = 0.25
+    knl[:, 17 // 2] = 0.5
+    knl[:, 17//2 + 1] = 0.25
 
-    knl = cu.CuVec(np_knl)
+    src = cu.asarray(src_np) # memcopy to cudaMallocManaged
     assert knl.dtype == src.dtype
+
+    # won't memcopy since already cudaMallocManaged
     dst = cu.asarray(improc.convolve(src.cuvec, knl.cuvec, log=logging.DEBUG))
 
     def check_conv():
