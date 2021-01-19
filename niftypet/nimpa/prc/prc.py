@@ -49,31 +49,46 @@ def num(s):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, fout=''):
+def imsmooth(fim, fwhm=4, voxsize=1., fout=''):
     '''
     Smooth image using Gaussian filter with FWHM given as an option.
+    Input can be NIfTI image file or Numpy array
     '''
-    imd = imio.getnii(fim, output='all')
-    imsmo = ndi.filters.gaussian_filter(imd['im'], imio.fwhm2sig(fwhm, voxsize=imd['voxsize']),
-                                        mode='mirror')
 
-    if fout == '':
+    isfile = False
+    if isinstance(fim, str) and os.path.isfile(fim):
+        isfile = True
+        imd = imio.getnii(fim, output='all')
+        im = imd['im']
+        voxsize = imd['voxsize']
+        affine = imd['affine']
+    elif isinstance(fim, (np.ndarray, np.generic)):
+        im = fim
+    else:
+        raise ValueError("incorrect image input.\nNIfTI or Numpy array are only accepted.")
+
+    imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize),
+                                        mode='mirror')
+    # output dictionary
+    dctout = {}
+    dctout['im'] = imsmo
+    dctout['fwhm'] = fwhm
+
+    if isfile and fout == '':
         if fim.endswith('.nii.gz'):
-            fout = fim.split('nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
+            fout = fim.split('.nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
         else:
             fout = os.path.splitext(fim)[0] + '_smo' + str(fwhm).replace(
                 '.', '-') + os.path.splitext(fim)[1]
 
-    imio.array2nii(
-        imsmo, imd['affine'], fout,
-        trnsp=(imd['transpose'].index(0), imd['transpose'].index(1), imd['transpose'].index(2)),
-        flip=imd['flip'])
+    if isfile:
+        dctout['affine'] = affine
+        dctout['fim'] = fout
 
-    dctout = {}
-    dctout['im'] = imsmo
-    dctout['fim'] = fout
-    dctout['fwhm'] = fwhm
-    dctout['affine'] = imd['affine']
+        imio.array2nii(
+            imsmo, affine, fout,
+            trnsp=(imd['transpose'].index(0), imd['transpose'].index(1), imd['transpose'].index(2)),
+            flip=imd['flip'])
 
     return dctout
 
