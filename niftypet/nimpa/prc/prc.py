@@ -67,8 +67,7 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout=''):
     else:
         raise ValueError("incorrect image input.\nNIfTI or Numpy array are only accepted.")
 
-    imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize),
-                                        mode='mirror')
+    imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize), mode='mirror')
     # output dictionary
     dctout = {}
     dctout['im'] = imsmo
@@ -86,9 +85,8 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout=''):
         dctout['fim'] = fout
 
         imio.array2nii(
-            imsmo, affine, fout,
-            trnsp=(imd['transpose'].index(0), imd['transpose'].index(1), imd['transpose'].index(2)),
-            flip=imd['flip'])
+            imsmo, affine, fout, trnsp=(imd['transpose'].index(0), imd['transpose'].index(1),
+                                        imd['transpose'].index(2)), flip=imd['flip'])
 
     return dctout
 
