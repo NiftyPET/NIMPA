@@ -32,6 +32,11 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+option(CUVEC_DEBUG "Print out CUDA malloc & free operations" ON)
+if(CUVEC_DEBUG)
+  add_compile_definitions(CUVEC_DEBUG)
+endif(CUVEC_DEBUG)
+message(STATUS "cuvec debugging: ${CUVEC_DEBUG}")
 if("${NIMPA_CU_THREADS}" STREQUAL "")
   set(NIMPA_CU_THREADS 1024 CACHE STRING
     "Maximum number of CUDA threads per block (should be less than cudaDeviceProp::maxThreadsDim)" FORCE)

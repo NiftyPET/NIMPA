@@ -15,7 +15,7 @@ def check_conv(src, dst):
     assert dst[1, 1, 1] == 1 / 64, err
 
 
-@fixture
+@fixture(scope="module")
 def knl():
     res = cu.zeros((3, 17), dtype='float32')
     res[:, 17//2 - 1] = 0.25
