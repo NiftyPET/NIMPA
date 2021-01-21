@@ -1,20 +1,74 @@
 #include "conv.h"
 #include "cuhelpers.h"
-#include <assert.h>
-#include <stdio.h>
+#include <cassert>
+#include <cstdio>
 
-////////////////////////////////////
-// Convolution kernel array
-////////////////////////////////////
-__constant__ float c_Kernel[3 * KERNEL_LENGTH];
-void setConvolutionKernel(float *hKrnl) {
-  // hKrnl: separable three kernels for x, y and z
-  cudaMemcpyToSymbol(c_Kernel, hKrnl, 3 * KERNEL_LENGTH * sizeof(float));
+/// x, y, z: how many slices to add
+__global__ void pad(float *dst, float *src, const int y, const int x, const int Z, const int Y,
+                    const int X) {
+  int k = threadIdx.x + blockDim.x * blockIdx.x;
+  if (k >= Z) return;
+  int j = threadIdx.y + blockDim.y * blockIdx.y;
+  if (j >= Y) return;
+  dst += k * (Y + y) * (X + x) + j * (X + x);
+  src += k * Y * X + j * X;
+  for (int i = 0; i < X; ++i) dst[i] = src[i];
+}
+void d_pad(float *dst, float *src, const int z, const int y, const int x, const int Z, const int Y,
+           const int X) {
+  HANDLE_ERROR(cudaMemset(dst, 0, (Z + z) * (Y + y) * (X + x) * sizeof(float)));
+  dim3 BpG((Z + NIMPA_CU_THREADS / 32 - 1) / (NIMPA_CU_THREADS / 32), (Y + 31) / 32);
+  dim3 TpB(NIMPA_CU_THREADS / 32, 32);
+  pad<<<BpG, TpB>>>(dst, src, y, x, Z, Y, X);
+  HANDLE_ERROR(cudaGetLastError());
 }
 
-/////////////////////////////////////
-// Row convolution filter
-/////////////////////////////////////
+/// y, z: how many slices to remove
+__global__ void unpad(float *dst, float *src, const int y, const int x, const int Z, const int Y,
+                      const int X) {
+  int k = threadIdx.x + blockDim.x * blockIdx.x;
+  if (k >= Z) return;
+  int j = threadIdx.y + blockDim.y * blockIdx.y;
+  if (j >= Y) return;
+  dst += k * Y * X + j * X;
+  src += k * (Y + y) * (X + x) + j * (X + x);
+  for (int i = 0; i < X; ++i) dst[i] = src[i];
+}
+void d_unpad(float *dst, float *src, const int y, const int x, const int Z, const int Y,
+             const int X) {
+  dim3 BpG((Z + NIMPA_CU_THREADS / 32 - 1) / (NIMPA_CU_THREADS / 32), (Y + 31) / 32);
+  dim3 TpB(NIMPA_CU_THREADS / 32, 32);
+  unpad<<<BpG, TpB>>>(dst, src, y, x, Z, Y, X);
+  HANDLE_ERROR(cudaGetLastError());
+}
+
+/** separable convolution */
+/// Convolution kernel array
+__constant__ float c_Kernel[3 * KERNEL_LENGTH];
+/// krnl: separable three kernels for x, y and z
+void setConvolutionKernel(float *krnl, bool handle_errors) {
+  cudaMemcpyToSymbol(c_Kernel, krnl, 3 * KERNEL_LENGTH * sizeof(float));
+  if (handle_errors) HANDLE_ERROR(cudaGetLastError());
+}
+/// sigma: Gaussian sigma
+void setKernelGaussian(float sigma, bool handle_errors) {
+  float knlRM[KERNEL_LENGTH * 3];
+  const double tmpE = -1.0 / (2 * sigma * sigma);
+  for (int i = 0; i < KERNEL_LENGTH; ++i)
+    knlRM[i] = (float)exp(tmpE * pow(NIMPA_KERNEL_RADIUS - i, 2));
+  // normalise
+  double knlSum = 0;
+  for (size_t i = 0; i < KERNEL_LENGTH; ++i) knlSum += knlRM[i];
+  for (size_t i = 0; i < KERNEL_LENGTH; ++i) {
+    knlRM[i] /= knlSum;
+    // also fill in other dimensions
+    knlRM[i + KERNEL_LENGTH] = knlRM[i];
+    knlRM[i + KERNEL_LENGTH * 2] = knlRM[i];
+  }
+  setConvolutionKernel(knlRM, handle_errors);
+}
+
+/// Row convolution filter
 __global__ void cnv_rows(float *d_Dst, float *d_Src, int imageW, int imageH, int pitch) {
   __shared__ float s_Data[ROWS_BLOCKDIM_Y]
                          [(ROWS_RESULT_STEPS + 2 * ROWS_HALO_STEPS) * ROWS_BLOCKDIM_X];
@@ -27,24 +81,21 @@ __global__ void cnv_rows(float *d_Dst, float *d_Src, int imageW, int imageH, int
   d_Src += baseY * pitch + baseX;
   d_Dst += baseY * pitch + baseX;
 
-  // Load main data
+// Load main data
 #pragma unroll
-
   for (int i = ROWS_HALO_STEPS; i < ROWS_HALO_STEPS + ROWS_RESULT_STEPS; i++) {
     s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X] = d_Src[i * ROWS_BLOCKDIM_X];
   }
 
-  // Load left halo
+// Load left halo
 #pragma unroll
-
   for (int i = 0; i < ROWS_HALO_STEPS; i++) {
     s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X] =
         (baseX >= -i * ROWS_BLOCKDIM_X) ? d_Src[i * ROWS_BLOCKDIM_X] : 0;
   }
 
-  // Load right halo
+// Load right halo
 #pragma unroll
-
   for (int i = ROWS_HALO_STEPS + ROWS_RESULT_STEPS;
        i < ROWS_HALO_STEPS + ROWS_RESULT_STEPS + ROWS_HALO_STEPS; i++) {
     s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X] =
@@ -53,29 +104,23 @@ __global__ void cnv_rows(float *d_Dst, float *d_Src, int imageW, int imageH, int
 
   // Compute and store results
   __syncthreads();
-#pragma unroll
 
+#pragma unroll
   for (int i = ROWS_HALO_STEPS; i < ROWS_HALO_STEPS + ROWS_RESULT_STEPS; i++) {
     float sum = 0;
-
 #pragma unroll
-
-    for (int j = -RSZ_PSF_KRNL; j <= RSZ_PSF_KRNL; j++) {
-      sum +=
-          c_Kernel[RSZ_PSF_KRNL - j] * s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X + j];
+    for (int j = -NIMPA_KERNEL_RADIUS; j <= NIMPA_KERNEL_RADIUS; j++) {
+      sum += c_Kernel[NIMPA_KERNEL_RADIUS - j] *
+             s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X + j];
     }
-
     d_Dst[i * ROWS_BLOCKDIM_X] = sum;
   }
 }
 
-//////////////////////////////////////
-// Column convolution filter
-//////////////////////////////////////
-
-__global__ void cnv_columns(
-    float *d_Dst, float *d_Src, int imageW, int imageH, int pitch,
-    int offKrnl // kernel offset for asymmetric kernels x, y, z (still the same dims though)
+/// Column convolution filter
+__global__ void cnv_columns(float *d_Dst, float *d_Src, int imageW, int imageH, int pitch,
+                            int offKrnl // kernel offset for asymmetric kernels
+                                        // x, y, z (still the same dims though)
 ) {
   __shared__ float
       s_Data[COLUMNS_BLOCKDIM_X]
@@ -88,25 +133,22 @@ __global__ void cnv_columns(
   d_Src += baseY * pitch + baseX;
   d_Dst += baseY * pitch + baseX;
 
-  // Main data
+// Main data
 #pragma unroll
-
   for (int i = COLUMNS_HALO_STEPS; i < COLUMNS_HALO_STEPS + COLUMNS_RESULT_STEPS; i++) {
     s_Data[threadIdx.x][threadIdx.y + i * COLUMNS_BLOCKDIM_Y] =
         d_Src[i * COLUMNS_BLOCKDIM_Y * pitch];
   }
 
-  // Upper halo
+// Upper halo
 #pragma unroll
-
   for (int i = 0; i < COLUMNS_HALO_STEPS; i++) {
     s_Data[threadIdx.x][threadIdx.y + i * COLUMNS_BLOCKDIM_Y] =
         (baseY >= -i * COLUMNS_BLOCKDIM_Y) ? d_Src[i * COLUMNS_BLOCKDIM_Y * pitch] : 0;
   }
 
-  // Lower halo
+// Lower halo
 #pragma unroll
-
   for (int i = COLUMNS_HALO_STEPS + COLUMNS_RESULT_STEPS;
        i < COLUMNS_HALO_STEPS + COLUMNS_RESULT_STEPS + COLUMNS_HALO_STEPS; i++) {
     s_Data[threadIdx.x][threadIdx.y + i * COLUMNS_BLOCKDIM_Y] =
@@ -115,111 +157,98 @@ __global__ void cnv_columns(
 
   // Compute and store results
   __syncthreads();
-#pragma unroll
 
+#pragma unroll
   for (int i = COLUMNS_HALO_STEPS; i < COLUMNS_HALO_STEPS + COLUMNS_RESULT_STEPS; i++) {
     float sum = 0;
 #pragma unroll
-
-    for (int j = -RSZ_PSF_KRNL; j <= RSZ_PSF_KRNL; j++) {
-      sum += c_Kernel[offKrnl + RSZ_PSF_KRNL - j] *
+    for (int j = -NIMPA_KERNEL_RADIUS; j <= NIMPA_KERNEL_RADIUS; j++) {
+      sum += c_Kernel[offKrnl + NIMPA_KERNEL_RADIUS - j] *
              s_Data[threadIdx.x][threadIdx.y + i * COLUMNS_BLOCKDIM_Y + j];
     }
-
     d_Dst[i * COLUMNS_BLOCKDIM_Y * pitch] = sum;
   }
 }
 
-//-----------------------------------------------------------------------------------------------
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, Cnst Cnt) {
+/// convolution function helper
+void d_conv_pow2(float *dst, float *src, int Nvk, int Nvj, int Nvi) {
+  assert(dst != src);
+  assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= NIMPA_KERNEL_RADIUS);
+  assert(COLUMNS_BLOCKDIM_Y * COLUMNS_HALO_STEPS >= NIMPA_KERNEL_RADIUS);
 
-  int dev_id;
-  cudaGetDevice(&dev_id);
-  if (Cnt.LOG <= LOGINFO) printf("ic> using CUDA device #%d\n", dev_id);
-
-  assert(ROWS_BLOCKDIM_X * ROWS_HALO_STEPS >= RSZ_PSF_KRNL);
-  assert(Nvk % (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X) == 0);
-  assert(Nvj % ROWS_BLOCKDIM_Y == 0);
-
-  assert(COLUMNS_BLOCKDIM_Y * COLUMNS_HALO_STEPS >= RSZ_PSF_KRNL);
-  assert(Nvk % COLUMNS_BLOCKDIM_X == 0);
+  assert(Nvk % (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y) == 0);
   assert(Nvj % (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y) == 0);
+  assert(Nvi % (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X) == 0);
 
+  assert(Nvj % ROWS_BLOCKDIM_Y == 0);
   assert(Nvi % COLUMNS_BLOCKDIM_X == 0);
-
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start, 0);
-
-  float *d_imgout;
-  HANDLE_ERROR(cudaMalloc((void **)&d_imgout, Nvk * Nvj * Nvi * sizeof(float)));
-  cudaMemset(d_imgout, 0, Nvk * Nvj * Nvi * sizeof(float));
-
-  float *d_imgint;
-  HANDLE_ERROR(cudaMalloc((void **)&d_imgint, Nvk * Nvj * Nvi * sizeof(float)));
-  cudaMemcpy(d_imgint, imgint, Nvk * Nvj * Nvi * sizeof(float), cudaMemcpyHostToDevice);
 
   // temporary image for intermediate results
   float *d_buff;
   HANDLE_ERROR(cudaMalloc((void **)&d_buff, Nvk * Nvj * Nvi * sizeof(float)));
+  // HANDLE_ERROR(cudaMemset(d_buff, 0, Nvk * Nvj * Nvi * sizeof(float)));
 
   // perform smoothing
   for (int k = 0; k < Nvk; k++) {
-
     //------ ROWS -------
-    int Bx = Nvi / (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X);
-    int By = Nvj / ROWS_BLOCKDIM_Y;
-    int Tx = ROWS_BLOCKDIM_X;
-    int Ty = ROWS_BLOCKDIM_Y;
-    dim3 blocks(Bx, By);
-    dim3 threads(Tx, Ty);
-    cnv_rows<<<blocks, threads>>>(d_imgout + k * Nvi * Nvj, d_imgint + k * Nvi * Nvj, Nvi, Nvj,
-                                  Nvi);
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-      printf("CUDA kernel ROWS error: %s\n", cudaGetErrorString(error));
-      exit(-1);
-    }
+    dim3 blocks(Nvi / (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X), Nvj / ROWS_BLOCKDIM_Y);
+    dim3 threads(ROWS_BLOCKDIM_X, ROWS_BLOCKDIM_Y);
+    cnv_rows<<<blocks, threads>>>(dst + k * Nvi * Nvj, src + k * Nvi * Nvj, Nvi, Nvj, Nvi);
+    HANDLE_ERROR(cudaGetLastError());
 
     //----- COLUMNS ----
     dim3 blocks2(Nvi / COLUMNS_BLOCKDIM_X, Nvj / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
     dim3 threads2(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
-    cnv_columns<<<blocks2, threads2>>>(d_buff + k * Nvi * Nvj, d_imgout + k * Nvi * Nvj, Nvi, Nvj,
-                                       Nvi, KERNEL_LENGTH);
-    error = cudaGetLastError();
-    if (error != cudaSuccess) {
-      printf("CUDA kernel COLUMNS error: %s\n", cudaGetErrorString(error));
-      exit(-1);
-    }
+    cnv_columns<<<blocks2, threads2>>>(d_buff + k * Nvi * Nvj, dst + k * Nvi * Nvj, Nvi, Nvj, Nvi,
+                                       KERNEL_LENGTH);
+    HANDLE_ERROR(cudaGetLastError());
   }
 
   //----- THIRD DIM ----
   for (int j = 0; j < Nvj; j++) {
     dim3 blocks3(Nvi / COLUMNS_BLOCKDIM_X, Nvk / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
     dim3 threads3(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
-    cnv_columns<<<blocks3, threads3>>>(d_imgout + j * Nvi, d_buff + j * Nvi, Nvi, Nvk, Nvi * Nvj,
+    cnv_columns<<<blocks3, threads3>>>(dst + j * Nvi, d_buff + j * Nvi, Nvi, Nvk, Nvi * Nvj,
                                        2 * KERNEL_LENGTH);
-    cudaError_t error = cudaGetLastError();
-    if (error != cudaSuccess) {
-      printf("CUDA kernel THIRD DIM error: %s\n", cudaGetErrorString(error));
-      exit(-1);
-    }
+    HANDLE_ERROR(cudaGetLastError());
   }
 
-  HANDLE_ERROR(
-      cudaMemcpy(imgout, d_imgout, Nvi * Nvj * Nvk * sizeof(float), cudaMemcpyDeviceToHost));
+  HANDLE_ERROR(cudaFree(d_buff));
+}
 
-  cudaFree(d_buff);
-  cudaFree(d_imgint);
-  cudaFree(d_imgout);
+/// main convolution function
+void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset, bool _sync) {
+  assert(dst != src);
+  int Npk = ((COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y) -
+             Nvk % (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y)) %
+            (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y);
+  int Npj = ((COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y) -
+             Nvj % (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y)) %
+            (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y);
+  int Npi = ((ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X) - Nvi % (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X)) %
+            (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X);
 
-  cudaEventRecord(stop, 0);
-  cudaEventSynchronize(stop);
-  float elapsedTime;
-  cudaEventElapsedTime(&elapsedTime, start, stop);
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
-  if (Cnt.LOG <= LOGINFO) printf("i> elapsed time of convolution: %f\n", 0.001 * elapsedTime);
+  float *d_src;
+  float *d_dst;
+  if (Npk | Npj | Npi) {
+    fprintf(stderr, "w> padding:(%d, %d, %d) since input:(%d, %d, %d)\n", Npi, Npj, Npk, Nvi, Nvj,
+            Nvk);
+    Nvi += Npi;
+    Nvj += Npj;
+    Nvk += Npk;
+    HANDLE_ERROR(cudaMalloc((void **)&d_dst, Nvk * Nvj * Nvi * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc((void **)&d_src, Nvk * Nvj * Nvi * sizeof(float)));
+    HANDLE_ERROR(cudaMemset(d_dst, 0, Nvk * Nvj * Nvi * sizeof(float)));
+    d_pad(d_src, src, Npk, Npj, Npi, Nvk - Npk, Nvj - Npj, Nvi - Npi);
+  } else {
+    d_dst = dst;
+    d_src = src;
+    if (_memset) memset(dst, 0, Nvk * Nvj * Nvi * sizeof(float));
+  }
+
+  d_conv_pow2(d_dst, d_src, Nvk, Nvj, Nvi);
+
+  if (Npk | Npj | Npi) d_unpad(dst, d_dst, Npj, Npi, Nvk - Npk, Nvj - Npj, Nvi - Npi);
+
+  if (_sync) HANDLE_ERROR(cudaDeviceSynchronize()); // unified memcpy device2host
 }

@@ -36,18 +36,8 @@ __global__ void d_rsmpl(float *imr, const float *imo, Cimg Cim) {
 
 //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-float *rsmpl(float *imo, float *A, Cimg Cim)
-
-{
-
-  float *d_imr;
-  HANDLE_ERROR(cudaMalloc(&d_imr, Cim.VXNRx * Cim.VXNRy * Cim.VXNRz * sizeof(float)));
-  HANDLE_ERROR(cudaMemset(d_imr, 0, Cim.VXNRx * Cim.VXNRy * Cim.VXNRz * sizeof(float)));
-
-  float *d_imo;
-  HANDLE_ERROR(cudaMalloc(&d_imo, Cim.VXNOx * Cim.VXNOy * Cim.VXNOz * sizeof(float)));
-  HANDLE_ERROR(cudaMemcpy(d_imo, imo, Cim.VXNOx * Cim.VXNOy * Cim.VXNOz * sizeof(float),
-                          cudaMemcpyHostToDevice));
+void rsmpl(float *d_imr, float *d_imo, float *A, Cimg Cim, bool _memset, bool _sync) {
+  if (_memset) memset(d_imr, 0, Cim.VXNRx * Cim.VXNRy * Cim.VXNRz * sizeof(float));
 
   cudaMemcpyToSymbol(cA, A, 12 * sizeof(float));
   // double * d_A;
@@ -55,33 +45,15 @@ float *rsmpl(float *imo, float *A, Cimg Cim)
   // HANDLE_ERROR( cudaMemcpy(d_A, A, 12*sizeof(double), cudaMemcpyHostToDevice) );
 
   //<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-  printf("i> calculating transformation with %d samples per voxel...", VDIV);
+  fprintf(stderr, "i> calculating transformation with %d samples per voxel...", VDIV);
   dim3 grid(Cim.VXNOx, Cim.VXNOy, Cim.VXNOz);
   dim3 block(VDIV, VDIV, VDIV);
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start, 0);
   d_rsmpl<<<grid, block>>>(d_imr, d_imo, Cim);
   cudaError_t error = cudaGetLastError();
   if (error != cudaSuccess) {
-    printf("CUDA kernel for image resampling: error: %s\n", cudaGetErrorString(error));
+    fprintf(stderr, "CUDA kernel for image resampling: error: %s\n", cudaGetErrorString(error));
     exit(-1);
   }
-  cudaEventRecord(stop, 0);
-  cudaEventSynchronize(stop);
-  float elapsedTime;
-  cudaEventElapsedTime(&elapsedTime, start, stop);
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
-  printf("DONE in %fs.\n\n", 0.001 * elapsedTime);
   //<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
-  // allocate memory for the resampled image for the return
-  float *imr = (float *)malloc(Cim.VXNRx * Cim.VXNRy * Cim.VXNRz * sizeof(float));
-  // copy the image from GPU to CPU
-  HANDLE_ERROR(cudaMemcpy(imr, d_imr, Cim.VXNRx * Cim.VXNRy * Cim.VXNRz * sizeof(float),
-                          cudaMemcpyDeviceToHost));
-
-  return imr;
+  if (_sync) HANDLE_ERROR(cudaDeviceSynchronize()); // unified memcpy device2host
 }

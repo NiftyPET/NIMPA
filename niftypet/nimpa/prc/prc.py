@@ -20,8 +20,11 @@ from . import imio, regseg
 
 try:
     # GPU routines if compiled
+    import cuvec as cu
+
     from . import improc
 except ImportError:
+    cu = None
     improc = None
 sitk_flag = True
 try:
@@ -88,9 +91,9 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
             imsmo, affine, fout, trnsp=(imd['transpose'].index(0), imd['transpose'].index(1),
                                         imd['transpose'].index(2)), flip=imd['flip'])
 
-    if output=='all':
+    if output == 'all':
         return dctout
-    elif output=='image':
+    elif output == 'image':
         return imsmo
     else:
         return None
@@ -554,10 +557,11 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         # > (2) CPU, Python-based convolution
         if improc is not None:
             # > convert to dimensions of GPU processing [y,x,z]
-            imin_d = np.transpose(imgPWC, (1, 2, 0))
-            imout_d = np.zeros(imin_d.shape, dtype=np.float32)
-            improc.convolve(imout_d, imin_d, krnl, Cnt)
-            imgSmo = np.transpose(imout_d, (2, 0, 1))
+            imin = cu.CuVec(np.transpose(imgPWC, (1, 2, 0)))
+            knl = cu.CuVec(krnl)
+            imout_d = improc.convolve(imin.cuvec, knl.cuvec, log=log.getEffectiveLevel(),
+                                      dev_id=Cnt['DEVID'])
+            imgSmo = np.transpose(np.asarray(imout_d), (2, 0, 1))
         else:
             hxy = np.outer(krnl[1, :], krnl[2, :])
             hxyz = np.multiply.outer(krnl[0, :], hxy)

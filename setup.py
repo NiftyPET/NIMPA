@@ -104,7 +104,9 @@ build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
 setup_kwargs = {
     "use_scm_version": True, "packages": find_packages(exclude=["tests"]),
     "package_data": {"niftypet": ["nimpa/auxdata/*"]}}
-cmake_args = [f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}"]
+cmake_args = [
+    f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",
+    f"-DNIMPA_KERNEL_RADIUS={getattr(resources, 'RSZ_PSF_KRNL', 8)}"]
 
 try:
     from skbuild import setup as sksetup
