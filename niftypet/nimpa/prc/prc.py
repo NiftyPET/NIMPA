@@ -49,7 +49,7 @@ def num(s):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, voxsize=1., fout=''):
+def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
     '''
     Smooth image using Gaussian filter with FWHM given as an option.
     Input can be NIfTI image file or Numpy array
@@ -88,7 +88,12 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout=''):
             imsmo, affine, fout, trnsp=(imd['transpose'].index(0), imd['transpose'].index(1),
                                         imd['transpose'].index(2)), flip=imd['flip'])
 
-    return dctout
+    if output=='all':
+        return dctout
+    elif output=='image':
+        return imsmo
+    else:
+        return None
 
 
 # ==================================================================================================
