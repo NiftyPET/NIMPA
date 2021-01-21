@@ -118,4 +118,5 @@ else:
         cmake_source_dir="niftypet", cmake_languages=("C", "CXX", "CUDA"),
         cmake_minimum_required_version="3.18", cmake_args=[
             f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",
-            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches))], **setup_kwargs)
+            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)),
+            f"-DNIMPA_KERNEL_RADIUS={getattr(resources, 'RSZ_PSF_KRNL', 8)}"], **setup_kwargs)

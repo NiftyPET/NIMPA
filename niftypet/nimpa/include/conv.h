@@ -1,13 +1,21 @@
 #ifndef _NIMPA_CONV_H_
 #define _NIMPA_CONV_H_
 
-// for logging
+// logging levels
 #define LOGDEBUG 10
 #define LOGINFO 20
 #define LOGWARNING 30
 
-#define RSZ_PSF_KRNL 8
-#define KERNEL_LENGTH (2 * RSZ_PSF_KRNL + 1)
+// number of threads used for element-wise GPU calculations
+#ifndef NIMPA_CU_THREADS
+#define NIMPA_CU_THREADS 1024
+#endif
+
+/* separable convolution */
+#ifndef NIMPA_KERNEL_RADIUS
+#define NIMPA_KERNEL_RADIUS 8
+#endif
+#define KERNEL_LENGTH (2 * NIMPA_KERNEL_RADIUS + 1)
 
 // Column convolution filter
 #define COLUMNS_BLOCKDIM_X 8
@@ -26,10 +34,14 @@ struct Cnst {
   char LOG;   // logging
 };
 
-// GPU convolution
-void setConvolutionKernel(float *hKrnl, bool handle_errors = true);
+/// krnl: separable three kernels for x, y and z
+void setConvolutionKernel(float *krnl, bool handle_errors = true);
 
-void gpu_cnv(float *imgout, float *imgint, int Nvk, int Nvj, int Nvi, bool _memset = true,
-             bool _sync = true);
+/// sigma: Gaussian sigma
+void setKernelGaussian(float sigma, bool handle_errors = true);
+
+/// main convolution function
+void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset = true,
+            bool _sync = true);
 
 #endif // _NIMPA_CONV_H_

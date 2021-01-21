@@ -192,7 +192,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   setConvolutionKernel(knl->vec.data(), false);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
-  gpu_cnv(dst->vec.data(), src->vec.data(), Nvk, Nvj, Nvi, MEMSET, SYNC);
+  d_conv(dst->vec.data(), src->vec.data(), Nvk, Nvj, Nvi, MEMSET, SYNC);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
   //=================================================================
 
