@@ -248,7 +248,11 @@ void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset, boo
 
   d_conv_pow2(d_dst, d_src, Nvk, Nvj, Nvi);
 
-  if (Npk | Npj | Npi) d_unpad(dst, d_dst, Npj, Npi, Nvk - Npk, Nvj - Npj, Nvi - Npi);
+  if (Npk | Npj | Npi) {
+    d_unpad(dst, d_dst, Npj, Npi, Nvk - Npk, Nvj - Npj, Nvi - Npi);
+    HANDLE_ERROR(cudaFree(d_dst));
+    HANDLE_ERROR(cudaFree(d_src));
+  }
 
   if (_sync) HANDLE_ERROR(cudaDeviceSynchronize()); // unified memcpy device2host
 }
