@@ -32,7 +32,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "")
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-option(CUVEC_DEBUG "Print out CUDA malloc & free operations" ON)
+option(CUVEC_DEBUG "Print out CUDA malloc & free operations" OFF)
 if(CUVEC_DEBUG)
   add_compile_definitions(CUVEC_DEBUG)
 endif(CUVEC_DEBUG)
