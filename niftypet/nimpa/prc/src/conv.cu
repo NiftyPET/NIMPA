@@ -110,7 +110,7 @@ __global__ void cnv_rows(float *d_Dst, float *d_Src, int imageW, int imageH, int
     float sum = 0;
 #pragma unroll
     for (int j = -NIMPA_KERNEL_RADIUS; j <= NIMPA_KERNEL_RADIUS; j++) {
-      sum += c_Kernel[NIMPA_KERNEL_RADIUS - j] *
+      sum += c_Kernel[2 * KERNEL_LENGTH + NIMPA_KERNEL_RADIUS - j] *
              s_Data[threadIdx.y][threadIdx.x + i * ROWS_BLOCKDIM_X + j];
     }
     d_Dst[i * ROWS_BLOCKDIM_X] = sum;
@@ -206,8 +206,7 @@ void d_conv_pow2(float *dst, float *src, int Nvk, int Nvj, int Nvi) {
   dim3 blocks3(Nvi / COLUMNS_BLOCKDIM_X, Nvk / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
   dim3 threads3(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
   for (int j = 0; j < Nvj; j++) {
-    cnv_columns<<<blocks3, threads3>>>(dst + j * Nvi, d_buff + j * Nvi, Nvi, Nvk, Nvi * Nvj,
-                                       2 * KERNEL_LENGTH);
+    cnv_columns<<<blocks3, threads3>>>(dst + j * Nvi, d_buff + j * Nvi, Nvi, Nvk, Nvi * Nvj, 0);
     HANDLE_ERROR(cudaGetLastError());
   }
 
