@@ -47,6 +47,27 @@ def num(s):
         return float(s)
 
 
+def conv3d_separable(vol, knl, dev_id=0):
+    """
+    Args:
+      img: 3d array
+      knl: 3 x 17 separable kernel
+      dev_id: GPU device ID to try [default: 0].
+        Set to `False` to force CPU fallback.
+    """
+    if improc is not None and dev_id is not False and knl.shape == (3, 17):
+        log.debug("GPU conv")
+        vol = cu.asarray(np.asanyarray(vol, dtype='float32'))
+        knl = cu.asarray(np.asanyarray(knl, dtype='float32'))
+        dst = improc.convolve(vol.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
+        return np.asanyarray(cu.asarray(dst), dtype=vol.dtype)
+    else:
+        log.debug("CPU conv")
+        hxy = np.outer(knl[1, :], knl[2, :])
+        hxyz = np.multiply.outer(knl[0, :], hxy)
+        return ndi.convolve(vol, hxyz, mode='constant', cval=0.)
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -552,21 +573,8 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         for jr in range(0, m + 1):
             imgPWC[imgSeg == jr] = np.mean(imgPWC[imgSeg == jr])
 
-        # > blur the piece-wise constant image using either:
-        # > (1) GPU convolution with a separable kernel (x,y,z), or
-        # > (2) CPU, Python-based convolution
-        if improc is not None:
-            # > convert to dimensions of GPU processing [y,x,z]
-            imin = cu.asarray(np.transpose(imgPWC, (1, 2, 0)))
-            krnl = cu.asarray(krnl)
-            imout_d = cu.asarray(
-                improc.convolve(imin.cuvec, krnl.cuvec, log=log.getEffectiveLevel(),
-                                dev_id=Cnt['DEVID']))
-            imgSmo = np.transpose(imout_d, (2, 0, 1))
-        else:
-            hxy = np.outer(krnl[1, :], krnl[2, :])
-            hxyz = np.multiply.outer(krnl[0, :], hxy)
-            imgSmo = ndi.convolve(imgPWC, hxyz, mode='constant', cval=0.)
+        # blur the piece-wise constant image
+        imgSmo = conv3d_separable(imgPWC, krnl, dev_id=Cnt['DEVID'])
 
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)

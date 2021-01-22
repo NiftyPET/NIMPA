@@ -189,25 +189,23 @@ void d_conv_pow2(float *dst, float *src, int Nvk, int Nvj, int Nvi) {
   // HANDLE_ERROR(cudaMemset(d_buff, 0, Nvk * Nvj * Nvi * sizeof(float)));
 
   // perform smoothing
+  //------ ROWS -------
+  dim3 blocks(Nvi / (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X), Nvj / ROWS_BLOCKDIM_Y);
+  dim3 threads(ROWS_BLOCKDIM_X, ROWS_BLOCKDIM_Y);
+  //----- COLUMNS ----
+  dim3 blocks2(Nvi / COLUMNS_BLOCKDIM_X, Nvj / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
+  dim3 threads2(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
   for (int k = 0; k < Nvk; k++) {
-    //------ ROWS -------
-    dim3 blocks(Nvi / (ROWS_RESULT_STEPS * ROWS_BLOCKDIM_X), Nvj / ROWS_BLOCKDIM_Y);
-    dim3 threads(ROWS_BLOCKDIM_X, ROWS_BLOCKDIM_Y);
     cnv_rows<<<blocks, threads>>>(dst + k * Nvi * Nvj, src + k * Nvi * Nvj, Nvi, Nvj, Nvi);
     HANDLE_ERROR(cudaGetLastError());
-
-    //----- COLUMNS ----
-    dim3 blocks2(Nvi / COLUMNS_BLOCKDIM_X, Nvj / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
-    dim3 threads2(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
     cnv_columns<<<blocks2, threads2>>>(d_buff + k * Nvi * Nvj, dst + k * Nvi * Nvj, Nvi, Nvj, Nvi,
                                        KERNEL_LENGTH);
     HANDLE_ERROR(cudaGetLastError());
   }
-
   //----- THIRD DIM ----
+  dim3 blocks3(Nvi / COLUMNS_BLOCKDIM_X, Nvk / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
+  dim3 threads3(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
   for (int j = 0; j < Nvj; j++) {
-    dim3 blocks3(Nvi / COLUMNS_BLOCKDIM_X, Nvk / (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y));
-    dim3 threads3(COLUMNS_BLOCKDIM_X, COLUMNS_BLOCKDIM_Y);
     cnv_columns<<<blocks3, threads3>>>(dst + j * Nvi, d_buff + j * Nvi, Nvi, Nvk, Nvi * Nvj,
                                        2 * KERNEL_LENGTH);
     HANDLE_ERROR(cudaGetLastError());

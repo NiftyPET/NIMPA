@@ -3,6 +3,8 @@ import logging
 import numpy as np
 from pytest import fixture, importorskip
 
+from niftypet.nimpa.prc.prc import conv3d_separable
+
 cu = importorskip("cuvec")
 improc = importorskip("niftypet.nimpa.prc.improc")
 
@@ -13,6 +15,10 @@ def check_conv(src, dst):
     assert dst[1, 2, 2] == 1 / 16, err
     assert dst[1, 2, 1] == 1 / 32, err
     assert dst[1, 1, 1] == 1 / 64, err
+
+
+def rmse(x, y):
+    return (((x - y)**2).mean() / (y**2).mean())**0.5
 
 
 @fixture(scope="module")
@@ -55,3 +61,13 @@ def test_convolve_autopad(knl):
     assert dst[2, 2, 2] == 0
     improc.convolve(src.cuvec, knl.cuvec, log=logging.DEBUG, output=dst.cuvec)
     check_conv(src, dst)
+
+
+def test_conv3d_separable():
+    knl = np.random.random((3, 17)).astype('float32')
+    src = np.random.random((64, 64, 64)).astype('float32')
+    dst_gpu = conv3d_separable(src, knl)
+    dst_cpu = conv3d_separable(src, knl, dev_id=False)
+    assert hasattr(dst_gpu, 'cuvec')
+    assert not hasattr(dst_cpu, 'cuvec')
+    assert rmse(dst_gpu, dst_cpu) < 1e-7
