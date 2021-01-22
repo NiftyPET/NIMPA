@@ -57,10 +57,10 @@ def conv3d_separable(vol, knl, dev_id=0):
     """
     if improc is not None and dev_id is not False and knl.shape == (3, 17):
         log.debug("GPU conv")
-        vol = cu.asarray(np.asanyarray(vol, dtype='float32'))
-        knl = cu.asarray(np.asanyarray(knl, dtype='float32'))
+        vol = cu.asarray(vol, dtype='float32')
+        knl = cu.asarray(knl, dtype='float32')
         dst = improc.convolve(vol.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
-        return np.asanyarray(cu.asarray(dst), dtype=vol.dtype)
+        return cu.asarray(dst, dtype=vol.dtype)
     else:
         log.debug("CPU conv")
         hxy = np.outer(knl[1, :], knl[2, :])
