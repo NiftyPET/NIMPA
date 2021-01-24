@@ -47,25 +47,45 @@ def num(s):
         return float(s)
 
 
-def conv3d_separable(vol, knl, dev_id=0):
+def conv_separable(vol, knl, dev_id=0):
     """
     Args:
-      img: 3d array
-      knl: 3 x 17 separable kernel
-      dev_id: GPU device ID to try [default: 0].
+      vol(ndarray): Can be any number of dimensions `ndim`
+        (GPU requires `ndim <= 3`).
+      knl(ndarray): `ndim` x `width` separable kernel
+        (GPU requires `width <= 17`).
+      dev_id(int or bool): GPU device ID to try [default: 0].
         Set to `False` to force CPU fallback.
     """
-    if improc is not None and dev_id is not False and knl.shape == (3, 17):
+    assert vol.ndim == len(knl)
+    assert knl.ndim == 2
+    if len(knl) > 3 or knl.shape[1] > 17:
+        log.warning("kernel larger than 3 x 17 not supported on GPU")
+        dev_id = False
+    if improc is not None and dev_id is not False:
         log.debug("GPU conv")
-        vol = cu.asarray(vol, dtype='float32')
+        pad = 3 - len(knl)        # <3 dims
+        k_pad = 17 - knl.shape[1] # kernel width < 17
+        if pad or k_pad:
+            knl = np.pad(knl, [(0, pad), (k_pad // 2, k_pad//2 + (k_pad%2))])
+            if pad:
+                knl[-pad:, 17 // 2] = 1
+                vol = vol.reshape(vol.shape + (1,) * pad)
+        src = cu.asarray(vol, dtype='float32')
         knl = cu.asarray(knl, dtype='float32')
-        dst = improc.convolve(vol.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
-        return cu.asarray(dst, dtype=vol.dtype)
+        dst = improc.convolve(src.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
+        res = cu.asarray(dst, dtype=vol.dtype)
+        return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
     else:
         log.debug("CPU conv")
-        hxy = np.outer(knl[1, :], knl[2, :])
-        hxyz = np.multiply.outer(knl[0, :], hxy)
-        return ndi.convolve(vol, hxyz, mode='constant', cval=0.)
+        if len(knl) == 1:
+            h = knl[0]
+        elif len(knl) >= 2:
+            h = np.outer(knl[-2, :], knl[-1, :])
+            if len(knl) > 2:
+                for i in range(len(knl) - 3, -1, -1):
+                    h = np.multiply.outer(knl[i, :], h)
+        return ndi.convolve(vol, h, mode='constant', cval=0.)
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -534,10 +554,9 @@ def psf_measured(scanner='mmr', scale=1):
         fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
         # transaxial and axial PSF
         Hxy, Hz = np.load(fdat)
-        krnl = np.array([Hz, Hxy, Hxy], dtype=np.float32)
-    else:
-        raise NameError('e> only Siemens mMR is currently supported.')
-    return krnl
+        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
+    raise NameError(f'Unsupported scanner ({scanner}):'
+                    ' only Siemens mMR (mmr) is currently supported')
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -574,7 +593,7 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
             imgPWC[imgSeg == jr] = np.mean(imgPWC[imgSeg == jr])
 
         # blur the piece-wise constant image
-        imgSmo = conv3d_separable(imgPWC, krnl, dev_id=Cnt['DEVID'])
+        imgSmo = conv_separable(imgPWC, krnl, dev_id=Cnt['DEVID'])
 
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)
