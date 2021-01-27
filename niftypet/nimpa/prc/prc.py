@@ -20,8 +20,11 @@ from . import imio, regseg
 
 try:
     # GPU routines if compiled
+    import cuvec as cu
+
     from . import improc
 except ImportError:
+    cu = None
     improc = None
 sitk_flag = True
 try:
@@ -42,6 +45,47 @@ def num(s):
         return int(s)
     except ValueError:
         return float(s)
+
+
+def conv_separable(vol, knl, dev_id=0):
+    """
+    Args:
+      vol(ndarray): Can be any number of dimensions `ndim`
+        (GPU requires `ndim <= 3`).
+      knl(ndarray): `ndim` x `width` separable kernel
+        (GPU requires `width <= 17`).
+      dev_id(int or bool): GPU device ID to try [default: 0].
+        Set to `False` to force CPU fallback.
+    """
+    assert vol.ndim == len(knl)
+    assert knl.ndim == 2
+    if len(knl) > 3 or knl.shape[1] > 17:
+        log.warning("kernel larger than 3 x 17 not supported on GPU")
+        dev_id = False
+    if improc is not None and dev_id is not False:
+        log.debug("GPU conv")
+        pad = 3 - len(knl)        # <3 dims
+        k_pad = 17 - knl.shape[1] # kernel width < 17
+        if pad or k_pad:
+            knl = np.pad(knl, [(0, pad), (k_pad // 2, k_pad//2 + (k_pad%2))])
+            if pad:
+                knl[-pad:, 17 // 2] = 1
+                vol = vol.reshape(vol.shape + (1,) * pad)
+        src = cu.asarray(vol, dtype='float32')
+        knl = cu.asarray(knl, dtype='float32')
+        dst = improc.convolve(src.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
+        res = cu.asarray(dst, dtype=vol.dtype)
+        return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
+    else:
+        log.debug("CPU conv")
+        if len(knl) == 1:
+            h = knl[0]
+        elif len(knl) >= 2:
+            h = np.outer(knl[-2, :], knl[-1, :])
+            if len(knl) > 2:
+                for i in range(len(knl) - 3, -1, -1):
+                    h = np.multiply.outer(knl[i, :], h)
+        return ndi.convolve(vol, h, mode='constant', cval=0.)
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -88,9 +132,9 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
             imsmo, affine, fout, trnsp=(imd['transpose'].index(0), imd['transpose'].index(1),
                                         imd['transpose'].index(2)), flip=imd['flip'])
 
-    if output=='all':
+    if output == 'all':
         return dctout
-    elif output=='image':
+    elif output == 'image':
         return imsmo
     elif output=='file':
         return fout
@@ -512,10 +556,9 @@ def psf_measured(scanner='mmr', scale=1):
         fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
         # transaxial and axial PSF
         Hxy, Hz = np.load(fdat)
-        krnl = np.array([Hz, Hxy, Hxy], dtype=np.float32)
-    else:
-        raise NameError('e> only Siemens mMR is currently supported.')
-    return krnl
+        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
+    raise NameError(f'Unsupported scanner ({scanner}):'
+                    ' only Siemens mMR (mmr) is currently supported')
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -551,19 +594,8 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         for jr in range(0, m + 1):
             imgPWC[imgSeg == jr] = np.mean(imgPWC[imgSeg == jr])
 
-        # > blur the piece-wise constant image using either:
-        # > (1) GPU convolution with a separable kernel (x,y,z), or
-        # > (2) CPU, Python-based convolution
-        if improc is not None:
-            # > convert to dimensions of GPU processing [y,x,z]
-            imin_d = np.transpose(imgPWC, (1, 2, 0))
-            imout_d = np.zeros(imin_d.shape, dtype=np.float32)
-            improc.convolve(imout_d, imin_d, krnl, Cnt)
-            imgSmo = np.transpose(imout_d, (2, 0, 1))
-        else:
-            hxy = np.outer(krnl[1, :], krnl[2, :])
-            hxyz = np.multiply.outer(krnl[0, :], hxy)
-            imgSmo = ndi.convolve(imgPWC, hxyz, mode='constant', cval=0.)
+        # blur the piece-wise constant image
+        imgSmo = conv_separable(imgPWC, krnl, dev_id=Cnt['DEVID'])
 
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)

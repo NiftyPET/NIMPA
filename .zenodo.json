@@ -1,0 +1,12 @@
+{
+  "title": "NIMPA: High-throughput neuroimage processing and analysis",
+  "keywords": ["PET", "MR", "processing", "analysis", "GPU"],
+  "related_identifiers": [
+    {"identifier": "10.1007/s12021-017-9352-y", "relation": "documents"},
+    {"identifier": "10.1088/0031-9155/61/13/N322", "relation": "documents"}],
+  "creators": [
+    {"name": "Markiewicz, Pawel J.", "orcid": "0000-0002-3114-0773",
+     "affiliation": "University College London"},
+    {"name": "da Costa-Luis, Casper O.", "orcid": "0000-0002-7211-1557",
+     "affiliation": "King's College London, University College London"}]
+}
