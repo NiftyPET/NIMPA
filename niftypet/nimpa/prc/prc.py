@@ -136,6 +136,8 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
         return dctout
     elif output == 'image':
         return imsmo
+    elif output == 'file':
+        return fout
     else:
         return None
 
