@@ -2,6 +2,7 @@ name: Test
 on: [push, pull_request]
 jobs:
   check:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/devel'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -9,8 +10,6 @@ jobs:
     name: Check py${{ matrix.python }}
     steps:
     - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
     - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
@@ -25,7 +24,8 @@ jobs:
         pip install -U pre-commit
         sudo apt-get install -yqq clang-format
     - uses: reviewdog/action-setup@v1
-    - name: comment
+    - if: github.event_name != 'schedule'
+      name: comment
       run: |
         if [[ $EVENT == pull_request ]]; then
           REPORTER=github-pr-review
@@ -41,20 +41,21 @@ jobs:
   test:
     if: github.event_name != 'pull_request' || github.head_ref != 'devel'
     runs-on: [self-hosted, cuda, python]
-    name: Test
+    strategy:
+      matrix:
+        python: [3.6, 3.9]
+    name: Test py${{ matrix.python }}
     steps:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
     - name: Run setup-python
-      run: setup-python -p3.7 -m ${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER}
+      run: setup-python -p${{ matrix.python }}
     - run: pip install -U -e .[dev]
     - run: pytest
     - run: codecov
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     - name: Post Run setup-python
-      run: setup-python -p3.7 -m ${GITHUB_RUN_ID}.${GITHUB_RUN_NUMBER} -r
+      run: setup-python -p${{ matrix.python }} -Dr
       if: ${{ always() }}
   deploy:
     needs: [check, test]
@@ -65,22 +66,17 @@ jobs:
       with:
         fetch-depth: 0
     - uses: actions/setup-python@v2
-    - run: pip install -U twine setuptools wheel setuptools_scm[toml] ninst scikit-build
-    - run: PATHTOOLS=$HOME/NiftyPET_tools python setup.py sdist
-    - run: twine check dist/*
-    - if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
-      run: twine upload dist/*
+    - id: dist
+      uses: casperdcl/deploy-pypi@v2
+      with:
+        requirements: twine setuptools wheel setuptools_scm[toml] ninst scikit-build
+        build: sdist
+        password: ${{ secrets.PYPI_TOKEN }}
+        upload: ${{ github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags') }}
       env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        skip_existing: true
-    - if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
-      id: collect_assets
-      name: Collect assets
-      run: |
-        echo "::set-output name=asset_path::$(ls dist/*.tar.gz)"
-        echo "::set-output name=asset_name::$(basename dist/*.tar.gz)"
-        git log --pretty='format:%d%n- %s%n%b---' $(git tag --sort=v:refname | tail -n2 | head -n1)..HEAD > _CHANGES.md
+        PATHTOOLS: ${{ github.workspace }}/NiftyPET_tools
+    - name: Changelog
+      run: git log --pretty='format:%d%n- %s%n%b---' $(git tag --sort=v:refname | tail -n2 | head -n1)..HEAD > _CHANGES.md
     - if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
       id: create_release
       uses: actions/create-release@v1
@@ -88,7 +84,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        release_name: nimpa ${{ github.ref }} beta
+        release_name: nimpa ${{ github.ref }} stable
         body_path: _CHANGES.md
         draft: true
     - if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
@@ -97,6 +93,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ steps.collect_assets.outputs.asset_path }}
-        asset_name: ${{ steps.collect_assets.outputs.asset_name }}
+        asset_path: dist/${{ steps.dist.outputs.targz }}
+        asset_name: ${{ steps.dist.outputs.targz }}
         asset_content_type: application/gzip

@@ -104,19 +104,20 @@ build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
 setup_kwargs = {
     "use_scm_version": True, "packages": find_packages(exclude=["tests"]),
     "package_data": {"niftypet": ["nimpa/auxdata/*"]}}
+cmake_args = [
+    f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",
+    f"-DNIMPA_KERNEL_RADIUS={getattr(resources, 'RSZ_PSF_KRNL', 8)}"]
 
 try:
-    nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo()}
+    from skbuild import setup as sksetup
+    nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo() if i[2:4] >= (3, 5)}
+    if nvcc_arches:
+        cmake_args.append("-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)))
 except Exception as exc:
-    log.warning("could not detect CUDA architectures:\n%s", exc)
+    log.warning("Import or CUDA device detection error:\n%s", exc)
     setup(**setup_kwargs)
 else:
-    from skbuild import setup as sksetup
-
     for i in (Path(__file__).resolve().parent / "_skbuild").rglob("CMakeCache.txt"):
         i.write_text(re.sub("^//.*$\n^[^#].*pip-build-env.*$", "", i.read_text(), flags=re.M))
-    sksetup(
-        cmake_source_dir="niftypet", cmake_languages=("C", "CXX", "CUDA"),
-        cmake_minimum_required_version="3.18", cmake_args=[
-            f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",
-            "-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches))], **setup_kwargs)
+    sksetup(cmake_source_dir="niftypet", cmake_languages=("C", "CXX", "CUDA"),
+            cmake_minimum_required_version="3.18", cmake_args=cmake_args, **setup_kwargs)

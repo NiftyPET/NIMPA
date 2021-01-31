@@ -20,8 +20,11 @@ from . import imio, regseg
 
 try:
     # GPU routines if compiled
+    import cuvec as cu
+
     from . import improc
 except ImportError:
+    cu = None
     improc = None
 sitk_flag = True
 try:
@@ -44,38 +47,99 @@ def num(s):
         return float(s)
 
 
+def conv_separable(vol, knl, dev_id=0):
+    """
+    Args:
+      vol(ndarray): Can be any number of dimensions `ndim`
+        (GPU requires `ndim <= 3`).
+      knl(ndarray): `ndim` x `width` separable kernel
+        (GPU requires `width <= 17`).
+      dev_id(int or bool): GPU device ID to try [default: 0].
+        Set to `False` to force CPU fallback.
+    """
+    assert vol.ndim == len(knl)
+    assert knl.ndim == 2
+    if len(knl) > 3 or knl.shape[1] > 17:
+        log.warning("kernel larger than 3 x 17 not supported on GPU")
+        dev_id = False
+    if improc is not None and dev_id is not False:
+        log.debug("GPU conv")
+        pad = 3 - len(knl)        # <3 dims
+        k_pad = 17 - knl.shape[1] # kernel width < 17
+        if pad or k_pad:
+            knl = np.pad(knl, [(0, pad), (k_pad // 2, k_pad//2 + (k_pad%2))])
+            if pad:
+                knl[-pad:, 17 // 2] = 1
+                vol = vol.reshape(vol.shape + (1,) * pad)
+        src = cu.asarray(vol, dtype='float32')
+        knl = cu.asarray(knl, dtype='float32')
+        dst = improc.convolve(src.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
+        res = cu.asarray(dst, dtype=vol.dtype)
+        return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
+    else:
+        log.debug("CPU conv")
+        if len(knl) == 1:
+            h = knl[0]
+        elif len(knl) >= 2:
+            h = np.outer(knl[-2, :], knl[-1, :])
+            if len(knl) > 2:
+                for i in range(len(knl) - 3, -1, -1):
+                    h = np.multiply.outer(knl[i, :], h)
+        return ndi.convolve(vol, h, mode='constant', cval=0.)
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, fout=''):
+def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
     '''
     Smooth image using Gaussian filter with FWHM given as an option.
+    Input can be NIfTI image file or Numpy array
     '''
-    imd = imio.getnii(fim, output='all')
-    imsmo = ndi.filters.gaussian_filter(imd['im'], imio.fwhm2sig(fwhm, voxsize=imd['voxsize']),
-                                        mode='mirror')
 
-    if fout == '':
+    isfile = False
+    if isinstance(fim, str) and os.path.isfile(fim):
+        isfile = True
+        imd = imio.getnii(fim, output='all')
+        im = imd['im']
+        voxsize = imd['voxsize']
+        affine = imd['affine']
+    elif isinstance(fim, (np.ndarray, np.generic)):
+        im = fim
+    else:
+        raise ValueError("incorrect image input.\nNIfTI or Numpy array are only accepted.")
+
+    imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize), mode='mirror')
+    # output dictionary
+    dctout = {}
+    dctout['im'] = imsmo
+    dctout['fwhm'] = fwhm
+
+    if isfile and fout == '':
         if fim.endswith('.nii.gz'):
-            fout = fim.split('nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
+            fout = fim.split('.nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
         else:
             fout = os.path.splitext(fim)[0] + '_smo' + str(fwhm).replace(
                 '.', '-') + os.path.splitext(fim)[1]
 
-    imio.array2nii(
-        imsmo, imd['affine'], fout,
-        trnsp=(imd['transpose'].index(0), imd['transpose'].index(1), imd['transpose'].index(2)),
-        flip=imd['flip'])
+    if isfile:
+        dctout['affine'] = affine
+        dctout['fim'] = fout
 
-    dctout = {}
-    dctout['im'] = imsmo
-    dctout['fim'] = fout
-    dctout['fwhm'] = fwhm
-    dctout['affine'] = imd['affine']
+        imio.array2nii(
+            imsmo, affine, fout, trnsp=(imd['transpose'].index(0), imd['transpose'].index(1),
+                                        imd['transpose'].index(2)), flip=imd['flip'])
 
-    return dctout
+    if output == 'all':
+        return dctout
+    elif output == 'image':
+        return imsmo
+    elif output == 'file':
+        return fout
+    else:
+        return None
 
 
 # ==================================================================================================
@@ -492,10 +556,9 @@ def psf_measured(scanner='mmr', scale=1):
         fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
         # transaxial and axial PSF
         Hxy, Hz = np.load(fdat)
-        krnl = np.array([Hz, Hxy, Hxy], dtype=np.float32)
-    else:
-        raise NameError('e> only Siemens mMR is currently supported.')
-    return krnl
+        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
+    raise NameError(f'Unsupported scanner ({scanner}):'
+                    ' only Siemens mMR (mmr) is currently supported')
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -531,19 +594,8 @@ def iyang(imgIn, krnl, imgSeg, Cnt, itr=5):
         for jr in range(0, m + 1):
             imgPWC[imgSeg == jr] = np.mean(imgPWC[imgSeg == jr])
 
-        # > blur the piece-wise constant image using either:
-        # > (1) GPU convolution with a separable kernel (x,y,z), or
-        # > (2) CPU, Python-based convolution
-        if improc is not None:
-            # > convert to dimensions of GPU processing [y,x,z]
-            imin_d = np.transpose(imgPWC, (1, 2, 0))
-            imout_d = np.zeros(imin_d.shape, dtype=np.float32)
-            improc.convolve(imout_d, imin_d, krnl, Cnt)
-            imgSmo = np.transpose(imout_d, (2, 0, 1))
-        else:
-            hxy = np.outer(krnl[1, :], krnl[2, :])
-            hxyz = np.multiply.outer(krnl[0, :], hxy)
-            imgSmo = ndi.convolve(imgPWC, hxyz, mode='constant', cval=0.)
+        # blur the piece-wise constant image
+        imgSmo = conv_separable(imgPWC, krnl, dev_id=Cnt['DEVID'])
 
         # correction factors
         imgCrr = np.ones(dim, dtype=np.float32)
@@ -591,7 +643,6 @@ def pvc_iyang(
                 * dcm2niix: Cnt['DCM2NIIX']
                 * niftyreg, resample: Cnt['RESPATH']
                 * niftyreg, rigid-reg: Cnt['REGPATH']
-                * verbose mode on/off: Cnt['VERBOSE'] = True/False
         pvcroi: list of regions (also a list) with number label to distinguish
                 the parcellations.  The numbers correspond to the image values
                 of the parcellated T1w image.  E.g.:
@@ -699,8 +750,7 @@ def pvc_iyang(
                 rfwhm=15.,                                           # millilitres
                 rthrsh=0.05,
                 ffwhm=15.,                                           # millilitres
-                fthrsh=0.05,
-                verbose=Cnt['VERBOSE'])
+                fthrsh=0.05)
         faff = regdct['faff']
 
     # resample the T1/labels to upsampled PET
@@ -715,7 +765,8 @@ def pvc_iyang(
                 cmd = [
                     Cnt['RESPATH'], '-ref', fpet, '-flo', fprc, '-trans', faff, '-res', fprcu,
                     '-inter', '0']
-                if not Cnt['VERBOSE']: cmd.append('-voff')
+                if log.getEffectiveLevel() >= logging.INFO:
+                    cmd.append('-voff')
                 run(cmd)
             else:
                 raise IOError('e> path to resampling executable is incorrect!')
@@ -1173,7 +1224,7 @@ def pet2pet_rigid(fref, fflo, Cnt, outpath='', rmsk=True, rfwhm=15., rthrsh=0.05
         if rmsk:
             cmd.append('-rmask')
             cmd.append(fmsk)
-        if not Cnt['VERBOSE']:
+        if log.getEffectiveLevel() >= logging.INFO:
             cmd.append('-voff')
         log.info('Executing command:\n{}'.format(cmd))
         run(cmd)

@@ -34,6 +34,6 @@ struct Cimg {
   float OFFRz;
 };
 
-float *rsmpl(float *imo, float *A, Cimg Cim);
+void rsmpl(float *imt, float *imo, float *A, Cimg Cim, bool _memset = true, bool _sync = true);
 
 #endif // _NIMPA_RSMPL_H_
