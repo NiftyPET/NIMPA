@@ -72,3 +72,32 @@ def test_conv_separable(knl_size):
     assert hasattr(dst_gpu, 'cuvec') or knl_size[0] != 3
     assert not hasattr(dst_cpu, 'cuvec')
     assert rmse(dst_gpu, dst_cpu) < 1e-7
+
+
+if __name__ == "__main__":
+    from textwrap import dedent
+
+    from argopt import argopt
+    from tqdm import trange
+    logging.basicConfig(level=logging.WARNING)
+    args = argopt(
+        dedent("""\
+    Performance testing `conv_separable()`
+    Usage:
+        test_improc [options] [<repeats>]
+
+    Options:
+        -d DIMS  : Up to [default: 3:int]
+        -k WIDTH  : Up to [default: 17:int]
+        -i WIDTH  : input width [default: 234:int]
+
+    Arguments:
+        <repeats>  : [default: 10:int]
+    """)).parse_args()
+    assert 0 < args.d <= 3
+    assert 0 < args.k <= 17
+    KNL = cu.asarray(np.random.random((args.d, args.k)))
+    SRC = cu.asarray(np.random.random((args.i,) * args.d), dtype='float32')
+    for _ in trange(args.repeats, unit="repeats", desc=f"{args.i}^{args.d} (*) {args.k}^{args.d}"):
+        dst_gpu = conv_separable(SRC, KNL)
+    assert hasattr(dst_gpu, 'cuvec') or args.d < 3

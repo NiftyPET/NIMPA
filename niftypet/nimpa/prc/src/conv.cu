@@ -3,6 +3,14 @@
 #include <cassert>
 #include <cstdio>
 
+/**
+ * padding: uses a `__global__ for` loop performing contiguous copies.
+ * NB: the following are all slower:
+ * - cudaMemcpy
+ * - cudaMemcpyAsync
+ * - __global__ memcpy
+ * - __global__ (one thread per element, i.e. more threads)
+ */
 /// x, y, z: how many slices to add
 __global__ void pad(float *dst, float *src, const int y, const int x, const int Z, const int Y,
                     const int X) {
@@ -22,7 +30,6 @@ void d_pad(float *dst, float *src, const int z, const int y, const int x, const 
   pad<<<BpG, TpB>>>(dst, src, y, x, Z, Y, X);
   HANDLE_ERROR(cudaGetLastError());
 }
-
 /// y, z: how many slices to remove
 __global__ void unpad(float *dst, float *src, const int y, const int x, const int Z, const int Y,
                       const int X) {
@@ -214,7 +221,8 @@ void d_conv_pow2(float *dst, float *src, int Nvk, int Nvj, int Nvi) {
 }
 
 /// main convolution function
-void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset, bool _sync) {
+void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset, bool _sync,
+            int _log) {
   assert(dst != src);
   int Npk = ((COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y) -
              Nvk % (COLUMNS_RESULT_STEPS * COLUMNS_BLOCKDIM_Y)) %
@@ -228,8 +236,9 @@ void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset, boo
   float *d_src;
   float *d_dst;
   if (Npk | Npj | Npi) {
-    fprintf(stderr, "w> padding:(%d, %d, %d) since input:(%d, %d, %d)\n", Npi, Npj, Npk, Nvi, Nvj,
-            Nvk);
+    if (_log <= LOGINFO)
+      fprintf(stderr, "i> padding:(%d, %d, %d) since input:(%d, %d, %d)\n", Npi, Npj, Npk, Nvi,
+              Nvj, Nvk);
     Nvi += Npi;
     Nvj += Npj;
     Nvk += Npk;
