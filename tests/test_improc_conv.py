@@ -96,7 +96,7 @@ if __name__ == "__main__":
     """)).parse_args()
     assert 0 < args.d <= 3
     assert 0 < args.k <= 17
-    KNL = cu.asarray(np.random.random((args.d, args.k)))
+    KNL = cu.asarray(np.random.random((args.d, args.k)), dtype='float32')
     SRC = cu.asarray(np.random.random((args.i,) * args.d), dtype='float32')
     for _ in trange(args.repeats, unit="repeats", desc=f"{args.i}^{args.d} (*) {args.k}^{args.d}"):
         dst_gpu = conv_separable(SRC, KNL)
