@@ -78,14 +78,10 @@ def conv_separable(vol, knl, dev_id=0):
         return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
     else:
         log.debug("CPU conv")
-        if len(knl) == 1:
-            h = knl[0]
-        elif len(knl) >= 2:
-            h = np.outer(knl[-2, :], knl[-1, :])
-            if len(knl) > 2:
-                for i in range(len(knl) - 3, -1, -1):
-                    h = np.multiply.outer(knl[i, :], h)
-        return ndi.convolve(vol, h, mode='constant', cval=0.)
+        for dim in range(len(knl)):
+            h = knl[dim].reshape((1,) * dim + (-1,) + (1,) * (len(knl) - dim - 1))
+            vol = ndi.convolve(vol, h, mode='constant', cval=0.)
+        return vol
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -136,7 +132,7 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
         return dctout
     elif output == 'image':
         return imsmo
-    elif output=='file':
+    elif output == 'file':
         return fout
     else:
         return None

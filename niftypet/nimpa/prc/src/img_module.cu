@@ -72,6 +72,7 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
   } else {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
     dst = PyCuVec_zeros_like(src);
@@ -134,7 +135,6 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   // PyTuple_SetItem(tuple_out, 1, PyArray_Return(p_imr));
   // //---
 
-  Py_INCREF((PyObject *)dst);
   return (PyObject *)dst;
 }
 
@@ -161,6 +161,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
   } else {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
     dst = PyCuVec_zeros_like(src);
@@ -192,10 +193,9 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   setConvolutionKernel(knl->vec.data(), false);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
-  d_conv(dst->vec.data(), src->vec.data(), Nvk, Nvj, Nvi, MEMSET, SYNC);
+  d_conv(dst->vec.data(), src->vec.data(), Nvk, Nvj, Nvi, MEMSET, SYNC, LOG);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
   //=================================================================
 
-  Py_INCREF((PyObject *)dst);
   return (PyObject *)dst;
 }
