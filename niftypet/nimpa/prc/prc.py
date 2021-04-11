@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
-
+# ----------------------------------------------------------------------
 def num(s):
     '''Converts the string to a float or integer number.'''
     try:
@@ -46,7 +46,62 @@ def num(s):
     except ValueError:
         return float(s)
 
+# ----------------------------------------------------------------------
+def psf_gaussian(vx_size=(1, 1, 1), fwhm=(6, 5, 5), hradius=8):
+    '''
+    Separable kernels for Gaussian convolution executed on the GPU device
+    The output kernels are in this order: z, y, x
+    '''
 
+    #> if voxel size is given as scalar, interpret it as an isotropic
+    #> voxel size.
+    if isinstance(vx_size, (float, int)):
+        vx_size = [vx_size, vx_size, vx_size]
+
+    #> the same for the Gaussian kernel
+    if isinstance(fwhm, (float, int)):
+        fwhm = [fwhm, fwhm, fwhm]
+
+    #> avoid zeros in FWHM
+    fwhm = [x+1e-3*(x<=0) for x in fwhm]
+
+    xSig = (fwhm[2] / vx_size[2]) / (2 * (2 * np.log(2))**.5)
+    ySig = (fwhm[1] / vx_size[1]) / (2 * (2 * np.log(2))**.5)
+    zSig = (fwhm[0] / vx_size[0]) / (2 * (2 * np.log(2))**.5)
+
+    # get the separated kernels
+    x = np.arange(-hradius, hradius + 1)
+    xKrnl = np.exp(-(x**2 / (2 * xSig**2)))
+    yKrnl = np.exp(-(x**2 / (2 * ySig**2)))
+    zKrnl = np.exp(-(x**2 / (2 * zSig**2)))
+
+    # normalise kernels
+    xKrnl /= np.sum(xKrnl)
+    yKrnl /= np.sum(yKrnl)
+    zKrnl /= np.sum(zKrnl)
+
+    krnl = np.array([zKrnl, yKrnl, xKrnl], dtype=np.float32)
+
+    # for checking if the normalisation worked
+    # np.prod( np.sum(krnl,axis=1) )
+
+    # return all kernels together
+    return krnl
+
+
+# ----------------------------------------------------------------------
+def psf_measured(scanner='mmr', scale=1):
+    if scanner == 'mmr':
+        # file name for the mMR's PSF and chosen scale
+        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
+        # transaxial and axial PSF
+        Hxy, Hz = np.load(fdat)
+        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
+    raise NameError(f'Unsupported scanner ({scanner}):'
+                    ' only Siemens mMR (mmr) is currently supported')
+
+
+# ----------------------------------------------------------------------
 def conv_separable(vol, knl, dev_id=0):
     """
     Args:
@@ -89,11 +144,34 @@ def conv_separable(vol, knl, dev_id=0):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
+def imsmooth(
+        fim,
+        fwhm=4,
+        psf=None,
+        voxsize=None,
+        fout='',
+        output='image',
+        gpu=True,
+        dev_id=0,
+        Cnt=None):
     '''
-    Smooth image using Gaussian filter with FWHM given as an option.
-    Input can be NIfTI image file or Numpy array
+    Smooth image using Gaussian filter with either the PSF or FWHM given
+    as an option.  By default FWHM = 4 is used with voxel size assumed 1 mm.
+    Arguments:
+    - fim:  can be a NIfTI image file or Numpy array
+    - fwhm: the width at half max of the Gaussian kernel (z,y,x)
+    - psf:  the point spread function for each direction (z,y,x) given as a 
+            Numpy matrix of 3x17 and used on the GPU as separable kernel
+    - voxsize: size of the voxel (can be in mm or cm)
+    - fout: the output file path
+    - output: can be image as Numpy array or file or both.
+    - dev_id: the ID of the CUDA device used for computation (if GPU = True) 
+    - gpu:  if True, the computations are done on the GPU using separable
+            kernels. 
     '''
+
+    if Cnt is not None and 'DEVID' in Cnt:
+        dev_id = Cnt['DEVID']
 
     isfile = False
     if isinstance(fim, str) and os.path.isfile(fim):
@@ -102,12 +180,36 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
         im = imd['im']
         voxsize = imd['voxsize']
         affine = imd['affine']
+    elif isinstance(fim, dict) and 'voxsize' in fim:
+        im = imd['im']
+        voxsize = imd['voxsize']
+        affine = imd['affine']
     elif isinstance(fim, (np.ndarray, np.generic)):
         im = fim
     else:
-        raise ValueError("incorrect image input.\nNIfTI or Numpy array are only accepted.")
+        raise ValueError("incorrect image input.\nNIfTI file path, dictionary or Numpy array are accepted.")
 
-    imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize), mode='mirror')
+
+    if voxsize is None and Cnt is not None and 'SO_VXZ' in Cnt:
+        voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
+    elif voxsize is None and Cnt is None:
+        raise ValueError('the correct voxel size has to be provided')
+
+
+    if psf is not None and psf.shape==(3,17):
+        gpu = True
+        log.info('using GPU implementation of the filter with provided PSF')
+    elif psf is None and gpu:
+        psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
+        log.info('using GPU implementation of the filter')
+    else:
+        log.info('using CPU implementation of the filter')
+        imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize), mode='mirror')
+
+    if gpu:
+        imsmo = conv_separable(im, psf, dev_id=dev_id)
+
+    
     # output dictionary
     dctout = {}
     dctout['im'] = imsmo
@@ -514,47 +616,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def psf_general(vx_size=(1, 1, 1), fwhm=(5, 5, 6), hradius=8, scale=2):
-    '''
-    Separable kernels for convolution executed on the GPU device
-    The outputted kernels are in this order: z, y, x
-    '''
-    xSig = (scale * fwhm[0] / vx_size[0]) / (2 * (2 * np.log(2))**.5)
-    ySig = (scale * fwhm[1] / vx_size[1]) / (2 * (2 * np.log(2))**.5)
-    zSig = (scale * fwhm[2] / vx_size[2]) / (2 * (2 * np.log(2))**.5)
 
-    # get the separated kernels
-    x = np.arange(-hradius, hradius + 1)
-    xKrnl = np.exp(-(x**2 / (2 * xSig**2)))
-    yKrnl = np.exp(-(x**2 / (2 * ySig**2)))
-    zKrnl = np.exp(-(x**2 / (2 * zSig**2)))
-
-    # normalise kernels
-    xKrnl /= np.sum(xKrnl)
-    yKrnl /= np.sum(yKrnl)
-    zKrnl /= np.sum(zKrnl)
-
-    krnl = np.array([zKrnl, yKrnl, xKrnl], dtype=np.float32)
-
-    # for checking if the normalisation worked
-    # np.prod( np.sum(krnl,axis=1) )
-
-    # return all kernels together
-    return krnl
-
-
-# ------------------------------------------------------------------------------------------------------
-
-
-def psf_measured(scanner='mmr', scale=1):
-    if scanner == 'mmr':
-        # file name for the mMR's PSF and chosen scale
-        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
-        # transaxial and axial PSF
-        Hxy, Hz = np.load(fdat)
-        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
-    raise NameError(f'Unsupported scanner ({scanner}):'
-                    ' only Siemens mMR (mmr) is currently supported')
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
