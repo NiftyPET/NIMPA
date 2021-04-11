@@ -371,7 +371,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         nii_descrp = refdct['hdr']['descrip'].item().decode('utf-8')
         if 'trim' in nii_descrp:
             # > find all the numbers (int and floats)
-            parstr = re.findall(r'\d+\.*\d*', nii_descrp)
+            parstr = re.findall(r'-*\d+\.*\d*', nii_descrp)
             try:
                 ix0, ix1, iy0, iy1, iz0, scale0, scale1, scale2, fmax = (num(s) for s in parstr)
                 scale = [scale0, scale1, scale2]
