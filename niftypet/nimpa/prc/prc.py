@@ -1092,14 +1092,13 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
     if Cnt is None:
         Cnt = {}
 
-    if executable == 'sitk' and 'SimpleITK' not in sys.modules:
-        log.error(
+    if executable == 'sitk' and 'SimpleITK' not in sys.modules and not sitk_flag:
+        raise ImportError(
             dedent('''\
             If SimpleITK module is required for bias correction, it needs to be
             first installed using this command:
-            conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0
+            conda install -c simpleitk simpleitk
             or pip install SimpleITK'''))
-        return None
 
     # --------------------------------------------------------------------------
     # INPUT
