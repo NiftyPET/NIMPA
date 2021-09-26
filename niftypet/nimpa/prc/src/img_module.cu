@@ -220,6 +220,7 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
 
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
   } else {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
     dst = PyCuVec_zeros_like(src);
