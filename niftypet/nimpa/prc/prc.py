@@ -10,6 +10,7 @@ import sys
 from glob import glob
 from subprocess import run
 from textwrap import dedent
+from warnings import warn
 
 import numpy as np
 import scipy.ndimage as ndi
@@ -146,7 +147,7 @@ def conv_separable(vol, knl, dev_id=0):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=True, dev_id=0,
+def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=None, dev_id=0,
              Cnt=None):
     '''
     Smooth image using Gaussian filter with either the PSF or FWHM given
@@ -160,10 +161,10 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=T
     - fout: the output file path
     - output: can be image as Numpy array or file or both.
     - dev_id: the ID of the CUDA device used for computation (if GPU = True)
-    - gpu:  if True, the computations are done on the GPU using separable
-            kernels.
+    - gpu: ignored
     '''
-
+    if gpu is not None:
+        warn("gpu is automatic", DeprecationWarning, stacklevel=2)
     if Cnt is not None and 'DEVID' in Cnt:
         dev_id = Cnt['DEVID']
 
@@ -189,19 +190,9 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=T
     elif voxsize is None and Cnt is None:
         raise ValueError('the correct voxel size has to be provided')
 
-    if psf is not None and psf.shape == (3, 17):
-        gpu = True
-        log.info('using GPU implementation of the filter with provided PSF')
-    elif psf is None and gpu:
+    if psf is None:
         psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
-        log.info('using GPU implementation of the filter')
-    else:
-        log.info('using CPU implementation of the filter')
-        imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize),
-                                            mode='mirror')
-
-    if gpu:
-        imsmo = conv_separable(im, psf, dev_id=dev_id)
+    imsmo = conv_separable(im, psf, dev_id=dev_id)
 
     # output dictionary
     dctout = {}
