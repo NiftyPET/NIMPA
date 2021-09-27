@@ -141,7 +141,7 @@ def conv_separable(vol, knl, dev_id=0):
         return vol
 
 
-def nlm(img, ref, sigma=1, half_width=4, output=None):
+def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
     """
     3D Non-local means (NLM) guided filter.
     Args:
@@ -150,6 +150,7 @@ def nlm(img, ref, sigma=1, half_width=4, output=None):
       sigma(float): NLM parameter.
       half_width(int): neighbourhood half-width.
       output(CuVec): pre-existing output memory.
+    Reference: https://doi.org/10.1109/CVPR.2005.38
     """
     img = cu.asarray(img, 'float32')
     ref = cu.asarray(ref, 'float32')
@@ -157,7 +158,8 @@ def nlm(img, ref, sigma=1, half_width=4, output=None):
         raise IndexError(f"{img.shape} and {ref.shape} don't match")
     if img.ndim != 3:
         raise IndexError(f"must be 3D: got {img.ndim}D")
-    kwargs = {'sigma': sigma, 'half_width': half_width}
+    kwargs = {
+        'sigma': sigma, 'half_width': half_width, 'dev_id': dev_id, 'log': log.getEffectiveLevel()}
     if output is not None:
         if not isinstance(output, cu.CuVec):
             raise TypeError("output must be a CuVec")
