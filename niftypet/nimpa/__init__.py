@@ -27,7 +27,7 @@ __all__ = [
     'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii', 'getnii_descr',
     'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid',
-    'pick_t1w', 'psf_general', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm',
+    'pick_t1w', 'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm',
     'resample_fsl', 'resample_mltp_spm', 'resample_niftyreg', 'resample_spm',
     'resample_vinci', 'time_stamp'] # yapf: disable
 
@@ -72,7 +72,7 @@ from .prc import (
     orientnii,
     pet2pet_rigid,
     pick_t1w,
-    psf_general,
+    psf_gaussian,
     psf_measured,
     pvc_iyang,
     realign_mltp_spm,

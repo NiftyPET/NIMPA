@@ -112,7 +112,7 @@ try:
     from skbuild import setup as sksetup
     nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo() if i[2:4] >= (3, 5)}
     if nvcc_arches:
-        cmake_args.append("-DCMAKE_CUDA_ARCHITECTURES=" + " ".join(sorted(nvcc_arches)))
+        cmake_args.append("-DCMAKE_CUDA_ARCHITECTURES=" + ";".join(sorted(nvcc_arches)))
 except Exception as exc:
     log.warning("Import or CUDA device detection error:\n%s", exc)
     setup(**setup_kwargs)

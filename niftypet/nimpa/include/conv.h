@@ -42,6 +42,6 @@ void setKernelGaussian(float sigma, bool handle_errors = true);
 
 /// main convolution function
 void d_conv(float *dst, float *src, int Nvk, int Nvj, int Nvi, bool _memset = true,
-            bool _sync = true);
+            bool _sync = true, int _log = LOGINFO);
 
 #endif // _NIMPA_CONV_H_

@@ -1,17 +1,14 @@
 *.py[co]
-__pycache__/
-
-# build
-MANIFEST
 *.so
-/niftypet/nimpa/cmake/
-/niftypet/nimpa/_dist_ver.py
-/build/
-/dist/
+__pycache__/
 /_skbuild/
 /_cmake_test_compile/
+/niftypet/nimpa/cmake/
+/niftypet/nimpa/_dist_ver.py
+MANIFEST
 /*.egg*/
-/.eggs/
-
+/build/
+/dist/
 /.coverage*
 /coverage.xml
+/.pytest_cache/

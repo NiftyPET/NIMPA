@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from pytest import fixture, importorskip, mark
 
-from niftypet.nimpa.prc.prc import conv_separable
+from niftypet.nimpa.prc import prc
 
 cu = importorskip("cuvec")
 improc = importorskip("niftypet.nimpa.prc.improc")
@@ -67,8 +67,93 @@ def test_convolve_autopad(knl):
 def test_conv_separable(knl_size):
     knl = np.random.random(knl_size)
     src = np.random.random((64,) * knl_size[0]).astype('float32')
-    dst_gpu = conv_separable(src, knl)
-    dst_cpu = conv_separable(src, knl, dev_id=False)
+    dst_gpu = prc.conv_separable(src, knl)
+    dst_cpu = prc.conv_separable(src, knl, dev_id=False)
     assert hasattr(dst_gpu, 'cuvec') or knl_size[0] != 3
     assert not hasattr(dst_cpu, 'cuvec')
     assert rmse(dst_gpu, dst_cpu) < 1e-7
+
+
+@mark.parametrize("half_width", [0, 1, 2])
+@mark.parametrize("sigma", [0.5, 1, 2])
+@mark.parametrize("width", [10, 125])
+def test_nlm(half_width, sigma, width):
+    src = np.random.random((width,) * 3).astype('float32')
+    ref = np.random.random((width,) * 3)
+    dst_gpu = prc.nlm(src, ref, half_width=half_width, sigma=sigma)
+    assert hasattr(dst_gpu, 'cuvec')
+    assert (dst_gpu - src).mean() < 1e-2
+
+
+if __name__ == "__main__":
+    from sys import version_info
+    from textwrap import dedent
+
+    from argopt import argopt
+    from tqdm import trange
+    logging.basicConfig(level=logging.WARNING)
+
+    parser = argopt(
+        dedent("""\
+        Usage:
+            test_improc [options]
+
+        Options:
+            -r REP, --repeats REP  : [default: 10:int]
+        """))
+    if version_info[:2] >= (3, 7):
+        subs = parser.add_subparsers(required=True)
+    else:
+        subs = parser.add_subparsers()
+
+    def sub_parser(prog=None, **kwargs):
+        return subs.add_parser(prog, **kwargs)
+
+    def conv(args):
+        """\
+        Performance testing `conv_separable()`
+        Usage:
+            conv [options]
+
+        Options:
+            -d DIMS  : Up to [default: 3:int]
+            -k WIDTH  : Up to [default: 17:int]
+            -i WIDTH  : input width [default: 234:int]
+        """
+        assert 0 < args.d <= 3
+        assert 0 < args.k <= 17
+        KNL = cu.asarray(np.random.random((args.d, args.k)), dtype='float32')
+        SRC = cu.asarray(np.random.random((args.i,) * args.d), dtype='float32')
+        for _ in trange(args.repeats, unit="repeats",
+                        desc=f"{args.i}^{args.d} (*) {args.k}^{args.d}"):
+            dst_gpu = prc.conv_separable(SRC, KNL)
+        assert hasattr(dst_gpu, 'cuvec') or args.d < 3
+
+    argopt(dedent(conv.__doc__), argparser=sub_parser).set_defaults(func=conv)
+
+    def nlm(args):
+        """\
+        Performance testing `nlm()`
+        Usage:
+            nlm [options]
+
+        Options:
+            -s SIGMA  : NLM parameter [default: 1:float]
+            -k HALF_WIDTH  : kernel half-width [default: 2:int]
+            -i WIDTH  : input width [default: 123:int]
+        """
+        assert 0 < args.k
+        assert 0 < args.i
+        IMG = cu.asarray(np.random.random((args.i,) * 3), dtype='float32')
+        REF = cu.asarray(np.random.random((args.i,) * 3), dtype='float32')
+        for _ in trange(args.repeats, unit="repeats", desc=f"{args.i}^3 (*) {args.k*2+1}^3"):
+            dst_gpu = prc.nlm(IMG, REF, sigma=args.s, half_width=args.k)
+        assert hasattr(dst_gpu, 'cuvec')
+
+    argopt(dedent(nlm.__doc__), argparser=sub_parser).set_defaults(func=nlm)
+
+    args = parser.parse_args()
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:     # py<=3.6
+        parser.parse_args(['-h'])

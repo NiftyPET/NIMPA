@@ -10,6 +10,7 @@ import sys
 from glob import glob
 from subprocess import run
 from textwrap import dedent
+from warnings import warn
 
 import numpy as np
 import scipy.ndimage as ndi
@@ -39,6 +40,7 @@ dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
 
+# ----------------------------------------------------------------------
 def num(s):
     '''Converts the string to a float or integer number.'''
     try:
@@ -47,6 +49,62 @@ def num(s):
         return float(s)
 
 
+# ----------------------------------------------------------------------
+def psf_gaussian(vx_size=(1, 1, 1), fwhm=(6, 5, 5), hradius=8):
+    '''
+    Separable kernels for Gaussian convolution executed on the GPU device
+    The output kernels are in this order: z, y, x
+    '''
+
+    # if voxel size is given as scalar, interpret it as an isotropic
+    # voxel size.
+    if isinstance(vx_size, (float, int)):
+        vx_size = [vx_size, vx_size, vx_size]
+
+    # the same for the Gaussian kernel
+    if isinstance(fwhm, (float, int)):
+        fwhm = [fwhm, fwhm, fwhm]
+
+    # avoid zeros in FWHM
+    fwhm = [x + 1e-3 * (x <= 0) for x in fwhm]
+
+    xSig = (fwhm[2] / vx_size[2]) / (2 * (2 * np.log(2))**.5)
+    ySig = (fwhm[1] / vx_size[1]) / (2 * (2 * np.log(2))**.5)
+    zSig = (fwhm[0] / vx_size[0]) / (2 * (2 * np.log(2))**.5)
+
+    # get the separated kernels
+    x = np.arange(-hradius, hradius + 1)
+    xKrnl = np.exp(-(x**2 / (2 * xSig**2)))
+    yKrnl = np.exp(-(x**2 / (2 * ySig**2)))
+    zKrnl = np.exp(-(x**2 / (2 * zSig**2)))
+
+    # normalise kernels
+    xKrnl /= np.sum(xKrnl)
+    yKrnl /= np.sum(yKrnl)
+    zKrnl /= np.sum(zKrnl)
+
+    krnl = np.array([zKrnl, yKrnl, xKrnl], dtype=np.float32)
+
+    # for checking if the normalisation worked
+    # np.prod( np.sum(krnl,axis=1) )
+
+    # return all kernels together
+    return krnl
+
+
+# ----------------------------------------------------------------------
+def psf_measured(scanner='mmr', scale=1):
+    if scanner == 'mmr':
+        # file name for the mMR's PSF and chosen scale
+        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
+        # transaxial and axial PSF
+        Hxy, Hz = np.load(fdat)
+        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
+    raise NameError(f'Unsupported scanner ({scanner}):'
+                    ' only Siemens mMR (mmr) is currently supported')
+
+
+# ----------------------------------------------------------------------
 def conv_separable(vol, knl, dev_id=0):
     """
     Args:
@@ -78,14 +136,40 @@ def conv_separable(vol, knl, dev_id=0):
         return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
     else:
         log.debug("CPU conv")
-        if len(knl) == 1:
-            h = knl[0]
-        elif len(knl) >= 2:
-            h = np.outer(knl[-2, :], knl[-1, :])
-            if len(knl) > 2:
-                for i in range(len(knl) - 3, -1, -1):
-                    h = np.multiply.outer(knl[i, :], h)
-        return ndi.convolve(vol, h, mode='constant', cval=0.)
+        for dim in range(len(knl)):
+            h = knl[dim].reshape((1,) * dim + (-1,) + (1,) * (len(knl) - dim - 1))
+            vol = ndi.convolve(vol, h, mode='constant', cval=0.)
+        return vol
+
+
+def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
+    """
+    3D Non-local means (NLM) guided filter.
+    Args:
+      img(3darray): input image to be filtered.
+      ref(3darray): reference (guidance) image.
+      sigma(float): NLM parameter.
+      half_width(int): neighbourhood half-width.
+      output(CuVec): pre-existing output memory.
+    Reference: https://doi.org/10.1109/CVPR.2005.38
+    """
+    img = cu.asarray(img, 'float32')
+    ref = cu.asarray(ref, 'float32')
+    if img.shape != ref.shape:
+        raise IndexError(f"{img.shape} and {ref.shape} don't match")
+    if img.ndim != 3:
+        raise IndexError(f"must be 3D: got {img.ndim}D")
+    kwargs = {
+        'sigma': sigma, 'half_width': half_width, 'dev_id': dev_id, 'log': log.getEffectiveLevel()}
+    if output is not None:
+        if not isinstance(output, cu.CuVec):
+            raise TypeError("output must be a CuVec")
+        if np.dtype(output.dtype) != np.dtype('float32'):
+            raise TypeError(f"output must be float32: got {output.dtype}")
+        if output.shape != img.shape:
+            raise IndexError("output shape doesn't match")
+        output = cu.asarray(output).cuvec
+    return cu.asarray(improc.nlm(img.cuvec, ref.cuvec, **kwargs))
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -93,11 +177,27 @@ def conv_separable(vol, knl, dev_id=0):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
+def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=None, dev_id=0,
+             Cnt=None):
     '''
-    Smooth image using Gaussian filter with FWHM given as an option.
-    Input can be NIfTI image file or Numpy array
+    Smooth image using Gaussian filter with either the PSF or FWHM given
+    as an option.  By default FWHM = 4 is used with voxel size assumed 1 mm.
+    Arguments:
+    - fim:  can be a NIfTI image file or Numpy array
+    - fwhm: the width at half max of the Gaussian kernel (z,y,x)
+    - psf:  the point spread function for each direction (z,y,x) given as a
+            Numpy matrix of 3x17 and used on the GPU as separable kernel
+    - voxsize: size of the voxel (can be in mm or cm)
+    - fout: the output file path
+    - output: can be image as Numpy array or file or both.
+    - dev_id: the ID of the CUDA device to try to use for computation
+      (set to `False` to force disable GPU)
+    - gpu: ignored
     '''
+    if gpu is not None:
+        warn("gpu is automatic", DeprecationWarning, stacklevel=2)
+    if Cnt is not None and 'DEVID' in Cnt:
+        dev_id = Cnt['DEVID']
 
     isfile = False
     if isinstance(fim, str) and os.path.isfile(fim):
@@ -106,12 +206,25 @@ def imsmooth(fim, fwhm=4, voxsize=1., fout='', output='image'):
         im = imd['im']
         voxsize = imd['voxsize']
         affine = imd['affine']
+    elif isinstance(fim, dict) and 'voxsize' in fim:
+        im = imd['im']
+        voxsize = imd['voxsize']
+        affine = imd['affine']
     elif isinstance(fim, (np.ndarray, np.generic)):
         im = fim
     else:
-        raise ValueError("incorrect image input.\nNIfTI or Numpy array are only accepted.")
+        raise ValueError(
+            "incorrect image input.\nNIfTI file path, dictionary or Numpy array are accepted.")
 
-    imsmo = ndi.filters.gaussian_filter(im, imio.fwhm2sig(fwhm, voxsize=voxsize), mode='mirror')
+    if voxsize is None and Cnt is not None and 'SO_VXZ' in Cnt:
+        voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
+    elif voxsize is None and Cnt is None:
+        raise ValueError('the correct voxel size has to be provided')
+
+    if psf is None:
+        psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
+    imsmo = conv_separable(im, psf, dev_id=dev_id)
+
     # output dictionary
     dctout = {}
     dctout['im'] = imsmo
@@ -273,7 +386,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         nii_descrp = refdct['hdr']['descrip'].item().decode('utf-8')
         if 'trim' in nii_descrp:
             # > find all the numbers (int and floats)
-            parstr = re.findall(r'\d+\.*\d*', nii_descrp)
+            parstr = re.findall(r'-*\d+\.*\d*', nii_descrp)
             try:
                 ix0, ix1, iy0, iy1, iz0, scale0, scale1, scale2, fmax = (num(s) for s in parstr)
                 scale = [scale0, scale1, scale2]
@@ -516,50 +629,6 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
-
-def psf_general(vx_size=(1, 1, 1), fwhm=(5, 5, 6), hradius=8, scale=2):
-    '''
-    Separable kernels for convolution executed on the GPU device
-    The outputted kernels are in this order: z, y, x
-    '''
-    xSig = (scale * fwhm[0] / vx_size[0]) / (2 * (2 * np.log(2))**.5)
-    ySig = (scale * fwhm[1] / vx_size[1]) / (2 * (2 * np.log(2))**.5)
-    zSig = (scale * fwhm[2] / vx_size[2]) / (2 * (2 * np.log(2))**.5)
-
-    # get the separated kernels
-    x = np.arange(-hradius, hradius + 1)
-    xKrnl = np.exp(-(x**2 / (2 * xSig**2)))
-    yKrnl = np.exp(-(x**2 / (2 * ySig**2)))
-    zKrnl = np.exp(-(x**2 / (2 * zSig**2)))
-
-    # normalise kernels
-    xKrnl /= np.sum(xKrnl)
-    yKrnl /= np.sum(yKrnl)
-    zKrnl /= np.sum(zKrnl)
-
-    krnl = np.array([zKrnl, yKrnl, xKrnl], dtype=np.float32)
-
-    # for checking if the normalisation worked
-    # np.prod( np.sum(krnl,axis=1) )
-
-    # return all kernels together
-    return krnl
-
-
-# ------------------------------------------------------------------------------------------------------
-
-
-def psf_measured(scanner='mmr', scale=1):
-    if scanner == 'mmr':
-        # file name for the mMR's PSF and chosen scale
-        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
-        # transaxial and axial PSF
-        Hxy, Hz = np.load(fdat)
-        return np.array([Hz, Hxy, Hxy], dtype=np.float32)
-    raise NameError(f'Unsupported scanner ({scanner}):'
-                    ' only Siemens mMR (mmr) is currently supported')
-
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
@@ -1045,14 +1114,13 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
     if Cnt is None:
         Cnt = {}
 
-    if executable == 'sitk' and 'SimpleITK' not in sys.modules:
-        log.error(
+    if executable == 'sitk' and 'SimpleITK' not in sys.modules and not sitk_flag:
+        raise ImportError(
             dedent('''\
             If SimpleITK module is required for bias correction, it needs to be
             first installed using this command:
-            conda install -c https://conda.anaconda.org/simpleitk SimpleITK=1.2.0
+            conda install -c simpleitk simpleitk
             or pip install SimpleITK'''))
-        return None
 
     # --------------------------------------------------------------------------
     # INPUT
