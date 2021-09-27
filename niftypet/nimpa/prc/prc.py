@@ -190,7 +190,8 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=N
     - voxsize: size of the voxel (can be in mm or cm)
     - fout: the output file path
     - output: can be image as Numpy array or file or both.
-    - dev_id: the ID of the CUDA device used for computation (if GPU = True)
+    - dev_id: the ID of the CUDA device to try to use for computation
+      (set to `False` to force disable GPU)
     - gpu: ignored
     '''
     if gpu is not None:
