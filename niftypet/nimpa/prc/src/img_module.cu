@@ -11,6 +11,7 @@ Copyrights: 2019
 
 #include "conv.h"
 #include "cuhelpers.h"
+#include "nlm.h"
 #include "pycuvec.cuh"
 #include "rsmpl.h"
 #include <Python.h>
@@ -21,6 +22,7 @@ Copyrights: 2019
 //--- Available functions
 static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs);
+static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs);
 //---
 
 //> Module Method Table
@@ -29,6 +31,8 @@ static PyMethodDef improc_methods[] = {
      "Does rigid body transformation with very fine sampling."},
     {"convolve", (PyCFunction)img_convolve, METH_VARARGS | METH_KEYWORDS,
      "Fast 3D image convolution with separable kernel."},
+    {"nlm", (PyCFunction)img_nlm, METH_VARARGS | METH_KEYWORDS,
+     "3D Non-local means (NLM) guided filtering."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 
@@ -48,10 +52,6 @@ PyMODINIT_FUNC PyInit_improc(void) {
 
   return PyModule_Create(&improc_module);
 }
-
-//======================================================================================
-// P R O C E S I N G   I M A G E   D A T A
-//--------------------------------------------------------------------------------------
 
 static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) {
   PyCuVec<float> *dst = NULL; // output image
@@ -138,10 +138,6 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   return (PyObject *)dst;
 }
 
-//======================================================================================
-// I M A G E    C O N V O L U T I O N
-//--------------------------------------------------------------------------------------
-
 static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) {
   PyCuVec<float> *src = NULL; // input image
   PyCuVec<float> *knl = NULL; // kernel matrix, for x, y, and z dimensions
@@ -196,6 +192,53 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   d_conv(dst->vec.data(), src->vec.data(), Nvk, Nvj, Nvi, MEMSET, SYNC, LOG);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
   //=================================================================
+
+  return (PyObject *)dst;
+}
+
+static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
+  PyCuVec<float> *src = NULL; // input image
+  PyCuVec<float> *ref = NULL; // guidance image
+  PyCuVec<float> *dst = NULL; // output image
+  float sigma = 1;
+  int half_width = 4;
+  int DEVID = 0;
+  bool SYNC = true; // whether to ensure deviceToHost copy on return
+  int LOG = LOGDEBUG;
+
+  // Parse the input tuple
+  static const char *kwds[] = {"img",    "ref",  "output", "sigma", "half_width",
+                               "dev_id", "sync", "log",    NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Ofiibi", (char **)kwds, (PyObject **)&src,
+                                   (PyObject **)&ref, (PyObject **)&dst, &sigma, &half_width,
+                                   &DEVID, &SYNC, &LOG))
+    return NULL;
+  if (!src || !ref || sigma < 0 || half_width < 0) return NULL;
+
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
+  if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
+
+  if (dst) {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
+  } else {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
+    dst = PyCuVec_zeros_like(src);
+    if (!dst) return NULL;
+  }
+
+  if (dst->shape.size() != 3 || src->shape.size() != 3 || ref->shape.size() != 3) {
+    PyErr_SetString(PyExc_IndexError, "input & output volumes must have ndim == 3");
+    return NULL;
+  }
+
+  int Z = src->shape[0];
+  int Y = src->shape[1];
+  int X = src->shape[2];
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> input image size z,y,x=%d,%d,%d\n", Z, Y, X);
+
+  d_nlm3d(dst->vec.data(), src->vec.data(), ref->vec.data(), sigma, Z, Y, X, half_width, SYNC);
+  if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
   return (PyObject *)dst;
 }
