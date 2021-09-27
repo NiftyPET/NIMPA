@@ -213,7 +213,7 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
                                    (PyObject **)&ref, (PyObject **)&dst, &sigma, &half_width,
                                    &DEVID, &SYNC, &LOG))
     return NULL;
-  if (!src || !ref || !sigma || !half_width) return NULL;
+  if (!src || !ref || sigma < 0 || half_width < 0) return NULL;
 
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
