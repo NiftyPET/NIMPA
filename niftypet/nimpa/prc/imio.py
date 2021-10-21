@@ -3,6 +3,7 @@ import datetime
 import glob
 import logging
 import os
+import pathlib
 import re
 import shutil
 from subprocess import run
@@ -284,6 +285,8 @@ def dcminfo(dcmvar, Cnt=None):
         dhdr = dcmvar
     elif isinstance(dcmvar, dcm.dataset.FileDataset):
         dhdr = dcmvar
+    elif isinstance(dcmvar, (pathlib.Path, pathlib.PurePath)):
+        dhdr = dcm.dcmread(dcmvar)
 
     dtype = dhdr[0x08, 0x08].value
     log.debug('   Image Type: {}'.format(dtype))
