@@ -338,6 +338,10 @@ def dcminfo(dcmvar, Cnt=None):
              for s in dtype) or cmmnt == 'Listmode' or csatype == 'MRPETLM_LARGE':
         out = ['raw', 'list', scanner_id]
 
+    elif any('PET_EM_SINO' in s
+             for s in dtype) or cmmnt == 'Sinogram' or csatype == 'MRPETSINO':
+        out = ['raw', 'sinogram', scanner_id]
+
     elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
         out = ['raw', 'mumap', 'ute', 'mr', scanner_id]
 
