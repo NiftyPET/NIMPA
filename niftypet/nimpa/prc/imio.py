@@ -593,8 +593,10 @@ def dcmsort(folder, copy_series=False, Cnt=None):
             ornt = np.zeros(6, dtype=np.float64)
             if [0x020, 0x037] in dhdr:
                 ornt = np.array([float(e) for e in dhdr[0x20, 0x37].value])
-            # seires description, time and study time
-            srs_dcrp = dhdr[0x0008, 0x103e].value
+            # series description, time and study time
+            srs_dcrp = ''
+            if [0x0008, 0x103e] in dhdr:
+                srs_dcrp = dhdr[0x0008, 0x103e].value
             srs_time = dhdr[0x0008, 0x0031].value[:6]
             std_time = dhdr[0x0008, 0x0030].value[:6]
 
