@@ -385,37 +385,38 @@ def dcminfo(dcmvar, Cnt=None):
         dscf = float(dhdr[0x054, 0x1322].value)
 
     # > dead time factor
-    dscf = None
+    dt = None
     if [0x054, 0x1324] in dhdr:
-        dscf = float(dhdr[0x054, 0x1324].value)
+        dt = float(dhdr[0x054, 0x1324].value)
 
 
     # RADIO TRACER
+    tracer = None
+    tdose = None
+    hlife = None
+    pfract = None
+    ttime0 = None
+    ttime1 = None
+
     if [0x054, 0x016] in dhdr:
         # > all tracer info
         tinf = dhdr[0x054, 0x016][0]
 
-        tracer = None
         if [0x018, 0x031] in tinf:
             tracer = tinf[0x018, 0x031].value
 
-        tdose = None
         if [0x018, 0x1074] in tinf:
             tdose = float(tinf[0x018, 0x1074].value)
-
-        hlife = None
+        
         if [0x018, 0x1073] in tinf:
             hlife = float(tinf[0x018, 0x1073].value)
 
-        pfract = None
         if [0x018, 0x1076] in tinf:
             hlife = float(tinf[0x018, 0x1076].value)
 
-        ttime0 = None
         if [0x018, 0x1078] in tinf:
             ttime0 = datetime.datetime.strptime(tinf[0x018, 0x1078].value, '%Y%m%d%H%M%S.%f')
 
-        ttime1 = None
         if [0x018, 0x1079] in tinf:
             ttime1 = datetime.datetime.strptime(tinf[0x018, 0x1079].value, '%Y%m%d%H%M%S.%f')
 
@@ -463,7 +464,26 @@ def dcminfo(dcmvar, Cnt=None):
 
 
     elif isPET:
-        out = ['pet', tracer, srs_type, scanner_id]
+        petdct = dict(
+            type=srs_type,
+            recon=recon,
+            decay_corr=decay_corr,
+            dcf=dcf,
+            attenuation=atten,
+            scatter=scat,
+            scf=scf,
+            randoms=rand,
+            dose_calib=dcf,
+            dead_time=dt,
+
+            tracer=tracer,
+            total_dose=tdose,
+            half_life=hlife,
+            positron_fract=pfract,
+            radio_start_time=ttime0,
+            radio_stop_time=ttime1)
+        
+        out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
 
     
 
