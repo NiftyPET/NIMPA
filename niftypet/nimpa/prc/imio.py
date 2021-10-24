@@ -21,6 +21,13 @@ log = logging.getLogger(__name__)
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA')
 
+# > DICOM coding of PET isotopes
+istp_code = {'C-111A1':'F18',
+'C-105A1':'C11',
+'C-B1038':'O15',
+'C-128A2':'Ge68',
+'C-131A3':'Ga68'}
+
 
 def create_dir(pth):
     if not os.path.exists(pth):
@@ -273,6 +280,7 @@ def pick_t1w(mri):
     return ft1w
 
 
+#======================================================================
 def dcminfo(dcmvar, Cnt=None):
     '''Get basic info about the DICOM file/header.'''
     if Cnt is None:
@@ -305,6 +313,8 @@ def dcminfo(dcmvar, Cnt=None):
     if any(s in scanner_model
            for s in ['mMR', 'Biograph']) and 'siemens' in scanner_vendor.lower():
         scanner_id = 'mmr'
+    elif 'signa' in scanner_model.lower() and 'ge' in scanner_vendor.lower():
+        scanner_id = 'signa'
     # ------------------------------------------
 
     # > CSA type (mMR)
@@ -319,9 +329,105 @@ def dcminfo(dcmvar, Cnt=None):
         cmmnt = dhdr[0x0020, 0x4000].value
         log.debug('   Comments: {}'.format(cmmnt))
 
+    prtcl = ''
+    if [0x18, 0x1030] in dhdr:
+        prtcl = dhdr[0x18, 0x1030].value
+
+    srs = ''
+    if [0x08, 0x103e] in dhdr:
+        srs = dhdr[0x08, 0x103e].value
+
+    unt = None
+    if [0x054, 0x1001] in dhdr:
+        unt = dhdr[0x054, 0x1001].value
+
+
+    #---------------------------------------------    
+    # > PET parameters
+    srs_type = None
+    if [0x054, 0x1000] in dhdr:
+        srs_type = dhdr[0x054, 0x1000].value[0]
+
+    recon = None
+    if [0x054, 0x1103] in dhdr:
+        recon = dhdr[0x054, 0x1103].value
+
+    decay_corr = None
+    if [0x054, 0x1102] in dhdr:
+        decay_corr = dhdr[0x054, 0x1102].value
+
+    # > decay factor
+    dcf = None
+    if [0x054, 0x1321] in dhdr:
+        dcf = float(dhdr[0x054, 0x1321].value)
+
+    atten = None
+    if [0x054, 0x1101] in dhdr:
+        atten = dhdr[0x054, 0x1101].value
+
+    scat = None
+    if [0x054, 0x1105] in dhdr:
+        scat = dhdr[0x054, 0x1105].value
+
+    # > scatter factor
+    scf = None
+    if [0x054, 0x1323] in dhdr:
+        scf = float(dhdr[0x054, 0x1323].value)
+
+    # > randoms correction method
+    rand = None
+    if [0x054, 0x1100] in dhdr:
+        rand = dhdr[0x054, 0x1100].value
+
+    # > dose calibration factor
+    dscf = None
+    if [0x054, 0x1322] in dhdr:
+        dscf = float(dhdr[0x054, 0x1322].value)
+
+    # > dead time factor
+    dscf = None
+    if [0x054, 0x1324] in dhdr:
+        dscf = float(dhdr[0x054, 0x1324].value)
+
+
+    # RADIO TRACER
+    if [0x054, 0x016] in dhdr:
+        # > all tracer info
+        tinf = dhdr[0x054, 0x016][0]
+
+        tracer = None
+        if [0x018, 0x031] in tinf:
+            tracer = tinf[0x018, 0x031].value
+
+        tdose = None
+        if [0x018, 0x1074] in tinf:
+            tdose = float(tinf[0x018, 0x1074].value)
+
+        hlife = None
+        if [0x018, 0x1073] in tinf:
+            hlife = float(tinf[0x018, 0x1073].value)
+
+        pfract = None
+        if [0x018, 0x1076] in tinf:
+            hlife = float(tinf[0x018, 0x1076].value)
+
+        ttime0 = None
+        if [0x018, 0x1078] in tinf:
+            ttime0 = datetime.datetime.strptime(tinf[0x018, 0x1078].value, '%Y%m%d%H%M%S.%f')
+
+        ttime1 = None
+        if [0x018, 0x1079] in tinf:
+            ttime1 = datetime.datetime.strptime(tinf[0x018, 0x1079].value, '%Y%m%d%H%M%S.%f')
+
+    isPET = (tracer is not None) and (srs_type in ['STATIC', 'DYNAMIC', 'WHOLE BODY' 'GATED'])
+    #---------------------------------------------
+
+
+
+    #---------------------------------------------    
     # > MR parameters (echo time, etc)
-    TR = 0
-    TE = 0
+    TR = None
+    TE = None
     if [0x18, 0x80] in dhdr:
         TR = float(dhdr[0x18, 0x80].value)
         log.debug('   TR: {}'.format(TR))
@@ -329,7 +435,11 @@ def dcminfo(dcmvar, Cnt=None):
         TE = float(dhdr[0x18, 0x81].value)
         log.debug('   TE: {}'.format(TE))
 
-    # > check if it is norm file
+    validTs = TR is not None and TE is not None
+    #---------------------------------------------    
+
+
+    # > check for RAW data
     if any('PET_NORM' in s
            for s in dtype) or cmmnt == 'PET Normalization data' or csatype == 'MRPETNORM':
         out = ['raw', 'norm', scanner_id]
@@ -342,31 +452,47 @@ def dcminfo(dcmvar, Cnt=None):
              for s in dtype) or cmmnt == 'Sinogram' or csatype == 'MRPETSINO':
         out = ['raw', 'sinogram', scanner_id]
 
-    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
-        out = ['raw', 'mumap', 'ute', 'mr', scanner_id]
-
-    elif TR > 400 and TR < 2500 and TE < 20:
-        out = ['mr', 't1', scanner_id]
-
-    elif TR > 2500 and TE > 50:
-        out = ['mr', 't2', scanner_id]
-
-    # > UTE's two sequences: UTE2
-    elif TR < 50 and TE < 20 and TE > 1:
-        out = ['mr', 'ute', 'ute2', scanner_id]
-
-    # > UTE1
-    elif TR < 50 and TE < 20 and TE < 0.1 and TR > 0 and TE > 0:
-        out = ['mr', 'ute', 'ute1', scanner_id]
-
     # > physio data
     elif 'PET_PHYSIO' in dtype or 'physio' in cmmnt.lower():
         out = ['raw', 'physio', scanner_id]
+
+    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
+        out = ['mr', 'mumap', 'ute', 'mr', scanner_id]
+
+
+
+
+    elif isPET:
+        out = ['pet', tracer, srs_type, scanner_id]
+
+    
+
+    
+    elif validTs and TR > 400 and TR < 2500 and TE < 20:
+        if 'mprage' in prtcl.lower() or 'mprage' in srs.lower():
+            out = ['mr', 't1', 'mprage', scanner_id]
+        else:
+            out = ['mr', 't1', scanner_id]
+
+    elif validTs and TR > 2500 and TE > 50:
+        out = ['mr', 't2', scanner_id]
+
+    # > UTE's two sequences:
+    # > UTE2
+    elif validTs and  TR < 50 and TE < 20 and TE > 1:
+        out = ['mr', 'ute', 'ute2', scanner_id]
+
+    # > UTE1
+    elif validTs and  TR < 50 and TE < 20 and TE < 0.1 and TR > 0 and TE > 0:
+        out = ['mr', 'ute', 'ute1', scanner_id]
+
 
     else:
         out = ['unknown', str(cmmnt.lower())]
 
     return out
+#======================================================================
+
 
 
 def list_dcm_datain(datain):
