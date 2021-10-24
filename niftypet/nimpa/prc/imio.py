@@ -408,8 +408,8 @@ def dcminfo(dcmvar, Cnt=None):
         if [0x018, 0x1074] in tinf:
             tdose = float(tinf[0x018, 0x1074].value)
         
-        if [0x018, 0x1073] in tinf:
-            hlife = float(tinf[0x018, 0x1073].value)
+        if [0x018, 0x1075] in tinf:
+            hlife = float(tinf[0x018, 0x1075].value)
 
         if [0x018, 0x1076] in tinf:
             pfract = float(tinf[0x018, 0x1076].value)
