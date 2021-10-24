@@ -412,7 +412,7 @@ def dcminfo(dcmvar, Cnt=None):
             hlife = float(tinf[0x018, 0x1073].value)
 
         if [0x018, 0x1076] in tinf:
-            hlife = float(tinf[0x018, 0x1076].value)
+            pfract = float(tinf[0x018, 0x1076].value)
 
         if [0x018, 0x1078] in tinf:
             ttime0 = datetime.datetime.strptime(tinf[0x018, 0x1078].value, '%Y%m%d%H%M%S.%f')
@@ -482,7 +482,7 @@ def dcminfo(dcmvar, Cnt=None):
             positron_fract=pfract,
             radio_start_time=ttime0,
             radio_stop_time=ttime1)
-        
+
         out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
 
     
