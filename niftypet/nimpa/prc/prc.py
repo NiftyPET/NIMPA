@@ -1128,7 +1128,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
     # INPUT
     # --------------------------------------------------------------------------
     # > path to a single file
-    if isinstance(fmr, (str, pathlib.Path)) and os.path.isfile(fmr):
+    if isinstance(fmr, (str, pathlib.PurePath)) and os.path.isfile(fmr):
         fins = [fmr]
 
     # > list of file paths
@@ -1138,7 +1138,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         fimout = ''
 
     # > path to a folder
-    elif isinstance(fmr, (str, pathlib.Path)) and os.path.isdir(fmr):
+    elif isinstance(fmr, (str, pathlib.PurePath)) and os.path.isdir(fmr):
         fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
         log.info('multiple input files from input folder.')
         fimout = ''
@@ -1195,7 +1195,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
                 # numberFilltingLevels = 4
 
                 # read input file
-                im = sitk.ReadImage(fin)
+                im = sitk.ReadImage(str(fin))
 
                 # > create a object specific mask
                 fmsk = os.path.join(n4opth, fspl[1].split('.nii')[0] + '_sitk_mask.nii.gz')
