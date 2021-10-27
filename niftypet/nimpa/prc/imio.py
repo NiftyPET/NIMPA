@@ -330,6 +330,21 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
         scanner_id = 'signa'
     # ------------------------------------------
 
+    # ------------------------------------------
+    #> date/time
+    study_time = None
+    if [0x008, 0x030] in dhdr and [0x008, 0x020] in dhdr:
+        study_time = datetime.datetime.strptime(dhdr[0x008, 0x020].value + dhdr[0x008, 0x030].value, '%Y%m%d%H%M%S')
+
+    series_time = None
+    if [0x008, 0x031] in dhdr and [0x008, 0x021] in dhdr:
+        series_time = datetime.datetime.strptime(dhdr[0x008, 0x021].value + dhdr[0x008, 0x031].value, '%Y%m%d%H%M%S')
+
+    acq_time = None
+    if [0x008, 0x032] in dhdr and [0x008, 0x022] in dhdr:
+        acq_time = datetime.datetime.strptime(dhdr[0x008, 0x022].value + dhdr[0x008, 0x032].value, '%Y%m%d%H%M%S')
+    # ------------------------------------------
+
     # > CSA type (mMR)
     csatype = ''
     if [0x29, 0x1108] in dhdr:
@@ -456,6 +471,18 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
         log.debug('   TE: {}'.format(TE))
 
     validTs = TR is not None and TE is not None
+
+    if validTs:
+        mrdct = dict(
+            series=srs,
+            protocol=prtcl,
+            units=unt,
+            study_time=study_time,
+            series_time=series_time,
+            acq_time=acq_time,
+            scanner_id=scanner_id,
+            TR=TR,
+            TE=TE)
     #---------------------------------------------    
 
 
@@ -484,7 +511,14 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
 
     elif isPET:
         petdct = dict(
+            series=srs,
+            protocol=prtcl,
+            study_time=study_time,
+            series_time=series_time,
+            acq_time=acq_time,
+            scanner_id=scanner_id,
             type=srs_type,
+            units=unt,
             recon=recon,
             decay_corr=decay_corr,
             dcf=dcf,
@@ -494,6 +528,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
             randoms=rand,
             dose_calib=dcf,
             dead_time=dt,
+
 
             tracer=tracer,
             total_dose=tdose,
@@ -508,25 +543,25 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     # > a less stringent way of looking for the T1w sequence
     # > than the one below
     elif validTs and (t1_name in prtcl.lower() or t1_name in srs.lower()):
-         out = ['mr', 't1', 'mprage', scanner_id]
+         out = ['mr', 't1', 'mprage', scanner_id, mrdct]
     
     elif validTs and TR > 400 and TR < 2500 and TE < 20:
         if t1_name in prtcl.lower() or t1_name in srs.lower():
-            out = ['mr', 't1', 'mprage', scanner_id]
+            out = ['mr', 't1', 'mprage', scanner_id, mrdct]
         else:
             out = ['mr', 't1', scanner_id]
 
     elif validTs and TR > 2500 and TE > 50:
-        out = ['mr', 't2', scanner_id]
+        out = ['mr', 't2', scanner_id, mrdct]
 
     # > UTE's two sequences:
     # > UTE2
     elif validTs and  TR < 50 and TE < 20 and TE > 1:
-        out = ['mr', 'ute', 'ute2', scanner_id]
+        out = ['mr', 'ute', 'ute2', scanner_id, mrdct]
 
     # > UTE1
     elif validTs and  TR < 50 and TE < 0.1 and TR > 0 and TE > 0:
-        out = ['mr', 'ute', 'ute1', scanner_id]
+        out = ['mr', 'ute', 'ute1', scanner_id, mrdct]
 
 
     else:
