@@ -318,7 +318,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         Cnt = {}
 
     # case when input folder is given
-    if isinstance(fims, str) and os.path.isdir(fims):
+    if isinstance(fims, (str, pathlib.PurePath)) and os.path.isdir(fims):
         # list of input images (e.g., PET)
         fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if f.endswith(niiext)]
         imdic = imio.niisort(fimlist, memlim=memlim)
@@ -333,7 +333,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(fims, str) and os.path.isfile(fims) and fims.endswith(niiext):
+    elif isinstance(fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and fims.endswith(niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:
