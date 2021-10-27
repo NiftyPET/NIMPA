@@ -281,13 +281,21 @@ def pick_t1w(mri):
 
 
 #======================================================================
-def dcminfo(dcmvar, Cnt=None, output='detail'):
+def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
+
     '''
         Get basic info about the DICOM file/header.
-        options:
+        arguments/options:
+        dcmvar      - DICOM header as a file/string/dictionary
+        Cnt         - dictionary of constants used in advanced reconstruction
+                      or analysis
         output      - 'detail' outputs all
                       'basic' outputs scanner ID and series/protocol string
+        t1_name     - string helping identify T1w MR image present in 
+                      series or file names
     '''
+
+
     if Cnt is None:
         Cnt = {}
 
@@ -351,7 +359,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail'):
         out = [prtcl, srs, scanner_id]
         return out
     #+++++++++++++++++++++++++++++++++++++++++++++
-    
+
 
     #---------------------------------------------    
     # > PET parameters
@@ -497,10 +505,13 @@ def dcminfo(dcmvar, Cnt=None, output='detail'):
         out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
 
     
-
+    # > a less stringent way of looking for the T1w sequence
+    # > than the one below
+    elif validTs and (t1_name in prtcl.lower() or t1_name in srs.lower()):
+         out = ['mr', 't1', 'mprage', scanner_id]
     
     elif validTs and TR > 400 and TR < 2500 and TE < 20:
-        if 'mprage' in prtcl.lower() or 'mprage' in srs.lower():
+        if t1_name in prtcl.lower() or t1_name in srs.lower():
             out = ['mr', 't1', 'mprage', scanner_id]
         else:
             out = ['mr', 't1', scanner_id]
