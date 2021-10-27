@@ -281,8 +281,13 @@ def pick_t1w(mri):
 
 
 #======================================================================
-def dcminfo(dcmvar, Cnt=None):
-    '''Get basic info about the DICOM file/header.'''
+def dcminfo(dcmvar, Cnt=None, output='detail'):
+    '''
+        Get basic info about the DICOM file/header.
+        options:
+        output      - 'detail' outputs all
+                      'basic' outputs scanner ID and series/protocol string
+    '''
     if Cnt is None:
         Cnt = {}
 
@@ -341,6 +346,12 @@ def dcminfo(dcmvar, Cnt=None):
     if [0x054, 0x1001] in dhdr:
         unt = dhdr[0x054, 0x1001].value
 
+    #+++++++++++++++++++++++++++++++++++++++++++++
+    if output=='basic':
+        out = [prtcl, srs, scanner_id]
+        return out
+    #+++++++++++++++++++++++++++++++++++++++++++++
+    
 
     #---------------------------------------------    
     # > PET parameters
@@ -503,7 +514,7 @@ def dcminfo(dcmvar, Cnt=None):
         out = ['mr', 'ute', 'ute2', scanner_id]
 
     # > UTE1
-    elif validTs and  TR < 50 and TE < 20 and TE < 0.1 and TR > 0 and TE > 0:
+    elif validTs and  TR < 50 and TE < 0.1 and TR > 0 and TE > 0:
         out = ['mr', 'ute', 'ute1', scanner_id]
 
 
