@@ -334,15 +334,21 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     #> date/time
     study_time = None
     if [0x008, 0x030] in dhdr and [0x008, 0x020] in dhdr:
-        study_time = datetime.datetime.strptime(dhdr[0x008, 0x020].value + dhdr[0x008, 0x030].value, '%Y%m%d%H%M%S')
+        val = dhdr[0x008, 0x020].value + dhdr[0x008, 0x030].value
+        val = val.split('.')[0]
+        study_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
 
     series_time = None
     if [0x008, 0x031] in dhdr and [0x008, 0x021] in dhdr:
-        series_time = datetime.datetime.strptime(dhdr[0x008, 0x021].value + dhdr[0x008, 0x031].value, '%Y%m%d%H%M%S')
+        val = dhdr[0x008, 0x021].value + dhdr[0x008, 0x031].value
+        val = val.split('.')[0]
+        series_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
 
     acq_time = None
     if [0x008, 0x032] in dhdr and [0x008, 0x022] in dhdr:
-        acq_time = datetime.datetime.strptime(dhdr[0x008, 0x022].value + dhdr[0x008, 0x032].value, '%Y%m%d%H%M%S')
+        val = dhdr[0x008, 0x022].value + dhdr[0x008, 0x032].value
+        val = val.split('.')[0]
+        acq_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
     # ------------------------------------------
 
     # > CSA type (mMR)
