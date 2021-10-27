@@ -19,7 +19,7 @@ from .. import resources as rs
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA')
+dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 
 # > DICOM coding of PET isotopes
 istp_code = {'C-111A1':'F18',
@@ -795,8 +795,10 @@ def dcmsort(folder, copy_series=False, Cnt=None):
                 srs[s]['imsize'] = imsz
                 srs[s]['voxsize'] = vxsz
                 srs[s]['tseries'] = srs_time
+            
             # append the file name
             if 'files' not in srs[s]: srs[s]['files'] = []
+
             if copy_series:
                 srsdir = os.path.join(folder, s)
                 create_dir(srsdir)
