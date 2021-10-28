@@ -38,7 +38,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA')
+dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
 
@@ -333,7 +333,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and fims.endswith(niiext):
+    elif isinstance(fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and str(fims).endswith(niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:
