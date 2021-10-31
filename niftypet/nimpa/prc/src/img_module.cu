@@ -64,7 +64,7 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|Obb", (char **)kwds, (PyObject **)&src,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|Obbi", (char **)kwds, (PyObject **)&src,
                                    (PyObject **)&A, &o_Cim, (PyObject **)&dst, &MEMSET, &SYNC,
                                    &LOG))
     return NULL;
