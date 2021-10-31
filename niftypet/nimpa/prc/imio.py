@@ -1,6 +1,5 @@
 """image input/output functionalities."""
 import datetime
-import glob
 import logging
 import os
 import pathlib
@@ -943,9 +942,11 @@ def dcm2nii(
             fimout += time_stamp(simple_ascii=True)
     fimout = fimout.split('.nii')[0]
 
-    dicom2nifti.convert_directory(dcmpth, opth)
-    # TODO: add fimout prefix
-    fniiout = glob.glob(os.path.join(opth, '*' + fimout + '*.nii*'))
+    fniiout = []
+    for fnii in map(pathlib.Path, dicom2nifti.convert_directory(dcmpth, opth)):
+        dest = fnii.parent / (fimout + fnii.name)
+        fnii.rename(dest)
+        fniiout.append(str(dest))
 
     if fniiout:
         return fniiout[0]
