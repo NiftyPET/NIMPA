@@ -5,14 +5,13 @@ including partial volume correction (PVC) and ROI extraction and analysis.
 import logging
 import multiprocessing
 import os
+import pathlib
 import re
 import sys
 from glob import glob
 from subprocess import run
 from textwrap import dedent
 from warnings import warn
-
-import pathlib
 
 import numpy as np
 import scipy.ndimage as ndi
@@ -333,7 +332,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and str(fims).endswith(niiext):
+    elif isinstance(
+            fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and str(fims).endswith(niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:

@@ -22,11 +22,8 @@ log = logging.getLogger(__name__)
 dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 
 # > DICOM coding of PET isotopes
-istp_code = {'C-111A1':'F18',
-'C-105A1':'C11',
-'C-B1038':'O15',
-'C-128A2':'Ge68',
-'C-131A3':'Ga68'}
+istp_code = {
+    'C-111A1': 'F18', 'C-105A1': 'C11', 'C-B1038': 'O15', 'C-128A2': 'Ge68', 'C-131A3': 'Ga68'}
 
 
 def create_dir(pth):
@@ -280,22 +277,17 @@ def pick_t1w(mri):
     return ft1w
 
 
-#======================================================================
+# ======================================================================
 def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
-
-    '''
-        Get basic info about the DICOM file/header.
-        arguments/options:
-        dcmvar      - DICOM header as a file/string/dictionary
-        Cnt         - dictionary of constants used in advanced reconstruction
-                      or analysis
-        output      - 'detail' outputs all
-                      'basic' outputs scanner ID and series/protocol string
-        t1_name     - string helping identify T1w MR image present in 
-                      series or file names
-    '''
-
-
+    """
+    Get basic info about the DICOM file/header.
+    Args:
+      dcmvar: DICOM header as a file/string/dictionary
+      Cnt(dict): constants used in advanced reconstruction or analysis
+      output(str): 'detail' outputs all; 'basic' outputs scanner ID and
+        series/protocol string
+      t1_name(str): helps identify T1w MR image present in series or file names
+    """
     if Cnt is None:
         Cnt = {}
 
@@ -331,7 +323,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     # ------------------------------------------
 
     # ------------------------------------------
-    #> date/time
+    # > date/time
     study_time = None
     if [0x008, 0x030] in dhdr and [0x008, 0x020] in dhdr:
         val = dhdr[0x008, 0x020].value + dhdr[0x008, 0x030].value
@@ -375,14 +367,13 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     if [0x054, 0x1001] in dhdr:
         unt = dhdr[0x054, 0x1001].value
 
-    #+++++++++++++++++++++++++++++++++++++++++++++
-    if output=='basic':
+    # +++++++++++++++++++++++++++++++++++++++++++++
+    if output == 'basic':
         out = [prtcl, srs, scanner_id]
         return out
-    #+++++++++++++++++++++++++++++++++++++++++++++
+    # +++++++++++++++++++++++++++++++++++++++++++++
 
-
-    #---------------------------------------------    
+    # ---------------------------------------------
     # > PET parameters
     srs_type = None
     if [0x054, 0x1000] in dhdr:
@@ -429,7 +420,6 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     if [0x054, 0x1324] in dhdr:
         dt = float(dhdr[0x054, 0x1324].value)
 
-
     # RADIO TRACER
     tracer = None
     tdose = None
@@ -447,7 +437,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
 
         if [0x018, 0x1074] in tinf:
             tdose = float(tinf[0x018, 0x1074].value)
-        
+
         if [0x018, 0x1075] in tinf:
             hlife = float(tinf[0x018, 0x1075].value)
 
@@ -461,11 +451,9 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
             ttime1 = datetime.datetime.strptime(tinf[0x018, 0x1079].value, '%Y%m%d%H%M%S.%f')
 
     isPET = (tracer is not None) and (srs_type in ['STATIC', 'DYNAMIC', 'WHOLE BODY' 'GATED'])
-    #---------------------------------------------
+    # ---------------------------------------------
 
-
-
-    #---------------------------------------------    
+    # ---------------------------------------------
     # > MR parameters (echo time, etc)
     TR = None
     TE = None
@@ -479,18 +467,11 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     validTs = TR is not None and TE is not None
 
     if validTs:
-        mrdct = dict(
-            series=srs,
-            protocol=prtcl,
-            units=unt,
-            study_time=study_time,
-            series_time=series_time,
-            acq_time=acq_time,
-            scanner_id=scanner_id,
-            TR=TR,
-            TE=TE)
-    #---------------------------------------------    
-
+        mrdct = {
+            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time,
+            'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
+            'TE': TE}
+    # ---------------------------------------------
 
     # > check for RAW data
     if any('PET_NORM' in s
@@ -501,8 +482,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
              for s in dtype) or cmmnt == 'Listmode' or csatype == 'MRPETLM_LARGE':
         out = ['raw', 'list', scanner_id]
 
-    elif any('PET_EM_SINO' in s
-             for s in dtype) or cmmnt == 'Sinogram' or csatype == 'MRPETSINO':
+    elif any('PET_EM_SINO' in s for s in dtype) or cmmnt == 'Sinogram' or csatype == 'MRPETSINO':
         out = ['raw', 'sinogram', scanner_id]
 
     # > physio data
@@ -512,45 +492,22 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
         out = ['mr', 'mumap', 'ute', 'mr', scanner_id]
 
-
-
-
     elif isPET:
-        petdct = dict(
-            series=srs,
-            protocol=prtcl,
-            study_time=study_time,
-            series_time=series_time,
-            acq_time=acq_time,
-            scanner_id=scanner_id,
-            type=srs_type,
-            units=unt,
-            recon=recon,
-            decay_corr=decay_corr,
-            dcf=dcf,
-            attenuation=atten,
-            scatter=scat,
-            scf=scf,
-            randoms=rand,
-            dose_calib=dcf,
-            dead_time=dt,
-
-
-            tracer=tracer,
-            total_dose=tdose,
-            half_life=hlife,
-            positron_fract=pfract,
-            radio_start_time=ttime0,
-            radio_stop_time=ttime1)
+        petdct = {
+            'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
+            'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type, 'units': unt,
+            'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf, 'attenuation': atten,
+            'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dcf, 'dead_time': dt,
+            'tracer': tracer, 'total_dose': tdose, 'half_life': hlife, 'positron_fract': pfract,
+            'radio_start_time': ttime0, 'radio_stop_time': ttime1}
 
         out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
 
-    
     # > a less stringent way of looking for the T1w sequence
     # > than the one below
     elif validTs and (t1_name in prtcl.lower() or t1_name in srs.lower()):
-         out = ['mr', 't1', 'mprage', scanner_id, mrdct]
-    
+        out = ['mr', 't1', 'mprage', scanner_id, mrdct]
+
     elif validTs and TR > 400 and TR < 2500 and TE < 20:
         if t1_name in prtcl.lower() or t1_name in srs.lower():
             out = ['mr', 't1', 'mprage', scanner_id, mrdct]
@@ -562,20 +519,20 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
 
     # > UTE's two sequences:
     # > UTE2
-    elif validTs and  TR < 50 and TE < 20 and TE > 1:
+    elif validTs and TR < 50 and TE < 20 and TE > 1:
         out = ['mr', 'ute', 'ute2', scanner_id, mrdct]
 
     # > UTE1
-    elif validTs and  TR < 50 and TE < 0.1 and TR > 0 and TE > 0:
+    elif validTs and TR < 50 and TE < 0.1 and TR > 0 and TE > 0:
         out = ['mr', 'ute', 'ute1', scanner_id, mrdct]
-
 
     else:
         out = ['unknown', str(cmmnt.lower())]
 
     return out
-#======================================================================
 
+
+# ======================================================================
 
 
 def list_dcm_datain(datain):
@@ -836,7 +793,7 @@ def dcmsort(folder, copy_series=False, Cnt=None):
                 srs[s]['imsize'] = imsz
                 srs[s]['voxsize'] = vxsz
                 srs[s]['tseries'] = srs_time
-            
+
             # append the file name
             if 'files' not in srs[s]: srs[s]['files'] = []
 
