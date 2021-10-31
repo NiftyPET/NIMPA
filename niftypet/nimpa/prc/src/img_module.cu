@@ -155,7 +155,7 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
     return NULL;
   if (!src || !knl) return NULL;
 
-  if (dst) {
+  if (dst && Py_None != (PyObject *)dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
   } else {
