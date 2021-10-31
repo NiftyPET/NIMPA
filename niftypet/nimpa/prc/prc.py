@@ -106,7 +106,7 @@ def psf_measured(scanner='mmr', scale=1):
 
 
 # ----------------------------------------------------------------------
-def conv_separable(vol, knl, dev_id=0, output=None):
+def conv_separable(vol, knl, dev_id=0, output=None, sync=True):
     """
     Args:
       vol(ndarray): Can be any number of dimensions `ndim`
@@ -136,7 +136,7 @@ def conv_separable(vol, knl, dev_id=0, output=None):
         knl = cu.asarray(knl, dtype='float32')
         if output is not None:
             output = cu.asarray(output, dtype='float32').cuvec
-        dst = improc.convolve(src.cuvec, knl.cuvec, output=output, dev_id=dev_id,
+        dst = improc.convolve(src.cuvec, knl.cuvec, output=output, dev_id=dev_id, sync=sync,
                               log=log.getEffectiveLevel())
         res = cu.asarray(dst, dtype=vol.dtype)
         return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
@@ -184,7 +184,7 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
 
 
 def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', output_array=None,
-             gpu=None, dev_id=0, Cnt=None):
+             gpu=None, dev_id=0, sync=True, Cnt=None):
     '''
     Smooth image using Gaussian filter with either the PSF or FWHM given
     as an option.  By default FWHM = 4 is used with voxel size assumed 1 mm.
@@ -198,6 +198,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
     - output: can be image as Numpy array or file or both.
     - dev_id: the ID of the CUDA device to try to use for computation
       (set to `False` to force disable GPU)
+    - sync: whether to `cudaDeviceSynchronize()` after GPU operations
     - gpu: ignored
     '''
     if gpu is not None:
@@ -229,7 +230,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
 
     if psf is None:
         psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
-    imsmo = conv_separable(im, psf, output=output_array, dev_id=dev_id)
+    imsmo = conv_separable(im, psf, output=output_array, dev_id=dev_id, sync=sync)
 
     # output dictionary
     dctout = {}
