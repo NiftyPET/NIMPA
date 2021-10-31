@@ -8,7 +8,6 @@ import os
 import pathlib
 import re
 import sys
-from glob import glob
 from subprocess import run
 from textwrap import dedent
 from warnings import warn
@@ -637,7 +636,6 @@ def pvc_iyang(
                 is needed for co-registration to PET if affine is not given in the text
                 file with its path in faff.
         Cnt:    a dictionary of paths for third-party tools:
-                * dcm2niix: Cnt['DCM2NIIX']
                 * niftyreg, resample: Cnt['RESPATH']
                 * niftyreg, rigid-reg: Cnt['REGPATH']
         pvcroi: list of regions (also a list) with number label to distinguish
@@ -1384,11 +1382,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
     elif 'T1bc' in mridct and os.path.isfile(mridct['T1bc']):
         ft1w = mridct['T1bc']
     elif 'T1DCM' in mridct and os.path.exists(mridct['MRT1W']):
-        # create file name for the converted NIfTI image
-        fnii = 'converted'
-        run([Cnt['DCM2NIIX'], '-f', fnii, mridct['T1nii']])
-        ft1nii = glob(os.path.join(mridct['T1nii'], '*converted*.nii*'))
-        ft1w = ft1nii[0]
+        ft1w = imio.dcm2nii(mridct['T1nii'], 'converted')
     else:
         raise ValueError('disaster: no T1w image!')
 
