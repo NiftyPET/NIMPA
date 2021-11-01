@@ -135,8 +135,8 @@ def conv_separable(vol, knl, dev_id=0, output=None, sync=True):
         src = cu.asarray(vol, dtype='float32')
         knl = cu.asarray(knl, dtype='float32')
         if output is not None:
-            output = cu.asarray(output, dtype='float32').cuvec
-        dst = improc.convolve(src.cuvec, knl.cuvec, output=output, dev_id=dev_id, sync=sync,
+            output = cu.asarray(output, dtype='float32')
+        dst = improc.convolve(src, knl, output=output, dev_id=dev_id, sync=sync,
                               log=log.getEffectiveLevel())
         res = cu.asarray(dst, dtype=vol.dtype)
         return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
@@ -174,8 +174,8 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
             raise TypeError(f"output must be float32: got {output.dtype}")
         if output.shape != img.shape:
             raise IndexError("output shape doesn't match")
-        output = cu.asarray(output).cuvec
-    return cu.asarray(improc.nlm(img.cuvec, ref.cuvec, **kwargs))
+        output = cu.asarray(output)
+    return cu.asarray(improc.nlm(img, ref, **kwargs))
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>

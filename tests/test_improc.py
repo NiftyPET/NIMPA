@@ -35,7 +35,7 @@ def test_convolve_unpadded(knl):
     src[2, 2, 2] = 1
 
     # won't memcopy since already cudaMallocManaged
-    dst = cu.asarray(improc.convolve(src.cuvec, knl.cuvec, log=logging.DEBUG))
+    dst = cu.asarray(improc.convolve(src, knl, log=logging.DEBUG))
     check_conv(src, dst)
 
 
@@ -53,13 +53,13 @@ def test_convolve_autopad(knl):
     # in-place
     dst[:] = 0
     assert not dst.any()
-    improc.convolve(src.cuvec, knl.cuvec, log=logging.DEBUG, output=dst.cuvec, memset=False)
+    improc.convolve(src, knl, log=logging.DEBUG, output=dst, memset=False)
     check_conv(src, dst)
 
     # in-place with auto memset
     dst[2, 2, 2] = 0
     assert dst[2, 2, 2] == 0
-    improc.convolve(src.cuvec, knl.cuvec, log=logging.DEBUG, output=dst.cuvec)
+    improc.convolve(src, knl, log=logging.DEBUG, output=dst)
     check_conv(src, dst)
 
 

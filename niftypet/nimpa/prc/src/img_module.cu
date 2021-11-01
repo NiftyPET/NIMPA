@@ -54,9 +54,9 @@ PyMODINIT_FUNC PyInit_improc(void) {
 }
 
 static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) {
-  PyCuVec<float> *dst = NULL; // output image
   PyCuVec<float> *src = NULL; // original image (to be transformed)
   PyCuVec<float> *A = NULL;   // transformation matrix
+  PyCuVec<float> *dst = NULL; // output image
   PyObject *o_Cim;            // Dictionary of image constants
   bool MEMSET = true;         // whether to zero `dst` first
   bool SYNC = true;           // whether to ensure deviceToHost copy on return
@@ -64,11 +64,11 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|Obbi", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&A, &o_Cim, (PyObject **)&dst, &MEMSET, &SYNC,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&O|O&bbi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &A, &o_Cim, &asPyCuVec_f, &dst, &MEMSET, &SYNC,
                                    &LOG))
     return NULL;
-  if (!A || !src) return NULL;
+  if (!src || !A) return NULL;
 
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
@@ -149,13 +149,13 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"img", "knl", "output", "dev_id", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Oibbi", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&knl, (PyObject **)&dst, &DEVID, &MEMSET, &SYNC,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|O&ibbi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &knl, &asPyCuVec_f, &dst, &DEVID, &MEMSET, &SYNC,
                                    &LOG))
     return NULL;
   if (!src || !knl) return NULL;
 
-  if (dst && Py_None != (PyObject *)dst) {
+  if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
   } else {
@@ -209,8 +209,8 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
   // Parse the input tuple
   static const char *kwds[] = {"img",    "ref",  "output", "sigma", "half_width",
                                "dev_id", "sync", "log",    NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Ofiibi", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&ref, (PyObject **)&dst, &sigma, &half_width,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|O&fiibi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &ref, &asPyCuVec_f, &dst, &sigma, &half_width,
                                    &DEVID, &SYNC, &LOG))
     return NULL;
   if (!src || !ref || sigma < 0 || half_width < 0) return NULL;
