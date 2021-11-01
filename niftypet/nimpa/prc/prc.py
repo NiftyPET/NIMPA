@@ -165,8 +165,6 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
         raise IndexError(f"{img.shape} and {ref.shape} don't match")
     if img.ndim != 3:
         raise IndexError(f"must be 3D: got {img.ndim}D")
-    kwargs = {
-        'sigma': sigma, 'half_width': half_width, 'dev_id': dev_id, 'log': log.getEffectiveLevel()}
     if output is not None:
         if not isinstance(output, cu.CuVec):
             raise TypeError("output must be a CuVec")
@@ -174,8 +172,9 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
             raise TypeError(f"output must be float32: got {output.dtype}")
         if output.shape != img.shape:
             raise IndexError("output shape doesn't match")
-        output = cu.asarray(output)
-    return cu.asarray(improc.nlm(img, ref, **kwargs))
+    return cu.asarray(
+        improc.nlm(img, ref, sigma=sigma, half_width=half_width, output=output, dev_id=dev_id,
+                   log=log.getEffectiveLevel()))
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
