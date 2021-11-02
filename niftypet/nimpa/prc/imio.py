@@ -497,7 +497,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
             'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
             'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type, 'units': unt,
             'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf, 'attenuation': atten,
-            'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dcf, 'dead_time': dt,
+            'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf, 'dead_time': dt,
             'tracer': tracer, 'total_dose': tdose, 'half_life': hlife, 'positron_fract': pfract,
             'radio_start_time': ttime0, 'radio_stop_time': ttime1}
 
