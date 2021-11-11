@@ -729,7 +729,7 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         dhdr.save_as(dcmf)
 
 
-def dcmsort(folder, copy_series=False, Cnt=None):
+def dcmsort(folder, copy_series=False, Cnt=None, outpath=None):
     '''Sort out the DICOM files in the folder according to the recorded series.'''
     # > check if the dictionary of constant is given
     if Cnt is None:
@@ -741,7 +741,14 @@ def dcmsort(folder, copy_series=False, Cnt=None):
     srs = {}
     for f in files:
         if os.path.isfile(os.path.join(folder, f)) and f.endswith(dcmext):
-            dhdr = dcm.read_file(os.path.join(folder, f))
+            try:
+                dhdr = dcm.read_file(os.path.join(folder, f))
+            except:
+                if not 'unaccounted' in srs:
+                    srs['unaccounted'] = [os.path.join(folder, f)]
+                else:
+                    srs['unaccounted'].append(os.path.join(folder, f))
+                continue
             # --------------------------------
             # image size
             imsz = np.zeros(2, dtype=np.int64)
@@ -782,23 +789,35 @@ def dcmsort(folder, copy_series=False, Cnt=None):
                 if (np.array_equal(srs[s]['imorient'], ornt)
                         and np.array_equal(srs[s]['imsize'], imsz)
                         and np.array_equal(srs[s]['voxsize'], vxsz)
-                        and srs[s]['tseries'] == srs_time):
+                        and srs[s]['tseries'] == srs_time
+                        and srs[s]['series'] == srs_dcrp):
                     recognised_series = True
                     break
             # if series was not found, create one
             if not recognised_series:
-                s = srs_dcrp + '_' + srs_time
+                s = srs_time + '_' + srs_dcrp
                 srs[s] = {}
                 srs[s]['imorient'] = ornt
                 srs[s]['imsize'] = imsz
                 srs[s]['voxsize'] = vxsz
                 srs[s]['tseries'] = srs_time
+                srs[s]['series'] = srs_dcrp
 
             # append the file name
             if 'files' not in srs[s]: srs[s]['files'] = []
 
             if copy_series:
-                srsdir = os.path.join(folder, s)
+                if outpath is not None:
+                    out = outpath
+                    try:
+                        create_dir(outpath)
+                    except:
+                        print('w> could not create specified output folder, using input folder.')
+                        out=folder
+                else:
+                    out = folder
+
+                srsdir = os.path.join(out, s)
                 create_dir(srsdir)
                 shutil.copy(os.path.join(folder, f), srsdir)
                 srs[s]['files'].append(os.path.join(srsdir, f))
