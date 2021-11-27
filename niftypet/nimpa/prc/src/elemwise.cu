@@ -1,5 +1,5 @@
 #include "cuhelpers.h"
-#include "div.h"
+#include "elemwise.h"
 
 /// dst = src_num / src_div
 __global__ void div(float *dst, const float *src_num, const float *src_div, const size_t N,

@@ -11,7 +11,7 @@ Copyrights: 2019
 
 #include "conv.h"
 #include "cuhelpers.h"
-#include "div.h"
+#include "elemwise.h"
 #include "isub.h"
 #include "nlm.h"
 #include "pycuvec.cuh"
