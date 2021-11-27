@@ -1,14 +1,6 @@
 #include "cuhelpers.h"
 #include "rsmpl.h"
 
-// void HandleError( cudaError_t err, const char *file, int line ){
-//     if (err != cudaSuccess) {
-//         printf( "%s in %s at line %d\n", cudaGetErrorString( err ), file, line );
-//         exit( EXIT_FAILURE );
-//     }
-// }
-//..................................................................................................................................
-
 __constant__ float cA[12];
 
 __global__ void d_rsmpl(float *imr, const float *imo, Cimg Cim) {
