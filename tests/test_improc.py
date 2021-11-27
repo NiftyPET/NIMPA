@@ -98,6 +98,18 @@ def test_isub():
     assert (res == out).all()
 
 
+def test_div():
+    num, div = cu.asarray(np.random.random((2, 42, 1337, 16)).astype('float32'))
+    div -= 0.5
+    div[0] = 0
+    from warnings import catch_warnings, filterwarnings
+    with catch_warnings():
+        filterwarnings('ignore', 'divide by zero', RuntimeWarning)
+        ref = num / div
+    res = prc.div(num, div)
+    assert (res == ref).all()
+
+
 if __name__ == "__main__":
     from sys import version_info
     from textwrap import dedent
