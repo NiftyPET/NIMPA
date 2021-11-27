@@ -180,14 +180,13 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
 
 def isub(img, idxs, output=None, dev_id=0, sync=True):
     """
-    dst = src[idxs, ...]
+    output = img[idxs, ...]
     Args:
       img(2darray): input image.
       idxs(1darray['uint32']): indicies into the first dimension of `img`.
       output(CuVec): pre-existing output memory.
       sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
     """
-    "src", "idxs", "output", "dev_id", "sync", "log"
     img = cu.asarray(img, 'float32')
     idxs = cu.asarray(idxs, 'uint32')
     if img.ndim != 2:
