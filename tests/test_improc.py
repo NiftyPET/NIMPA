@@ -85,6 +85,19 @@ def test_nlm(half_width, sigma, width):
     assert (dst_gpu - src).mean() < 1e-2
 
 
+def test_isub():
+    src = cu.asarray(np.random.random((42, 2)).astype('float32'))
+    idxs = cu.asarray((np.random.random((12,)) * 42).astype('uint32'))
+
+    ref = src[idxs]
+    res = cu.asarray(prc.isub(src, idxs))
+    assert (res == ref).all()
+
+    out = cu.zeros(res.shape, res.dtype)
+    res = cu.asarray(prc.isub(src, idxs, output=out))
+    assert (res == out).all()
+
+
 if __name__ == "__main__":
     from sys import version_info
     from textwrap import dedent

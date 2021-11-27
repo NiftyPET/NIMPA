@@ -178,6 +178,33 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
                    sync=sync, log=log.getEffectiveLevel()))
 
 
+def isub(img, idxs, output=None, dev_id=0, sync=True):
+    """
+    dst = src[idxs, ...]
+    Args:
+      img(2darray): input image.
+      idxs(1darray['uint32']): indicies into the first dimension of `img`.
+      output(CuVec): pre-existing output memory.
+      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
+    """
+    "src", "idxs", "output", "dev_id", "sync", "log"
+    img = cu.asarray(img, 'float32')
+    idxs = cu.asarray(idxs, 'uint32')
+    if img.ndim != 2:
+        raise IndexError(f"must be 2D: got {img.ndim}D")
+    if output is not None:
+        if not isinstance(output, cu.CuVec):
+            raise TypeError("output must be a CuVec")
+        if np.dtype(output.dtype) != np.dtype('float32'):
+            raise TypeError(f"output must be float32: got {output.dtype}")
+        if output.shape != (idxs.shape[0], img.shape[1]):
+            raise IndexError(f"output shape {output.shape} doesn't match"
+                             f" ({idxs.shape[0]}, {img.shape[1]})")
+    return cu.asarray(
+        improc.isub(img, idxs, output=output, dev_id=dev_id, sync=sync,
+                    log=log.getEffectiveLevel()))
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
