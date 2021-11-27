@@ -71,7 +71,6 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&O|Obbi", (char **)kwds, &asPyCuVec_f, &src,
                                    &asPyCuVec_f, &A, &o_Cim, &dst, &MEMSET, &SYNC, &LOG))
     return NULL;
-  if (!src || !A) return NULL;
 
   dst = asPyCuVec(dst);
   if (dst) {
@@ -156,7 +155,6 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibbi", (char **)kwds, &asPyCuVec_f, &src,
                                    &asPyCuVec_f, &knl, &dst, &DEVID, &MEMSET, &SYNC, &LOG))
     return NULL;
-  if (!src || !knl) return NULL;
 
   dst = asPyCuVec(dst);
   if (dst) {
@@ -217,7 +215,7 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
                                    &asPyCuVec_f, &ref, &dst, &sigma, &half_width, &DEVID, &SYNC,
                                    &LOG))
     return NULL;
-  if (!src || !ref || sigma < 0 || half_width < 0) return NULL;
+  if (sigma < 0 || half_width < 0) return NULL;
 
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
@@ -261,7 +259,6 @@ static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs) {
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibi", (char **)kwds, &asPyCuVec_f, &src,
                                    &asPyCuVec_I, &idxs, &dst, &DEVID, &SYNC, &LOG))
     return NULL;
-  if (!src || !idxs) return NULL;
 
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
