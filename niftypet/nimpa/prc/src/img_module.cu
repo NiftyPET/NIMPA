@@ -249,9 +249,9 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
 }
 
 static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs) {
-  PyCuVec<float> *src = NULL;         // input image
-  PyCuVec<unsigned int> *idxs = NULL; // indices
-  PyCuVec<float> *dst = NULL;         // output image
+  PyCuVec<float> *src = NULL; // input image
+  PyCuVec<int> *idxs = NULL;  // indices
+  PyCuVec<float> *dst = NULL; // output image
   int DEVID = 0;
   bool SYNC = true; // whether to ensure deviceToHost copy on return
   int LOG = LOGDEBUG;
