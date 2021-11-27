@@ -64,12 +64,12 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&O|O&bbi", (char **)kwds, &asPyCuVec_f, &src,
-                                   &asPyCuVec_f, &A, &o_Cim, &asPyCuVec_f, &dst, &MEMSET, &SYNC,
-                                   &LOG))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&O|Obbi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &A, &o_Cim, &dst, &MEMSET, &SYNC, &LOG))
     return NULL;
   if (!src || !A) return NULL;
 
+  dst = asPyCuVec(dst);
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
@@ -149,12 +149,12 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"img", "knl", "output", "dev_id", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|O&ibbi", (char **)kwds, &asPyCuVec_f, &src,
-                                   &asPyCuVec_f, &knl, &asPyCuVec_f, &dst, &DEVID, &MEMSET, &SYNC,
-                                   &LOG))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibbi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &knl, &dst, &DEVID, &MEMSET, &SYNC, &LOG))
     return NULL;
   if (!src || !knl) return NULL;
 
+  dst = asPyCuVec(dst);
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
@@ -209,15 +209,16 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
   // Parse the input tuple
   static const char *kwds[] = {"img",    "ref",  "output", "sigma", "half_width",
                                "dev_id", "sync", "log",    NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|O&fiibi", (char **)kwds, &asPyCuVec_f, &src,
-                                   &asPyCuVec_f, &ref, &asPyCuVec_f, &dst, &sigma, &half_width,
-                                   &DEVID, &SYNC, &LOG))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Ofiibi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &ref, &dst, &sigma, &half_width, &DEVID, &SYNC,
+                                   &LOG))
     return NULL;
   if (!src || !ref || sigma < 0 || half_width < 0) return NULL;
 
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
 
+  dst = asPyCuVec(dst);
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
