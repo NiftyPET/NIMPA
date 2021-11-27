@@ -110,6 +110,13 @@ def test_div():
     assert (res == ref).all()
 
 
+def test_mul():
+    a, b = cu.asarray(np.random.random((2, 42, 1337, 16)).astype('float32') - 0.5)
+    ref = a * b
+    res = prc.mul(a, b)
+    assert (res == ref).all()
+
+
 if __name__ == "__main__":
     from sys import version_info
     from textwrap import dedent

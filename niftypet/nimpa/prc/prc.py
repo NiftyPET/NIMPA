@@ -232,6 +232,30 @@ def div(numerator, divisor, default=FLOAT_MAX, output=None, dev_id=0, sync=True)
                    log=log.getEffectiveLevel()))
 
 
+def mul(a, b, output=None, dev_id=0, sync=True):
+    """
+    Elementwise `output = a * b`
+    Args:
+      a(ndarray): input.
+      b(ndarray): input.
+      output(CuVec): pre-existing output memory.
+      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
+    """
+    a = cu.asarray(a, 'float32')
+    b = cu.asarray(b, 'float32')
+    if a.shape != b.shape:
+        raise IndexError(f"{a.shape} and {b.shape} don't match")
+    if output is not None:
+        if not isinstance(output, cu.CuVec):
+            raise TypeError("output must be a CuVec")
+        if np.dtype(output.dtype) != np.dtype('float32'):
+            raise TypeError(f"output must be float32: got {output.dtype}")
+        if output.shape != a.shape:
+            raise IndexError(f"output shape {output.shape} doesn't match inputs {a.shape}")
+    return cu.asarray(
+        improc.mul(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
