@@ -5,7 +5,7 @@ __all__ = [
     'dcmsort', 'fwhm2sig', 'getnii', 'getnii_descr', 'nii_gzip', 'nii_ugzip',
     'niisort', 'orientnii', 'pick_t1w', 'time_stamp',
     # prc
-    'bias_field_correction', 'centre_mass_img', 'ct2mu', 'im_cut', 'imsmooth',
+    'bias_field_correction', 'centre_mass_img', 'ct2mu', 'div', 'im_cut', 'imsmooth',
     'imtrimup', 'isub', 'iyang', 'nii_modify', 'nlm', 'pet2pet_rigid', 'psf_gaussian',
     'psf_measured', 'pvc_iyang',
     # regseg
@@ -38,6 +38,7 @@ from .prc import (
     bias_field_correction,
     centre_mass_img,
     ct2mu,
+    div,
     im_cut,
     imsmooth,
     imtrimup,

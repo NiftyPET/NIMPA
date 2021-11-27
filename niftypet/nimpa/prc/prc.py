@@ -35,6 +35,7 @@ except ImportError:
     sitk_flag = False
 
 log = logging.getLogger(__name__)
+FLOAT_MAX = np.float32(np.inf)
 
 # possible extentions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
@@ -202,6 +203,33 @@ def isub(img, idxs, output=None, dev_id=0, sync=True):
     return cu.asarray(
         improc.isub(img, idxs, output=output, dev_id=dev_id, sync=sync,
                     log=log.getEffectiveLevel()))
+
+
+def div(numerator, divisor, default=FLOAT_MAX, output=None, dev_id=0, sync=True):
+    """
+    Elementwise `output = numerator / divisor if divisor else default`
+    Args:
+      numerator(ndarray): input.
+      divisor(ndarray): input.
+      default(float): value for zero division errors.
+      output(CuVec): pre-existing output memory.
+      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
+    """
+    numerator = cu.asarray(numerator, 'float32')
+    divisor = cu.asarray(divisor, 'float32')
+    if numerator.shape != divisor.shape:
+        raise IndexError(f"{numerator.shape} and {divisor.shape} don't match")
+    if output is not None:
+        if not isinstance(output, cu.CuVec):
+            raise TypeError("output must be a CuVec")
+        if np.dtype(output.dtype) != np.dtype('float32'):
+            raise TypeError(f"output must be float32: got {output.dtype}")
+        if output.shape != numerator.shape:
+            raise IndexError(f"output shape {output.shape} doesn't match"
+                             f" inputs {numerator.shape}")
+    return cu.asarray(
+        improc.div(numerator, divisor, default=default, output=output, dev_id=dev_id, sync=sync,
+                   log=log.getEffectiveLevel()))
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>

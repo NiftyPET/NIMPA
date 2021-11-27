@@ -11,6 +11,7 @@ Copyrights: 2019
 
 #include "conv.h"
 #include "cuhelpers.h"
+#include "div.h"
 #include "isub.h"
 #include "nlm.h"
 #include "pycuvec.cuh"
@@ -25,6 +26,7 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs);
+static PyObject *img_div(PyObject *self, PyObject *args, PyObject *kwargs);
 //---
 
 //> Module Method Table
@@ -37,6 +39,7 @@ static PyMethodDef improc_methods[] = {
      "3D Non-local means (NLM) guided filtering."},
     {"isub", (PyCFunction)img_isub, METH_VARARGS | METH_KEYWORDS,
      "Indexing into an array (`output = src[idxs, ...]`)."},
+    {"div", (PyCFunction)img_div, METH_VARARGS | METH_KEYWORDS, "Elementwise division."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 
@@ -288,6 +291,53 @@ static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs) {
   }
 
   d_isub(dst->vec.data(), src->vec.data(), idxs->vec.data(), J, X, SYNC);
+  if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
+
+  return (PyObject *)dst;
+}
+
+static PyObject *img_div(PyObject *self, PyObject *args, PyObject *kwargs) {
+  PyCuVec<float> *src_num = NULL; // numerator
+  PyCuVec<float> *src_div = NULL; // divisor
+  PyCuVec<float> *dst = NULL;     // output
+  float zeroDivDefault = FLOAT_MAX;
+  int DEVID = 0;
+  bool SYNC = true; // whether to ensure deviceToHost copy on return
+  int LOG = LOGDEBUG;
+
+  // Parse the input tuple
+  static const char *kwds[] = {"num", "div", "default", "output", "dev_id", "sync", "log", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|fOibi", (char **)kwds, &asPyCuVec_f,
+                                   &src_num, &asPyCuVec_f, &src_div, &zeroDivDefault, &dst, &DEVID,
+                                   &SYNC, &LOG))
+    return NULL;
+
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
+  if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
+
+  if (src_num->shape.size() != src_div->shape.size()) {
+    PyErr_SetString(PyExc_IndexError, "inputs must have same ndim");
+    return NULL;
+  }
+  for (size_t i = 0; i < src_num->shape.size(); i++) {
+    if (src_num->shape[i] != src_div->shape[i]) {
+      PyErr_SetString(PyExc_IndexError, "inputs must have same shape");
+      return NULL;
+    }
+  }
+
+  dst = asPyCuVec(dst);
+  if (dst) {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
+  } else {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
+    dst = PyCuVec_zeros_like(src_num);
+    if (!dst) return NULL;
+  }
+
+  d_div(dst->vec.data(), src_num->vec.data(), src_div->vec.data(), dst->vec.size(), zeroDivDefault,
+        SYNC);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
   return (PyObject *)dst;
