@@ -6,7 +6,7 @@ __all__ = [
     'niisort', 'orientnii', 'pick_t1w', 'time_stamp',
     # prc
     'bias_field_correction', 'centre_mass_img', 'ct2mu', 'im_cut', 'imsmooth',
-    'imtrimup', 'iyang', 'nii_modify', 'pet2pet_rigid', 'psf_gaussian',
+    'imtrimup', 'isub', 'iyang', 'nii_modify', 'nlm', 'pet2pet_rigid', 'psf_gaussian',
     'psf_measured', 'pvc_iyang',
     # regseg
     'affine_fsl', 'affine_niftyreg', 'coreg_spm', 'coreg_vinci', 'create_mask',
@@ -41,8 +41,10 @@ from .prc import (
     im_cut,
     imsmooth,
     imtrimup,
+    isub,
     iyang,
     nii_modify,
+    nlm,
     pet2pet_rigid,
     psf_gaussian,
     psf_measured,
