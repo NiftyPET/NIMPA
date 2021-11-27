@@ -148,7 +148,7 @@ def conv_separable(vol, knl, dev_id=0, output=None, sync=True):
         return vol
 
 
-def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
+def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
     """
     3D Non-local means (NLM) guided filter.
     Args:
@@ -157,6 +157,7 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
       sigma(float): NLM parameter.
       half_width(int): neighbourhood half-width.
       output(CuVec): pre-existing output memory.
+      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
     Reference: https://doi.org/10.1109/CVPR.2005.38
     """
     img = cu.asarray(img, 'float32')
@@ -174,7 +175,7 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
             raise IndexError("output shape doesn't match")
     return cu.asarray(
         improc.nlm(img, ref, sigma=sigma, half_width=half_width, output=output, dev_id=dev_id,
-                   log=log.getEffectiveLevel()))
+                   sync=sync, log=log.getEffectiveLevel()))
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
