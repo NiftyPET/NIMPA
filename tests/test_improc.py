@@ -90,11 +90,11 @@ def test_isub():
     idxs = cu.asarray((np.random.random((12,)) * 42).astype('uint32'))
 
     ref = src[idxs]
-    res = cu.asarray(prc.isub(src, idxs))
+    res = prc.isub(src, idxs)
     assert (res == ref).all()
 
     out = cu.zeros(res.shape, res.dtype)
-    res = cu.asarray(prc.isub(src, idxs, output=out))
+    res = prc.isub(src, idxs, output=out)
     assert (res == out).all()
 
 
