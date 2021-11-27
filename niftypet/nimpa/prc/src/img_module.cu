@@ -290,7 +290,7 @@ static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs) {
     return NULL;
   }
 
-  d_isub2d(dst->vec.data(), src->vec.data(), idxs->vec.data(), J, X, SYNC);
+  d_isub(dst->vec.data(), src->vec.data(), idxs->vec.data(), J, X, SYNC);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
   return (PyObject *)dst;
