@@ -19,17 +19,18 @@ __all__ = [
     'LOG_FORMAT', 'LogHandler',
     # config
     'path_resources', 'resources', 'cmake_prefix',
+    # improc
+    'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # core
-    'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
-    'affine_fsl', 'affine_niftyreg', 'array2nii', 'bias_field_correction',
-    'centre_mass_img', 'coreg_spm', 'coreg_vinci', 'create_dir', 'create_mask',
-    'ct2mu', 'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort',
-    'dice_coeff', 'dice_coeff_multiclass', 'div', 'fwhm2sig', 'getnii', 'getnii_descr',
-    'im_cut', 'imfill', 'imsmooth', 'isub', 'iyang', 'motion_reg', 'mul', 'nii_gzip',
-    'nii_modify', 'nii_ugzip', 'niisort', 'nlm', 'orientnii', 'pet2pet_rigid',
-    'pick_t1w', 'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm',
-    'resample_fsl', 'resample_mltp_spm', 'resample_niftyreg', 'resample_spm',
-    'resample_vinci', 'time_stamp'] # yapf: disable
+    'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup', 'affine_fsl',
+    'affine_niftyreg', 'array2nii', 'bias_field_correction', 'centre_mass_img', 'coreg_spm',
+    'coreg_vinci', 'create_dir', 'create_mask', 'ct2mu', 'dcm2im', 'dcm2nii', 'dcmanonym',
+    'dcminfo', 'dcmsort', 'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii',
+    'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
+    'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
+    'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
+    'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci',
+    'time_stamp'] # yapf: disable
 
 from pkg_resources import resource_filename
 
@@ -45,6 +46,7 @@ from .prc import (
     array2nii,
     bias_field_correction,
     centre_mass_img,
+    conv_separable,
     coreg_spm,
     coreg_vinci,
     create_dir,
