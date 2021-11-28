@@ -262,7 +262,7 @@ static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs) {
   // Parse the input tuple
   static const char *kwds[] = {"src", "idxs", "output", "dev_id", "sync", "log", NULL};
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibi", (char **)kwds, &asPyCuVec_f, &src,
-                                   &asPyCuVec_I, &idxs, &dst, &DEVID, &SYNC, &LOG))
+                                   &asPyCuVec_i, &idxs, &dst, &DEVID, &SYNC, &LOG))
     return NULL;
 
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);

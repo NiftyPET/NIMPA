@@ -189,7 +189,7 @@ def isub(img, idxs, output=None, dev_id=0, sync=True):
       sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
     """
     img = cu.asarray(img, 'float32')
-    idxs = cu.asarray(idxs, 'uint32')
+    idxs = cu.asarray(idxs, 'int32')
     if img.ndim != 2:
         raise IndexError(f"must be 2D: got {img.ndim}D")
     if output is not None:
