@@ -301,12 +301,11 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
         raise ValueError(
             "incorrect image input.\nNIfTI file path, dictionary or Numpy array are accepted.")
 
-    if voxsize is None and Cnt is not None and 'SO_VXZ' in Cnt:
-        voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
-    elif voxsize is None and Cnt is None:
-        raise ValueError('the correct voxel size has to be provided')
-
     if psf is None:
+        if voxsize is None and Cnt is not None and 'SO_VXZ' in Cnt:
+            voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
+        elif voxsize is None and Cnt is None:
+            raise ValueError('the correct voxel size has to be provided')
         psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
     imsmo = conv_separable(im, psf, output=output_array, dev_id=dev_id, sync=sync)
 
