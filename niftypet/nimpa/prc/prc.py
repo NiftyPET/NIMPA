@@ -18,6 +18,8 @@ import scipy.ndimage as ndi
 from pkg_resources import resource_filename
 from tqdm.auto import trange
 
+import nibabel as nib
+
 from . import imio, regseg
 
 try:
@@ -1016,14 +1018,26 @@ def ct2mu(im):
 # =============================================================
 
 
+
+
 # ==============================================================================
-def centre_mass_img(imdct, output='mm'):
+def centre_mass_img(img, output='mm'):
     ''' Calculate the centre of mass of an image along each axes (x,y,z),
         separately.
         Arguments:
-        imdct - the image dictionary with the image and header data.
-        Output the list of the centre of mass for each axis.
+        img - the NIfTI file or image dictionary with the image and header data.
+        Outputs the list of the centre of mass for each axis.
     '''
+
+
+    # > check the input image
+    if isinstance(img, (str, pathlib.Path)) and os.path.isfile(img):
+        imdct = imio.getnii(img, output='all')
+    elif isinstance(img, dict) and 'shape' in img:
+        imdct = img
+    else:
+        raise ValueError('unrecognised input image')
+
 
     # > initialise centre of mass array in mm and in voxel indexes
     com = np.zeros(3, dtype=np.float32)
@@ -1055,6 +1069,135 @@ def centre_mass_img(imdct, output='mm'):
 
 
 # ==============================================================================
+
+
+# ==============================================================================
+def centre_mass_corr(
+        img,
+        Cnt=None,
+        com=None,
+        outpath=None,
+        fcomment='_com-modified',
+        fout=None):
+
+    ''' Image centre of mass correction.  The O point is in the middle of the 
+        image centre of voxel value mass (e.g, radio-activity).
+
+        img -   input image as a NIfTI file or a dictionary of the input image as by 
+                    nimpa.getnii(path_im, output='all').
+        com -   applying the centre of mass already established
+    '''
+
+
+    # > check the input image
+    if isinstance(img, (str, pathlib.Path)) and os.path.isfile(img):
+        imdct = imio.getnii(img, output='all')
+    elif isinstance(img, dict) and 'shape' in img:
+        imdct = img
+    else:
+        raise ValueError('unrecognised input image')
+
+
+
+    #> check if the dictionary of constants is given
+    if Cnt is None:
+        Cnt = {}
+
+
+
+    #> output the centre of mass if image radiodistribution in each dimension in mm.
+    if com is None:
+        com = centre_mass_img(imdct, output='mm')
+
+    com = np.array(com)
+
+    if not isinstance(com, np.ndarray):
+        raise ValueError('The Centre of Mass is not a Numpy array!')
+
+
+    #> initialise the list of relative NIfTI image CoMs
+    com_nii = []
+
+    #> modified affine for the centre of mass
+    mA = imdct['affine'].copy()
+
+    #> go through x, y and z
+    for i in range(3):
+        vox_size = max(imdct['affine'][i,:-1], key=abs)
+
+        #> get the relative centre of mass for each axis (relative to the translation
+        #> values in the affine matrix)
+        if vox_size>0:
+            com_rel = com[2-i] + imdct['affine'][i,-1]
+        else:
+            com_rel = com[2-i] - abs(vox_size)*imdct['shape'][-i-1] + imdct['affine'][i,-1]
+
+        mA[i,-1] -= com_rel
+
+        com_nii.append(com_rel)
+
+    log.info('''
+        \r relative CoM values are:
+        \r {}
+        '''.format(com_nii))
+
+    #>------------------------------------------------------
+    # > get the file name and path separated
+    fsplt = os.path.split(imdct['fim'])
+
+    # > get the output path
+    if outpath is not None:
+        opth = outpath
+        imio.create_dir(opth)
+    else:
+        opth = fsplt[0]
+
+    opth = pathlib.Path(opth)
+
+    # > get the output file name
+    if fout is not None:
+        fimc = fout
+
+        if isinstance(fimc, pathlib.Path) and (fimc.suffix!='.gz' or fimc.suffix!='.nii'):
+            fimc.with_suffix('.nii.gz')
+
+        elif isinstance(fimc, str) and not fimc.endswith(('.nii', 'nii.gz')):
+            fimc = fimc+'.nii.gz'
+
+        fimc = pathlib.Path(fimc)
+
+        if not fimc.parent=='.':
+            opth = fimc.parent
+            fnm = fimc.name
+        else:
+            fnm = fimc
+    else:
+        fnm = fsplt[1].split('.nii')[0]+fcomment+'.nii.gz'
+
+
+    #> save to NIfTI
+    innii = nib.load(imdct['fim'])
+
+    #> get a new NIfTI image for the perturbed MR
+    newnii = nib.Nifti1Image(innii.get_fdata(), mA, innii.header)
+
+    
+    fnew = os.path.join(opth, fnm)
+
+    #> save into a new file name for the T1w                 
+    nib.save(newnii, fnew)
+    #>------------------------------------------------------
+
+    out = dict(
+        fim=fnew,
+        com_rel=com_nii,
+        com_abs=com
+        )
+
+    return out
+#===============================================================================
+
+
 
 
 # ==============================================================================

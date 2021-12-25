@@ -5,7 +5,7 @@ __all__ = [
     'getnii', 'getnii_descr', 'nii_gzip', 'nii_ugzip', 'niisort', 'orientnii', 'pick_t1w',
     'time_stamp',
     # prc
-    'bias_field_correction', 'centre_mass_img', 'ct2mu', 'im_cut', 'imsmooth', 'imtrimup',
+    'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'ct2mu', 'im_cut', 'imsmooth', 'imtrimup',
     'iyang', 'nii_modify', 'pet2pet_rigid', 'psf_gaussian', 'psf_measured', 'pvc_iyang',
     # improc
     'conv_separable', 'div', 'isub', 'mul', 'nlm',
@@ -37,6 +37,7 @@ from .imio import (
 from .prc import (
     bias_field_correction,
     centre_mass_img,
+    centre_mass_corr,
     conv_separable,
     ct2mu,
     div,

@@ -8,6 +8,8 @@ import math
 import numpy as np
 import scipy.ndimage as ndi
 
+import pathlib
+
 try:
     from miutil.plot import imscroll
 except ImportError as err: # NOQA: F841
@@ -82,7 +84,7 @@ def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
     Compare the new image (imnew) to the reference image (imref),
     returning (and optional plotting) the difference.
     """
-    if isinstance(imref, str):
+    if isinstance(imref, (str, pathlib.Path)):
         imref = imio.getnii(imref)
         log.info('using NIfTI files as image input for the reference')
     elif isinstance(imref, (np.ndarray, np.generic)):
