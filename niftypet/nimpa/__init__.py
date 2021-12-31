@@ -29,7 +29,7 @@ __all__ = [
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
-    'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci',
+    'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy'
     'time_stamp'] # yapf: disable
 
 from pkg_resources import resource_filename
@@ -88,6 +88,7 @@ from .prc import (
     resample_niftyreg,
     resample_spm,
     resample_vinci,
+    resample_dipy,
     time_stamp,
 )
 

@@ -11,7 +11,7 @@ __all__ = [
     'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # regseg
     'affine_fsl', 'affine_niftyreg', 'coreg_spm', 'coreg_vinci', 'create_mask', 'dice_coeff',
-    'dice_coeff_multiclass', 'imfill', 'motion_reg', 'realign_mltp_spm', 'resample_fsl',
+    'dice_coeff_multiclass', 'imfill', 'motion_reg', 'realign_mltp_spm', 'resample_fsl', 'resample_dipy'
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci'] # yapf: disable
 
 from .imio import (
@@ -70,4 +70,5 @@ from .regseg import (
     resample_niftyreg,
     resample_spm,
     resample_vinci,
+    resample_dipy,
 )
