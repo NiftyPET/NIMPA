@@ -244,6 +244,24 @@ def mul(a, b, output=None, dev_id=0, sync=True):
         improc.mul(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
 
 
+def add(a, b, output=None, dev_id=0, sync=True):
+    """
+    Elementwise `output = a + b`
+    Args:
+      a(ndarray): input.
+      b(ndarray): input.
+      output(CuVec): pre-existing output memory.
+      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
+    """
+    a = cu.asarray(a, 'float32')
+    b = cu.asarray(b, 'float32')
+    if a.shape != b.shape:
+        raise IndexError(f"{a.shape} and {b.shape} don't match")
+    check_cuvec(output, a.shape, 'float32')
+    return cu.asarray(
+        improc.add(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
+
+
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>

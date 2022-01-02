@@ -117,6 +117,13 @@ def test_mul():
     assert (res == ref).all()
 
 
+def test_add():
+    a, b = cu.asarray(np.random.random((2, 42, 1337, 16)).astype('float32'))
+    ref = a + b
+    res = prc.add(a, b)
+    assert (res == ref).all()
+
+
 if __name__ == "__main__":
     from sys import version_info
     from textwrap import dedent

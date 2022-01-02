@@ -36,3 +36,20 @@ void d_mul(float *dst, const float *src_a, const float *src_b, const size_t N, b
 
   if (_sync) HANDLE_ERROR(cudaDeviceSynchronize()); // unified memcpy device2host
 }
+
+/// dst = src_a + src_b
+__global__ void add(float *dst, const float *src_a, const float *src_b, const size_t N) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= N) return;
+  dst[i] = src_a[i] + src_b[i];
+}
+
+/// main add function
+void d_add(float *dst, const float *src_a, const float *src_b, const size_t N, bool _sync) {
+  dim3 thrds(NIMPA_CU_THREADS, 1, 1);
+  dim3 blcks((N + NIMPA_CU_THREADS - 1) / NIMPA_CU_THREADS, 1, 1);
+  add<<<blcks, thrds>>>(dst, src_a, src_b, N);
+  HANDLE_ERROR(cudaGetLastError());
+
+  if (_sync) HANDLE_ERROR(cudaDeviceSynchronize()); // unified memcpy device2host
+}

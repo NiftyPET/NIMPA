@@ -9,7 +9,7 @@ __all__ = [
     'imsmooth', 'imtrimup',
     'iyang', 'nii_modify', 'pet2pet_rigid', 'psf_gaussian', 'psf_measured', 'pvc_iyang',
     # improc
-    'conv_separable', 'div', 'isub', 'mul', 'nlm',
+    'add', 'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # regseg
     'affine_fsl', 'affine_niftyreg', 'coreg_spm', 'coreg_vinci', 'create_mask', 'dice_coeff',
     'dice_coeff_multiclass', 'imfill', 'motion_reg', 'realign_mltp_spm', 'resample_fsl',
@@ -37,6 +37,7 @@ from .imio import (
 
 # will be deprecated
 from .prc import (
+    add,
     bias_field_correction,
     centre_mass_corr,
     centre_mass_img,

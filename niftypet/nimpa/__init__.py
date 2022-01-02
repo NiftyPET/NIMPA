@@ -20,7 +20,7 @@ __all__ = [
     # config
     'path_resources', 'resources', 'cmake_prefix',
     # improc
-    'conv_separable', 'div', 'isub', 'mul', 'nlm',
+    'add', 'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # core
     'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup', 'affine_fsl',
     'affine_niftyreg', 'array2nii', 'bias_field_correction', 'centre_mass_img', 'centre_mass_corr',
@@ -41,6 +41,7 @@ from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resourc
 from .img import create_disk, imdiff, imscroll, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
+    add,
     affine_fsl,
     affine_niftyreg,
     array2nii,
