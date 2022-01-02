@@ -4,11 +4,10 @@ Generates images.
 """
 import logging
 import math
+import pathlib
 
 import numpy as np
 import scipy.ndimage as ndi
-
-import pathlib
 
 try:
     from miutil.plot import imscroll

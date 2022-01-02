@@ -23,13 +23,13 @@ __all__ = [
     'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # core
     'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup', 'affine_fsl',
-    'affine_niftyreg', 'array2nii', 'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'coreg_spm',
-    'coreg_vinci', 'create_dir', 'create_mask', 'ct2mu', 'dcm2im', 'dcm2nii', 'dcmanonym',
-    'dcminfo', 'dcmsort', 'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii',
+    'affine_niftyreg', 'array2nii', 'bias_field_correction', 'centre_mass_img', 'centre_mass_corr',
+    'coreg_spm', 'coreg_vinci', 'create_dir', 'create_mask', 'ct2mu', 'dcm2im', 'dcm2nii',
+    'dcmanonym', 'dcminfo', 'dcmsort', 'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii',
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
-    'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy'
+    'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
     'time_stamp'] # yapf: disable
 
 from pkg_resources import resource_filename
@@ -45,8 +45,8 @@ from .prc import (
     affine_niftyreg,
     array2nii,
     bias_field_correction,
-    centre_mass_img,
     centre_mass_corr,
+    centre_mass_img,
     conv_separable,
     coreg_spm,
     coreg_vinci,
@@ -83,12 +83,12 @@ from .prc import (
     psf_measured,
     pvc_iyang,
     realign_mltp_spm,
+    resample_dipy,
     resample_fsl,
     resample_mltp_spm,
     resample_niftyreg,
     resample_spm,
     resample_vinci,
-    resample_dipy,
     time_stamp,
 )
 
