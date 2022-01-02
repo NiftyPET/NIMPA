@@ -150,6 +150,19 @@ def conv_separable(vol, knl, dev_id=0, output=None, sync=True):
         return vol
 
 
+def check_cuvec(a, shape, dtype, allow_none=True):
+    """Asserts that CuVec `a` is of `shape` and `dtype`"""
+    if a is None:
+        assert allow_none, "must not be None"
+        return
+    if not isinstance(a, cu.CuVec):
+        raise TypeError("must be a CuVec")
+    if np.dtype(a.dtype) != np.dtype(dtype):
+        raise TypeError(f"dtype must be {dtype}: got {a.dtype}")
+    if a.shape != shape:
+        raise IndexError(f"shape must be {shape}: got {a.shape}")
+
+
 def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
     """
     3D Non-local means (NLM) guided filter.
@@ -168,13 +181,7 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
         raise IndexError(f"{img.shape} and {ref.shape} don't match")
     if img.ndim != 3:
         raise IndexError(f"must be 3D: got {img.ndim}D")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != img.shape:
-            raise IndexError("output shape doesn't match")
+    check_cuvec(output, img.shape, 'float32')
     return cu.asarray(
         improc.nlm(img, ref, sigma=sigma, half_width=half_width, output=output, dev_id=dev_id,
                    sync=sync, log=log.getEffectiveLevel()))
@@ -193,14 +200,7 @@ def isub(img, idxs, output=None, dev_id=0, sync=True):
     idxs = cu.asarray(idxs, 'int32')
     if img.ndim != 2:
         raise IndexError(f"must be 2D: got {img.ndim}D")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != (idxs.shape[0], img.shape[1]):
-            raise IndexError(f"output shape {output.shape} doesn't match"
-                             f" ({idxs.shape[0]}, {img.shape[1]})")
+    check_cuvec(output, (idxs.shape[0], img.shape[1]), 'float32')
     return cu.asarray(
         improc.isub(img, idxs, output=output, dev_id=dev_id, sync=sync,
                     log=log.getEffectiveLevel()))
@@ -220,14 +220,7 @@ def div(numerator, divisor, default=FLOAT_MAX, output=None, dev_id=0, sync=True)
     divisor = cu.asarray(divisor, 'float32')
     if numerator.shape != divisor.shape:
         raise IndexError(f"{numerator.shape} and {divisor.shape} don't match")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != numerator.shape:
-            raise IndexError(f"output shape {output.shape} doesn't match"
-                             f" inputs {numerator.shape}")
+    check_cuvec(output, numerator.shape, 'float32')
     return cu.asarray(
         improc.div(numerator, divisor, default=default, output=output, dev_id=dev_id, sync=sync,
                    log=log.getEffectiveLevel()))
@@ -246,13 +239,7 @@ def mul(a, b, output=None, dev_id=0, sync=True):
     b = cu.asarray(b, 'float32')
     if a.shape != b.shape:
         raise IndexError(f"{a.shape} and {b.shape} don't match")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != a.shape:
-            raise IndexError(f"output shape {output.shape} doesn't match inputs {a.shape}")
+    check_cuvec(output, a.shape, 'float32')
     return cu.asarray(
         improc.mul(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
 
