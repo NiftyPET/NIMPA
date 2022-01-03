@@ -22,10 +22,13 @@ __all__ = [
     # improc
     'add', 'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # core
-    'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup', 'affine_fsl', 'affine_dipy'
-    'affine_niftyreg', 'array2nii', 'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'coreg_spm',
-    'coreg_vinci', 'create_dir', 'create_mask', 'ct2mu', 'dcm2im', 'dcm2nii', 'dcmanonym',
-    'dcminfo', 'dcmsort', 'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii',
+    'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
+    'affine_fsl', 'affine_dipy', 'affine_niftyreg',
+    'array2nii', 'bias_field_correction',
+    'centre_mass_img', 'centre_mass_corr', 'coreg_spm', 'coreg_vinci',
+    'create_dir', 'create_mask', 'ct2mu',
+    'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort',
+    'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii',
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
@@ -41,6 +44,7 @@ from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resourc
 from .img import create_disk, imdiff, imscroll, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
+    add,
     affine_dipy,
     affine_fsl,
     affine_niftyreg,

@@ -1022,7 +1022,6 @@ def ct2mu(im):
 # =============================================================
 
 
-# ==============================================================================
 def centre_mass_img(img, output='mm'):
     """
     Calculate the centre of mass of an image along each axes (x,y,z), separately.
