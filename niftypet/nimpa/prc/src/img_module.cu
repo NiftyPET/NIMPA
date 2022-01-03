@@ -28,6 +28,7 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_div(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_mul(PyObject *self, PyObject *args, PyObject *kwargs);
+static PyObject *img_add(PyObject *self, PyObject *args, PyObject *kwargs);
 //---
 
 //> Module Method Table
@@ -42,6 +43,7 @@ static PyMethodDef improc_methods[] = {
      "Indexing into an array (`output = src[idxs, ...]`)."},
     {"div", (PyCFunction)img_div, METH_VARARGS | METH_KEYWORDS, "Elementwise division."},
     {"mul", (PyCFunction)img_mul, METH_VARARGS | METH_KEYWORDS, "Elementwise multiplication."},
+    {"add", (PyCFunction)img_add, METH_VARARGS | METH_KEYWORDS, "Elementwise addition."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 
@@ -384,6 +386,50 @@ static PyObject *img_mul(PyObject *self, PyObject *args, PyObject *kwargs) {
   }
 
   d_mul(dst->vec.data(), src_a->vec.data(), src_b->vec.data(), dst->vec.size(), SYNC);
+  if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
+
+  return (PyObject *)dst;
+}
+
+static PyObject *img_add(PyObject *self, PyObject *args, PyObject *kwargs) {
+  PyCuVec<float> *src_a = NULL; // input A
+  PyCuVec<float> *src_b = NULL; // input B
+  PyCuVec<float> *dst = NULL;   // output
+  int DEVID = 0;
+  bool SYNC = true; // whether to ensure deviceToHost copy on return
+  int LOG = LOGDEBUG;
+
+  // Parse the input tuple
+  static const char *kwds[] = {"a", "b", "output", "dev_id", "sync", "log", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibi", (char **)kwds, &asPyCuVec_f, &src_a,
+                                   &asPyCuVec_f, &src_b, &dst, &DEVID, &SYNC, &LOG))
+    return NULL;
+
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
+  if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
+
+  if (src_a->shape.size() != src_b->shape.size()) {
+    PyErr_SetString(PyExc_IndexError, "inputs must have same ndim");
+    return NULL;
+  }
+  for (size_t i = 0; i < src_a->shape.size(); i++) {
+    if (src_a->shape[i] != src_b->shape[i]) {
+      PyErr_SetString(PyExc_IndexError, "inputs must have same shape");
+      return NULL;
+    }
+  }
+
+  dst = asPyCuVec(dst);
+  if (dst) {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
+  } else {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
+    dst = PyCuVec_zeros_like(src_a);
+    if (!dst) return NULL;
+  }
+
+  d_add(dst->vec.data(), src_a->vec.data(), src_b->vec.data(), dst->vec.size(), SYNC);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
   return (PyObject *)dst;

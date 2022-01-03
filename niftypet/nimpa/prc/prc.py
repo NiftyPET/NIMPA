@@ -13,12 +13,11 @@ from subprocess import run
 from textwrap import dedent
 from warnings import warn
 
+import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
 from pkg_resources import resource_filename
 from tqdm.auto import trange
-
-import nibabel as nib
 
 from . import imio, regseg
 
@@ -151,6 +150,19 @@ def conv_separable(vol, knl, dev_id=0, output=None, sync=True):
         return vol
 
 
+def check_cuvec(a, shape, dtype, allow_none=True):
+    """Asserts that CuVec `a` is of `shape` and `dtype`"""
+    if a is None:
+        assert allow_none, "must not be None"
+        return
+    if not isinstance(a, cu.CuVec):
+        raise TypeError("must be a CuVec")
+    if np.dtype(a.dtype) != np.dtype(dtype):
+        raise TypeError(f"dtype must be {dtype}: got {a.dtype}")
+    if a.shape != shape:
+        raise IndexError(f"shape must be {shape}: got {a.shape}")
+
+
 def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
     """
     3D Non-local means (NLM) guided filter.
@@ -169,13 +181,7 @@ def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0, sync=True):
         raise IndexError(f"{img.shape} and {ref.shape} don't match")
     if img.ndim != 3:
         raise IndexError(f"must be 3D: got {img.ndim}D")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != img.shape:
-            raise IndexError("output shape doesn't match")
+    check_cuvec(output, img.shape, 'float32')
     return cu.asarray(
         improc.nlm(img, ref, sigma=sigma, half_width=half_width, output=output, dev_id=dev_id,
                    sync=sync, log=log.getEffectiveLevel()))
@@ -194,14 +200,7 @@ def isub(img, idxs, output=None, dev_id=0, sync=True):
     idxs = cu.asarray(idxs, 'int32')
     if img.ndim != 2:
         raise IndexError(f"must be 2D: got {img.ndim}D")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != (idxs.shape[0], img.shape[1]):
-            raise IndexError(f"output shape {output.shape} doesn't match"
-                             f" ({idxs.shape[0]}, {img.shape[1]})")
+    check_cuvec(output, (idxs.shape[0], img.shape[1]), 'float32')
     return cu.asarray(
         improc.isub(img, idxs, output=output, dev_id=dev_id, sync=sync,
                     log=log.getEffectiveLevel()))
@@ -221,14 +220,7 @@ def div(numerator, divisor, default=FLOAT_MAX, output=None, dev_id=0, sync=True)
     divisor = cu.asarray(divisor, 'float32')
     if numerator.shape != divisor.shape:
         raise IndexError(f"{numerator.shape} and {divisor.shape} don't match")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != numerator.shape:
-            raise IndexError(f"output shape {output.shape} doesn't match"
-                             f" inputs {numerator.shape}")
+    check_cuvec(output, numerator.shape, 'float32')
     return cu.asarray(
         improc.div(numerator, divisor, default=default, output=output, dev_id=dev_id, sync=sync,
                    log=log.getEffectiveLevel()))
@@ -247,15 +239,27 @@ def mul(a, b, output=None, dev_id=0, sync=True):
     b = cu.asarray(b, 'float32')
     if a.shape != b.shape:
         raise IndexError(f"{a.shape} and {b.shape} don't match")
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != a.shape:
-            raise IndexError(f"output shape {output.shape} doesn't match inputs {a.shape}")
+    check_cuvec(output, a.shape, 'float32')
     return cu.asarray(
         improc.mul(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
+
+
+def add(a, b, output=None, dev_id=0, sync=True):
+    """
+    Elementwise `output = a + b`
+    Args:
+      a(ndarray): input.
+      b(ndarray): input.
+      output(CuVec): pre-existing output memory.
+      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
+    """
+    a = cu.asarray(a, 'float32')
+    b = cu.asarray(b, 'float32')
+    if a.shape != b.shape:
+        raise IndexError(f"{a.shape} and {b.shape} don't match")
+    check_cuvec(output, a.shape, 'float32')
+    return cu.asarray(
+        improc.add(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
 
 
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
@@ -1018,17 +1022,14 @@ def ct2mu(im):
 # =============================================================
 
 
-
-
 # ==============================================================================
 def centre_mass_img(img, output='mm'):
-    ''' Calculate the centre of mass of an image along each axes (x,y,z),
-        separately.
-        Arguments:
-        img - the NIfTI file or image dictionary with the image and header data.
+    """
+    Calculate the centre of mass of an image along each axes (x,y,z), separately.
+    Arguments:
+      img: the NIfTI file or image dictionary with the image and header data.
         Outputs the list of the centre of mass for each axis.
-    '''
-
+    """
 
     # > check the input image
     if isinstance(img, (str, pathlib.Path)) and os.path.isfile(img):
@@ -1037,7 +1038,6 @@ def centre_mass_img(img, output='mm'):
         imdct = img
     else:
         raise ValueError('unrecognised input image')
-
 
     # > initialise centre of mass array in mm and in voxel indexes
     com = np.zeros(3, dtype=np.float32)
@@ -1072,22 +1072,15 @@ def centre_mass_img(img, output='mm'):
 
 
 # ==============================================================================
-def centre_mass_corr(
-        img,
-        Cnt=None,
-        com=None,
-        outpath=None,
-        fcomment='_com-modified',
-        fout=None):
-
-    ''' Image centre of mass correction.  The O point is in the middle of the 
-        image centre of voxel value mass (e.g, radio-activity).
-
-        img -   input image as a NIfTI file or a dictionary of the input image as by 
-                    nimpa.getnii(path_im, output='all').
-        com -   applying the centre of mass already established
-    '''
-
+def centre_mass_corr(img, Cnt=None, com=None, outpath=None, fcomment='_com-modified', fout=None):
+    """
+    Image centre of mass correction. The O point is in the middle of the
+    image centre of voxel value mass (e.g, radio-activity).
+    Arguments:
+      img: input image as a NIfTI file or a dictionary of the input image as by
+        `nimpa.getnii(path_im, output='all')`.
+      com: applying the centre of mass already established.
+    """
 
     # > check the input image
     if isinstance(img, (str, pathlib.Path)) and os.path.isfile(img):
@@ -1097,15 +1090,11 @@ def centre_mass_corr(
     else:
         raise ValueError('unrecognised input image')
 
-
-
-    #> check if the dictionary of constants is given
+    # > check if the dictionary of constants is given
     if Cnt is None:
         Cnt = {}
 
-
-
-    #> output the centre of mass if image radiodistribution in each dimension in mm.
+    # > output the centre of mass if image radiodistribution in each dimension in mm.
     if com is None:
         com = centre_mass_img(imdct, output='mm')
 
@@ -1114,25 +1103,24 @@ def centre_mass_corr(
     if not isinstance(com, np.ndarray):
         raise ValueError('The Centre of Mass is not a Numpy array!')
 
-
-    #> initialise the list of relative NIfTI image CoMs
+    # > initialise the list of relative NIfTI image CoMs
     com_nii = []
 
-    #> modified affine for the centre of mass
+    # > modified affine for the centre of mass
     mA = imdct['affine'].copy()
 
-    #> go through x, y and z
+    # > go through x, y and z
     for i in range(3):
-        vox_size = max(imdct['affine'][i,:-1], key=abs)
+        vox_size = max(imdct['affine'][i, :-1], key=abs)
 
-        #> get the relative centre of mass for each axis (relative to the translation
-        #> values in the affine matrix)
-        if vox_size>0:
-            com_rel = com[2-i] + imdct['affine'][i,-1]
+        # > get the relative centre of mass for each axis (relative to the translation
+        # > values in the affine matrix)
+        if vox_size > 0:
+            com_rel = com[2 - i] + imdct['affine'][i, -1]
         else:
-            com_rel = com[2-i] - abs(vox_size)*imdct['shape'][-i-1] + imdct['affine'][i,-1]
+            com_rel = com[2 - i] - abs(vox_size) * imdct['shape'][-i - 1] + imdct['affine'][i, -1]
 
-        mA[i,-1] -= com_rel
+        mA[i, -1] -= com_rel
 
         com_nii.append(com_rel)
 
@@ -1141,7 +1129,7 @@ def centre_mass_corr(
         \r {}
         '''.format(com_nii))
 
-    #>------------------------------------------------------
+    # >------------------------------------------------------
     # > get the file name and path separated
     fsplt = os.path.split(imdct['fim'])
 
@@ -1158,49 +1146,36 @@ def centre_mass_corr(
     if fout is not None:
         fimc = fout
 
-        if isinstance(fimc, pathlib.Path) and (fimc.suffix!='.gz' or fimc.suffix!='.nii'):
+        if isinstance(fimc, pathlib.Path) and (fimc.suffix != '.gz' or fimc.suffix != '.nii'):
             fimc.with_suffix('.nii.gz')
 
         elif isinstance(fimc, str) and not fimc.endswith(('.nii', 'nii.gz')):
-            fimc = fimc+'.nii.gz'
+            fimc = fimc + '.nii.gz'
 
         fimc = pathlib.Path(fimc)
 
-        if not fimc.parent=='.':
+        if not fimc.parent == '.':
             opth = fimc.parent
             fnm = fimc.name
         else:
             fnm = fimc
     else:
-        fnm = fsplt[1].split('.nii')[0]+fcomment+'.nii.gz'
+        fnm = fsplt[1].split('.nii')[0] + fcomment + '.nii.gz'
 
-
-    #> save to NIfTI
+    # save to NIfTI
     innii = nib.load(imdct['fim'])
-
-    #> get a new NIfTI image for the perturbed MR
+    # get a new NIfTI image for the perturbed MR
     newnii = nib.Nifti1Image(innii.get_fdata(), mA, innii.header)
 
-    
     fnew = os.path.join(opth, fnm)
-
-    #> save into a new file name for the T1w                 
+    # save into a new file name for the T1w
     nib.save(newnii, fnew)
-    #>------------------------------------------------------
-
-    out = dict(
-        fim=fnew,
-        com_rel=com_nii,
-        com_abs=com
-        )
-
-    return out
-#===============================================================================
-
-
+    return {'fim': fnew, 'com_rel': com_nii, 'com_abs': com}
 
 
 # ==============================================================================
+
+
 def nii_modify(nii, fimout='', outpath='', fcomment='', voxel_range=None):
     '''
     Modify the NIfTI image given either as a file path or a dictionary,

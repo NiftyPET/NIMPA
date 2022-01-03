@@ -13,16 +13,15 @@ from textwrap import dedent
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
+from dipy.align import _public as align
 from miutil.fdio import hasext
 from spm12.regseg import resample_spm  # NOQA: F401 yapf: disable
 from spm12.regseg import coreg_spm
-
 
 import dipy.align as align
 from dipy.align import (affine_registration, 
                         center_of_mass, translation,
                         rigid, affine)
-
 
 from .. import resources as rs
 from . import imio, prc
@@ -188,28 +187,27 @@ def affine_dipy(
     return {'affine':txaff, 'faff':faff}
 
 
-
 def resample_dipy(
-        fref,
-        fflo,
-        faff=None,
-        outpath=None,
-        fimout=None,
-        fcomment='',
-        pickname='ref',
-        intrp=1,
-        dtype_nifti=np.float32,
-        verbose=True,
-    ):
-    '''
-    Resample image fflo to the reference fref.  Image needs to be given as NIfTI files.
+    fref,
+    fflo,
+    faff=None,
+    outpath=None,
+    fimout=None,
+    fcomment='',
+    pickname='ref',
+    intrp=1,
+    dtype_nifti=np.float32,
+    verbose=True,
+):
+    """
+    Resample image fflo to the reference fref. Image needs to be given as NIfTI files.
     Arguments:
-    faff    - NUmpy array or Numpy file (*.npy) for the affine transformation.
-    intrp   - interpolation: 0-NN, 1-linear
-    '''
+      faff: NUmpy array or Numpy file (*.npy) for the affine transformation.
+      intrp: interpolation: 0-NN, 1-linear
+    """
 
     # > OUTPUT
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # > output path
     if outpath is None and fimout is not None:
         opth = os.path.dirname(fimout)
@@ -229,14 +227,15 @@ def resample_dipy(
         fout = os.path.join(opth, fimout)
     elif pickname == 'ref':
         fout = os.path.join(
-            opth, 'resampled-dipy_to_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment + '.nii.gz')
+            opth, 'resampled-dipy_to_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment +
+            '.nii.gz')
     elif pickname == 'flo':
         fout = os.path.join(
-            opth, 'resampled-dipy_to_flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment + '.nii.gz')
-    #------------------------------------------------------------------
+            opth, 'resampled-dipy_to_flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment +
+            '.nii.gz')
+    # ------------------------------------------------------------------
 
-
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
     if faff is not None:
         if faff.endswith('.npy'):
             affine = np.load(faff)
@@ -246,33 +245,24 @@ def resample_dipy(
             raise ValueError('e> unrecognised affine matrix input')
     else:
         affine = None
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
-
-    #------------------------------------------------------------------
-    if intrp==0:
+    # ------------------------------------------------------------------
+    if intrp == 0:
         interpolation = 'nearest'
-    elif intrp==1:
+    elif intrp == 1:
         interpolation = 'linear'
     else:
         raise ValueError('e> unrecognised interpolation input')
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
-
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # > DIPY RESAMPLING
-    #------------------------------------------------------------------
-    static, static_affine, moving, moving_affine, between_affine = align._public._handle_pipeline_inputs(
-            fflo, fref,
-            moving_affine=None,
-            static_affine=None,
-            starting_affine=affine)
-
-    affine_map = align._public.AffineMap(
-        between_affine,
-        static.shape, static_affine,
-        moving.shape, moving_affine)
-
+    # ------------------------------------------------------------------
+    static, static_affine, moving, moving_affine, between_affine = align._handle_pipeline_inputs(
+        fflo, fref, moving_affine=None, static_affine=None, starting_affine=affine)
+    affine_map = align.AffineMap(between_affine, static.shape, static_affine, moving.shape,
+                                 moving_affine)
     rsmpl = affine_map.transform(moving, interpolation=interpolation)
 
     del moving, static
@@ -280,12 +270,7 @@ def resample_dipy(
     # > save to NIfTI
     smpl_nii = nib.Nifti1Image(rsmpl.astype(dtype_nifti), static_affine)
     nib.save(smpl_nii, fout)
-    #------------------------------------------------------------------
-
-    return {'fnii':fout, 'im':rsmpl}  
-
-
-
+    return {'fnii': fout, 'im': rsmpl}
 
 
 def affine_niftyreg(
