@@ -10,6 +10,7 @@ import sys
 from subprocess import call
 from textwrap import dedent
 
+import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
 from miutil.fdio import hasext
@@ -18,7 +19,9 @@ from spm12.regseg import coreg_spm
 
 
 import dipy.align as align
-import nibabel as nib
+from dipy.align import (affine_registration, 
+                        center_of_mass, translation,
+                        rigid, affine)
 
 
 from .. import resources as rs
@@ -103,6 +106,88 @@ def create_mask(
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   R E G I S T R A T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+def affine_dipy(
+    fref,
+    fflo,
+    nbins=32,
+    metric='MI',
+    level_iters=[10000, 1000, 200],
+    sigmas=[3.0, 1.0, 0.0],
+    factors=[4, 2, 1],
+    outpath=None,
+    faffine=None,
+    pickname='ref',
+    fcomment='',
+    rfwhm=15.,
+    ffwhm=15.,
+    verbose=True,
+):
+    '''
+    Perform affine 3-stage image registration using DIPY Python package.
+
+    Arguments:
+
+    fref -  file path to the reference image to which the floating image
+            will be registered.
+    fflo -  file path to the floating image to be registered to the
+            reference image.
+    outpath - folder path for the output
+
+    '''
+
+    # create a folder for images registered to ref
+    if outpath is not None:
+        odir = os.path.join(outpath, 'affine-dipy')
+    else:
+        odir = os.path.join(os.path.dirname(fflo), 'affine-dipy')
+    imio.create_dir(odir)
+
+    # output in register with ref and text file for the affine transform
+    if faffine is not None:
+        faff = faffine
+    else:
+        if pickname == 'ref':
+            faff = os.path.join(
+                odir, 'affine_dipy_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment + '.npy')
+        elif pickname == 'flo':
+            faff = os.path.join(
+                odir, 'affine_dipy_flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment + '.npy')
+
+    # > smoothing if needed:
+    if rfwhm>0.:
+        fstatic = os.path.basename(fref).split('.nii')[0]+'_smth'+str(rfwhm).replace('.','-')+'mm.nii.gz'
+        fstatic = os.path.join(odir, fstatic)
+        _ = prc.imsmooth(fref, fwhm=rfwhm, fout=fstatic)
+    else:
+        fstatic = fref
+
+    if ffwhm>0.:
+        fmoving = os.path.basename(fflo).split('.nii')[0]+'_smth'+str(ffwhm).replace('.','-')+'mm.nii.gz'
+        fmoving = os.path.join(odir, fmoving)
+        _ = prc.imsmooth(fflo, fwhm=ffwhm, fout=fmoving)
+    else:
+        fmoving = fflo
+
+    #------------------------------------------------------------------
+    pipeline = [center_of_mass, translation, rigid]
+
+    txim, txaff = affine_registration(
+        fmoving,
+        fstatic,
+        nbins=nbins,
+        metric=metric,
+        pipeline=pipeline,
+        level_iters=level_iters,
+        sigmas=sigmas,
+        factors=factors)
+    #------------------------------------------------------------------
+
+    np.save(faff, txaff)
+
+    return {'affine':txaff, 'faff':faff}
+
+
 
 def resample_dipy(
         fref,

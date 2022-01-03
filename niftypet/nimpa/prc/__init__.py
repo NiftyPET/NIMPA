@@ -10,7 +10,7 @@ __all__ = [
     # improc
     'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # regseg
-    'affine_fsl', 'affine_niftyreg', 'coreg_spm', 'coreg_vinci', 'create_mask', 'dice_coeff',
+    'affine_dipy', 'affine_fsl', 'affine_niftyreg', 'coreg_spm', 'coreg_vinci', 'create_mask', 'dice_coeff',
     'dice_coeff_multiclass', 'imfill', 'motion_reg', 'realign_mltp_spm', 'resample_fsl', 'resample_dipy'
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci'] # yapf: disable
 
@@ -55,6 +55,7 @@ from .prc import (
     pvc_iyang,
 )
 from .regseg import (
+    affine_dipy,
     affine_fsl,
     affine_niftyreg,
     coreg_spm,
