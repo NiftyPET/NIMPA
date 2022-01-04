@@ -4,13 +4,11 @@ import numpy as np
 import scipy.ndimage as ndi
 
 try:
-    # GPU routines if compiled
     import cuvec as cu
 
     from . import improc
-except ImportError:
-    cu = None
-    improc = None
+except ImportError: # GPU routines not compiled
+    cu, improc = None, None
 
 __all__ = ['add', 'conv_separable', 'div', 'isub', 'mul', 'nlm']
 log = logging.getLogger(__name__)
@@ -122,9 +120,12 @@ def div(numerator, divisor, default=FLOAT_MAX, output=None, dev_id=0, sync=True)
       numerator(ndarray): input.
       divisor(ndarray): input.
       default(float): value for zero division errors.
-      output(CuVec): pre-existing output memory.
+      output(ndarray): pre-existing output memory.
       sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
     """
+    if improc is None or dev_id is False:
+        res = np.divide(numerator, divisor, out=output)
+        res[np.isnan(res)] = default
     numerator = cu.asarray(numerator, 'float32')
     divisor = cu.asarray(divisor, 'float32')
     if numerator.shape != divisor.shape:
@@ -141,9 +142,11 @@ def mul(a, b, output=None, dev_id=0, sync=True):
     Args:
       a(ndarray): input.
       b(ndarray): input.
-      output(CuVec): pre-existing output memory.
+      output(ndarray): pre-existing output memory.
       sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
     """
+    if improc is None or dev_id is False:
+        return np.multiply(a, b, out=output)
     a = cu.asarray(a, 'float32')
     b = cu.asarray(b, 'float32')
     if a.shape != b.shape:
@@ -159,9 +162,11 @@ def add(a, b, output=None, dev_id=0, sync=True):
     Args:
       a(ndarray): input.
       b(ndarray): input.
-      output(CuVec): pre-existing output memory.
+      output(ndarray): pre-existing output memory.
       sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
     """
+    if improc is None or dev_id is False:
+        return np.add(a, b, out=output)
     a = cu.asarray(a, 'float32')
     b = cu.asarray(b, 'float32')
     if a.shape != b.shape:
