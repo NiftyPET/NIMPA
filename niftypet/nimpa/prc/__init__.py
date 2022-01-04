@@ -8,7 +8,7 @@ __all__ = [
     'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'ct2mu', 'im_cut',
     'imsmooth', 'imtrimup',
     'iyang', 'nii_modify', 'pet2pet_rigid', 'psf_gaussian', 'psf_measured', 'pvc_iyang',
-    # improc
+    # numcu
     'add', 'conv_separable', 'div', 'isub', 'mul', 'nlm',
     # regseg
     'affine_dipy', 'affine_fsl', 'affine_niftyreg',
@@ -35,24 +35,19 @@ from .imio import (
     pick_t1w,
     time_stamp,
 )
+from .numcu import add, conv_separable, div, isub, mul, nlm
 
 # will be deprecated
 from .prc import (
-    add,
     bias_field_correction,
     centre_mass_corr,
     centre_mass_img,
-    conv_separable,
     ct2mu,
-    div,
     im_cut,
     imsmooth,
     imtrimup,
-    isub,
     iyang,
-    mul,
     nii_modify,
-    nlm,
     pet2pet_rigid,
     psf_gaussian,
     psf_measured,

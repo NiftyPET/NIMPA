@@ -1,11 +1,11 @@
 import logging
 
+import cuvec as cu
 import numpy as np
 from pytest import fixture, importorskip, mark
 
-from niftypet.nimpa.prc import prc
+from niftypet.nimpa.prc import numcu as nc
 
-cu = importorskip("cuvec")
 improc = importorskip("niftypet.nimpa.prc.improc")
 
 
@@ -67,8 +67,8 @@ def test_convolve_autopad(knl):
 def test_conv_separable(knl_size):
     knl = np.random.random(knl_size)
     src = np.random.random((64,) * knl_size[0]).astype('float32')
-    dst_gpu = prc.conv_separable(src, knl)
-    dst_cpu = prc.conv_separable(src, knl, dev_id=False)
+    dst_gpu = nc.conv_separable(src, knl)
+    dst_cpu = nc.conv_separable(src, knl, dev_id=False)
     assert hasattr(dst_gpu, 'cuvec') or knl_size[0] != 3
     assert not hasattr(dst_cpu, 'cuvec')
     assert rmse(dst_gpu, dst_cpu) < 1e-7
@@ -80,7 +80,7 @@ def test_conv_separable(knl_size):
 def test_nlm(half_width, sigma, width):
     src = np.random.random((width,) * 3).astype('float32')
     ref = np.random.random((width,) * 3)
-    dst_gpu = prc.nlm(src, ref, half_width=half_width, sigma=sigma)
+    dst_gpu = nc.nlm(src, ref, half_width=half_width, sigma=sigma)
     assert hasattr(dst_gpu, 'cuvec')
     assert (dst_gpu - src).mean() < 1e-2
 
@@ -90,11 +90,11 @@ def test_isub():
     idxs = cu.asarray((np.random.random((12,)) * 42).astype('uint32'))
 
     ref = src[idxs]
-    res = prc.isub(src, idxs)
+    res = nc.isub(src, idxs)
     assert (res == ref).all()
 
     out = cu.zeros(res.shape, res.dtype)
-    res = prc.isub(src, idxs, output=out)
+    res = nc.isub(src, idxs, output=out)
     assert (res == out).all()
 
 
@@ -106,21 +106,21 @@ def test_div():
     with catch_warnings():
         filterwarnings('ignore', 'divide by zero', RuntimeWarning)
         ref = num / div
-    res = prc.div(num, div)
+    res = nc.div(num, div)
     assert (res == ref).all()
 
 
 def test_mul():
     a, b = cu.asarray(np.random.random((2, 42, 1337, 16)).astype('float32') - 0.5)
     ref = a * b
-    res = prc.mul(a, b)
+    res = nc.mul(a, b)
     assert (res == ref).all()
 
 
 def test_add():
     a, b = cu.asarray(np.random.random((2, 42, 1337, 16)).astype('float32'))
     ref = a + b
-    res = prc.add(a, b)
+    res = nc.add(a, b)
     assert (res == ref).all()
 
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         SRC = cu.asarray(np.random.random((args.i,) * args.d), dtype='float32')
         for _ in trange(args.repeats, unit="repeats",
                         desc=f"{args.i}^{args.d} (*) {args.k}^{args.d}"):
-            dst_gpu = prc.conv_separable(SRC, KNL)
+            dst_gpu = nc.conv_separable(SRC, KNL)
         assert hasattr(dst_gpu, 'cuvec') or args.d < 3
 
     argopt(dedent(conv.__doc__), argparser=sub_parser).set_defaults(func=conv)
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         IMG = cu.asarray(np.random.random((args.i,) * 3), dtype='float32')
         REF = cu.asarray(np.random.random((args.i,) * 3), dtype='float32')
         for _ in trange(args.repeats, unit="repeats", desc=f"{args.i}^3 (*) {args.k*2+1}^3"):
-            dst_gpu = prc.nlm(IMG, REF, sigma=args.s, half_width=args.k)
+            dst_gpu = nc.nlm(IMG, REF, sigma=args.s, half_width=args.k)
         assert hasattr(dst_gpu, 'cuvec')
 
     argopt(dedent(nlm.__doc__), argparser=sub_parser).set_defaults(func=nlm)
