@@ -19,8 +19,10 @@ __all__ = [
     'LOG_FORMAT', 'LogHandler',
     # config
     'path_resources', 'resources', 'cmake_prefix',
+    # numcu
+    'add', 'div', 'mul',
     # improc
-    'add', 'conv_separable', 'div', 'isub', 'mul', 'nlm',
+    'conv_separable', 'isub', 'nlm',
     # core
     'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
     'affine_fsl', 'affine_dipy', 'affine_niftyreg',
@@ -35,6 +37,7 @@ __all__ = [
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
     'time_stamp'] # yapf: disable
 
+from numcu import add, div, mul
 from pkg_resources import resource_filename
 
 from niftypet.ninst import cudasetup as cs
@@ -44,7 +47,6 @@ from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resourc
 from .img import create_disk, imdiff, imscroll, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
-    add,
     affine_dipy,
     affine_fsl,
     affine_niftyreg,
@@ -65,7 +67,6 @@ from .prc import (
     dcmsort,
     dice_coeff,
     dice_coeff_multiclass,
-    div,
     fwhm2sig,
     getnii,
     getnii_descr,
@@ -75,7 +76,6 @@ from .prc import (
     isub,
     iyang,
     motion_reg,
-    mul,
     nii_gzip,
     nii_modify,
     nii_ugzip,
