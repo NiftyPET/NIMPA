@@ -1308,6 +1308,9 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         outdct.setdefault('fim', [])
         outdct['fim'].append(fn4)
 
+    if len(outdct['fim'])==1:
+        outdct['fim'] = outdct['fim'][0]
+
     return outdct
 
 
