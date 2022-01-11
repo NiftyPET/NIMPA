@@ -908,7 +908,15 @@ def centre_mass_img(img, output='mm'):
 
 
 # ==============================================================================
-def centre_mass_corr(img, Cnt=None, com=None, outpath=None, fcomment='_com-modified', fout=None):
+def centre_mass_corr(
+        img,
+        Cnt=None, 
+        com=None,
+        flip=None,
+        outpath=None,
+        fcomment='_com-modified',
+        fout=None):
+
     """
     Image centre of mass correction. The O point is in the middle of the
     image centre of voxel value mass (e.g, radio-activity).
@@ -916,6 +924,7 @@ def centre_mass_corr(img, Cnt=None, com=None, outpath=None, fcomment='_com-modif
       img: input image as a NIfTI file or a dictionary of the input image as by
         `nimpa.getnii(path_im, output='all')`.
       com: applying the centre of mass already established.
+      flip: flip the image along any dimension (given as tuple)
     """
 
     # > check the input image
@@ -925,6 +934,18 @@ def centre_mass_corr(img, Cnt=None, com=None, outpath=None, fcomment='_com-modif
         imdct = img
     else:
         raise ValueError('unrecognised input image')
+
+    #------------------------------------------------------------------
+    # [optional]
+    # > applies if requested a radical correction of orientation by flipping
+    if flip is not None:
+        dimno = len(imdct['im'].shape)
+        if dimno == 4:
+            imdct['im'] = imdct['im'][:, ::flip[0], ::flip[1], ::flip[2]]
+        elif dimno == 3:
+            imdct['im'] = imdct['im'][::flip[0], ::flip[1], ::flip[2]]
+    #------------------------------------------------------------------
+
 
     # > check if the dictionary of constants is given
     if Cnt is None:
@@ -1001,7 +1022,10 @@ def centre_mass_corr(img, Cnt=None, com=None, outpath=None, fcomment='_com-modif
     # save to NIfTI
     innii = nib.load(imdct['fim'])
     # get a new NIfTI image for the perturbed MR
-    newnii = nib.Nifti1Image(innii.get_fdata(), mA, innii.header)
+    imdata = innii.get_fdata()
+    if flip is not None:
+        imdata = imdata[::flip[2],::flip[1],::flip[0],...]
+    newnii = nib.Nifti1Image(imdata, mA, innii.header)
 
     fnew = os.path.join(opth, fnm)
     # save into a new file name for the T1w
