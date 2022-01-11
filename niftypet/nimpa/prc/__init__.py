@@ -8,8 +8,8 @@ __all__ = [
     'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'ct2mu', 'im_cut',
     'imsmooth', 'imtrimup',
     'iyang', 'nii_modify', 'pet2pet_rigid', 'psf_gaussian', 'psf_measured', 'pvc_iyang',
-    # numcu
-    'add', 'conv_separable', 'div', 'isub', 'mul', 'nlm',
+    # num
+    'conv_separable', 'isub', 'nlm',
     # regseg
     'affine_dipy', 'affine_fsl', 'affine_niftyreg',
     'coreg_spm', 'coreg_vinci', 'create_mask', 'dice_coeff', 'dice_coeff_multiclass',
@@ -35,7 +35,7 @@ from .imio import (
     pick_t1w,
     time_stamp,
 )
-from .numcu import add, conv_separable, div, isub, mul, nlm
+from .num import conv_separable, isub, nlm
 
 # will be deprecated
 from .prc import (

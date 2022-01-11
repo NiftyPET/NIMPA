@@ -20,7 +20,7 @@ from pkg_resources import resource_filename
 from tqdm.auto import trange
 
 from . import imio, regseg
-from .numcu import conv_separable
+from .num import conv_separable
 
 try:
     import SimpleITK as sitk

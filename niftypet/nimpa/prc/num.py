@@ -10,7 +10,7 @@ try:
 except ImportError: # GPU routines not compiled
     cu, improc = None, None
 
-__all__ = ['add', 'conv_separable', 'div', 'isub', 'mul', 'nlm']
+__all__ = ['conv_separable', 'isub', 'nlm']
 log = logging.getLogger(__name__)
 FLOAT_MAX = np.float32(np.inf)
 
@@ -111,66 +111,3 @@ def isub(img, idxs, output=None, dev_id=0, sync=True):
     return cu.asarray(
         improc.isub(img, idxs, output=output, dev_id=dev_id, sync=sync,
                     log=log.getEffectiveLevel()))
-
-
-def div(numerator, divisor, default=FLOAT_MAX, output=None, dev_id=0, sync=True):
-    """
-    Elementwise `output = numerator / divisor if divisor else default`
-    Args:
-      numerator(ndarray): input.
-      divisor(ndarray): input.
-      default(float): value for zero division errors.
-      output(ndarray): pre-existing output memory.
-      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
-    """
-    if improc is None or dev_id is False:
-        res = np.divide(numerator, divisor, out=output)
-        res[np.isnan(res)] = default
-    numerator = cu.asarray(numerator, 'float32')
-    divisor = cu.asarray(divisor, 'float32')
-    if numerator.shape != divisor.shape:
-        raise IndexError(f"{numerator.shape} and {divisor.shape} don't match")
-    check_cuvec(output, numerator.shape, 'float32')
-    return cu.asarray(
-        improc.div(numerator, divisor, default=default, output=output, dev_id=dev_id, sync=sync,
-                   log=log.getEffectiveLevel()))
-
-
-def mul(a, b, output=None, dev_id=0, sync=True):
-    """
-    Elementwise `output = a * b`
-    Args:
-      a(ndarray): input.
-      b(ndarray): input.
-      output(ndarray): pre-existing output memory.
-      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
-    """
-    if improc is None or dev_id is False:
-        return np.multiply(a, b, out=output)
-    a = cu.asarray(a, 'float32')
-    b = cu.asarray(b, 'float32')
-    if a.shape != b.shape:
-        raise IndexError(f"{a.shape} and {b.shape} don't match")
-    check_cuvec(output, a.shape, 'float32')
-    return cu.asarray(
-        improc.mul(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
-
-
-def add(a, b, output=None, dev_id=0, sync=True):
-    """
-    Elementwise `output = a + b`
-    Args:
-      a(ndarray): input.
-      b(ndarray): input.
-      output(ndarray): pre-existing output memory.
-      sync(bool): whether to `cudaDeviceSynchronize()` after GPU operations.
-    """
-    if improc is None or dev_id is False:
-        return np.add(a, b, out=output)
-    a = cu.asarray(a, 'float32')
-    b = cu.asarray(b, 'float32')
-    if a.shape != b.shape:
-        raise IndexError(f"{a.shape} and {b.shape} don't match")
-    check_cuvec(output, a.shape, 'float32')
-    return cu.asarray(
-        improc.add(a, b, output=output, dev_id=dev_id, sync=sync, log=log.getEffectiveLevel()))
