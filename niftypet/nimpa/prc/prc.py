@@ -135,9 +135,9 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
         voxsize = imd['voxsize']
         affine = imd['affine']
     elif isinstance(fim, dict) and 'voxsize' in fim:
-        im = imd['im']
-        voxsize = imd['voxsize']
-        affine = imd['affine']
+        im = fim['im']
+        voxsize = fim['voxsize']
+        affine = fim['affine']
     elif isinstance(fim, (np.ndarray, np.generic)):
         im = fim
     else:
