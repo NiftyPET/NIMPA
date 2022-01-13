@@ -5,13 +5,16 @@ import os
 import pathlib
 import re
 import shutil
+from subprocess import run
 from textwrap import dedent
-from warnings import warn
 
 import dicom2nifti
 import nibabel as nib
 import numpy as np
 import pydicom as dcm
+
+# > NiftyPET resources
+from .. import resources as rs
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +79,7 @@ def getnii(fim, nan_replace=None, output='image'):
 
         # > get orientations from the affine
         ornt = nib.io_orientation(nim.affine)
-        trnsp = tuple(np.int8([ornt[2, 0],ornt[1, 0],ornt[0, 0]]))
+        trnsp = tuple(np.int8([ornt[2, 0], ornt[1, 0], ornt[0, 0]]))
         flip = tuple(np.int8(ornt[:, 1]))
 
         # > voxel size
@@ -911,20 +914,33 @@ def dcm2nii(
     timestamp=True,
     executable=None,
     force=False,
+    tool='DCM2NIIX',
 ):
-    '''
-    Convert DICOM files in folder (indicated by <dcmpth>) using DCM2NIIX
-    third-party software.
-    '''
+    """
+    Convert DICOM folder `dcmpth` to NIfTI using third-party software `tool`.
+    Args:
+      dcmpth: directory containing DICOM files
+      tool: DCM2NIIX or dicom2nifti
+    """
+    assert tool in {'DCM2NIIX', 'dicom2nifti'}
     # skip conversion if the output already exists and not force is selected
     if os.path.isfile(fimout) and not force:
         return fimout
 
-    if executable:
-        warn("Ignoring `executable`", DeprecationWarning, stacklevel=2)
+    if tool == 'dicom2nifti':
+        if executable:
+            log.warn("ignoring `executable`")
+    elif executable is not None:
+        if not os.path.isfile(executable):
+            raise IOError("`executable` not found")
+    else:
+        try:
+            executable = rs.DCM2NIIX
+        except AttributeError:
+            raise AttributeError('could not find `DCM2NIIX` in resources.py')
 
     if not os.path.isdir(dcmpth):
-        raise IOError('e> the provided DICOM path is not a folder!')
+        raise IOError('the provided `dcmpth` is not a folder')
 
     # > output path
     if not outpath and fimout and '/' in fimout:
@@ -942,11 +958,15 @@ def dcm2nii(
             fimout += time_stamp(simple_ascii=True)
     fimout = fimout.split('.nii')[0]
 
-    fniiout = []
-    for fnii in map(pathlib.Path, dicom2nifti.convert_directory(dcmpth, opth)):
-        dest = fnii.parent / (fimout + fnii.name)
-        fnii.rename(dest)
-        fniiout.append(str(dest))
+    if tool == 'DCM2NIIX':
+        run([executable, '-f', fimout, '-o', opth, dcmpth])
+        fniiout = list(pathlib.Path(opth).glob(f"*{fimout}*.nii*"))
+    elif tool == 'dicom2nifti':
+        fniiout = []
+        for fnii in map(pathlib.Path, dicom2nifti.convert_directory(dcmpth, opth)):
+            dest = fnii.parent / (fimout + fnii.name)
+            fnii.rename(dest)
+            fniiout.append(str(dest))
 
     if fniiout:
         return fniiout[0]

@@ -636,6 +636,7 @@ def pvc_iyang(
                 is needed for co-registration to PET if affine is not given in the text
                 file with its path in faff.
         Cnt:    a dictionary of paths for third-party tools:
+                * dcm2niix: Cnt['DCM2NIIX']
                 * niftyreg, resample: Cnt['RESPATH']
                 * niftyreg, rigid-reg: Cnt['REGPATH']
         pvcroi: list of regions (also a list) with number label to distinguish
@@ -906,15 +907,8 @@ def centre_mass_img(img, output='mm'):
 
 
 # ==============================================================================
-def centre_mass_corr(
-        img,
-        Cnt=None, 
-        com=None,
-        flip=None,
-        outpath=None,
-        fcomment='_com-modified',
-        fout=None):
-
+def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment='_com-modified',
+                     fout=None):
     """
     Image centre of mass correction. The O point is in the middle of the
     image centre of voxel value mass (e.g, radio-activity).
@@ -933,7 +927,7 @@ def centre_mass_corr(
     else:
         raise ValueError('unrecognised input image')
 
-    #------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # [optional]
     # > applies if requested a radical correction of orientation by flipping
     if flip is not None:
@@ -942,8 +936,7 @@ def centre_mass_corr(
             imdct['im'] = imdct['im'][:, ::flip[0], ::flip[1], ::flip[2]]
         elif dimno == 3:
             imdct['im'] = imdct['im'][::flip[0], ::flip[1], ::flip[2]]
-    #------------------------------------------------------------------
-
+    # ------------------------------------------------------------------
 
     # > check if the dictionary of constants is given
     if Cnt is None:
@@ -1022,7 +1015,7 @@ def centre_mass_corr(
     # get a new NIfTI image for the perturbed MR
     imdata = innii.get_fdata()
     if flip is not None:
-        imdata = imdata[::flip[2],::flip[1],::flip[0],...]
+        imdata = imdata[::flip[2], ::flip[1], ::flip[0], ...]
     newnii = nib.Nifti1Image(imdata, mA, innii.header)
 
     fnew = os.path.join(opth, fnm)
@@ -1306,7 +1299,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         outdct.setdefault('fim', [])
         outdct['fim'].append(fn4)
 
-    if len(outdct['fim'])==1:
+    if len(outdct['fim']) == 1:
         outdct['fim'] = outdct['fim'][0]
 
     return outdct
@@ -1382,7 +1375,9 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
     elif 'T1bc' in mridct and os.path.isfile(mridct['T1bc']):
         ft1w = mridct['T1bc']
     elif 'T1DCM' in mridct and os.path.exists(mridct['MRT1W']):
-        ft1w = imio.dcm2nii(mridct['T1nii'], 'converted')
+        ft1w = imio.dcm2nii(mridct['T1nii'], 'converted',
+                            tool='DCM2NIIX' if 'DCM2NIIX' in Cnt else 'dicom2nifti',
+                            executable=Cnt.get('DCM2NIIX', None))
     else:
         raise ValueError('disaster: no T1w image!')
 
