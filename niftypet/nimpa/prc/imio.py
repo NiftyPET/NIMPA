@@ -914,7 +914,7 @@ def dcm2nii(
     timestamp=True,
     executable=None,
     force=False,
-    tool='DCM2NIIX',
+    tool='auto',
 ):
     """
     Convert DICOM folder `dcmpth` to NIfTI using third-party software `tool`.
@@ -922,7 +922,8 @@ def dcm2nii(
       dcmpth: directory containing DICOM files
       tool: DCM2NIIX or dicom2nifti
     """
-    assert tool in {'DCM2NIIX', 'dicom2nifti'}
+    tool = tool.lower()
+    assert tool in {'auto', 'dcm2niix', 'dicom2nifti'}
     # skip conversion if the output already exists and not force is selected
     if os.path.isfile(fimout) and not force:
         return fimout
@@ -931,18 +932,24 @@ def dcm2nii(
         if executable:
             log.warn("ignoring `executable`")
     elif executable is not None:
-        if not os.path.isfile(executable):
+        if os.path.isfile(executable):
+            tool = 'dcm2niix'
+        else:
             raise IOError("`executable` not found")
     else:
         try:
             executable = rs.DCM2NIIX
         except AttributeError:
-            raise AttributeError('could not find `DCM2NIIX` in resources.py')
+            if tool != 'auto':
+                raise AttributeError("could not find `DCM2NIIX` in resources.py")
+            tool = 'dicom2nifti'
+        else:
+            tool = 'dcm2niix'
 
     if not os.path.isdir(dcmpth):
-        raise IOError('the provided `dcmpth` is not a folder')
+        raise IOError("the provided `dcmpth` is not a folder")
 
-    # > output path
+    # output path
     if not outpath and fimout and '/' in fimout:
         opth = os.path.dirname(fimout)
         opth = opth or dcmpth
@@ -958,7 +965,7 @@ def dcm2nii(
             fimout += time_stamp(simple_ascii=True)
     fimout = fimout.split('.nii')[0]
 
-    if tool == 'DCM2NIIX':
+    if tool == 'dcm2niix':
         run([executable, '-f', fimout, '-o', opth, dcmpth])
         fniiout = list(pathlib.Path(opth).glob(f"*{fimout}*.nii*"))
     elif tool == 'dicom2nifti':
@@ -966,11 +973,13 @@ def dcm2nii(
         for fnii in map(pathlib.Path, dicom2nifti.convert_directory(dcmpth, opth)):
             dest = fnii.parent / (fimout + fnii.name)
             fnii.rename(dest)
-            fniiout.append(str(dest))
+            fniiout.append(dest)
+    else:
+        raise KeyError(f"unknown tool:{tool}")
 
     if fniiout:
-        return fniiout[0]
-    raise ValueError('could not find output nii file')
+        return str(fniiout[0])
+    raise ValueError("could not find output nii file")
 
 
 def dcm2im(fpth):
