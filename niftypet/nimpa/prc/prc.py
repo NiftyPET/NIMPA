@@ -1375,9 +1375,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
     elif 'T1bc' in mridct and os.path.isfile(mridct['T1bc']):
         ft1w = mridct['T1bc']
     elif 'T1DCM' in mridct and os.path.exists(mridct['MRT1W']):
-        ft1w = imio.dcm2nii(mridct['T1nii'], 'converted',
-                            tool='DCM2NIIX' if 'DCM2NIIX' in Cnt else 'dicom2nifti',
-                            executable=Cnt.get('DCM2NIIX', None))
+        ft1w = imio.dcm2nii(mridct['T1nii'], 'converted', executable=Cnt.get('DCM2NIIX', None))
     else:
         raise ValueError('disaster: no T1w image!')
 

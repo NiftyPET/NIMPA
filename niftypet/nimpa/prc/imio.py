@@ -939,12 +939,16 @@ def dcm2nii(
     else:
         try:
             executable = rs.DCM2NIIX
-        except AttributeError:
-            if tool != 'auto':
-                raise AttributeError("could not find `DCM2NIIX` in resources.py")
-            tool = 'dicom2nifti'
-        else:
             tool = 'dcm2niix'
+        except AttributeError:
+            try:
+                import dcm2niix
+                executable = dcm2niix.bin
+                tool = 'dcm2niix'
+            except ImportError:
+                if tool != 'auto':
+                    raise AttributeError("could not find `DCM2NIIX` in resources.py")
+                tool = 'dicom2nifti'
 
     if not os.path.isdir(dcmpth):
         raise IOError("the provided `dcmpth` is not a folder")
