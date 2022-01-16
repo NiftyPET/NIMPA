@@ -8,7 +8,6 @@ import shutil
 from subprocess import run
 from textwrap import dedent
 
-import dicom2nifti
 import nibabel as nib
 import numpy as np
 import pydicom as dcm
@@ -914,41 +913,23 @@ def dcm2nii(
     timestamp=True,
     executable=None,
     force=False,
-    tool='auto',
 ):
     """
-    Convert DICOM folder `dcmpth` to NIfTI using third-party software `tool`.
+    Convert DICOM folder `dcmpth` to NIfTI using `dcm2niix` third-party software.
     Args:
       dcmpth: directory containing DICOM files
-      tool: DCM2NIIX or dicom2nifti
     """
-    tool = tool.lower()
-    assert tool in {'auto', 'dcm2niix', 'dicom2nifti'}
     # skip conversion if the output already exists and not force is selected
     if os.path.isfile(fimout) and not force:
         return fimout
 
-    if tool == 'dicom2nifti':
-        if executable:
-            log.warn("ignoring `executable`")
-    elif executable is not None:
-        if os.path.isfile(executable):
-            tool = 'dcm2niix'
-        else:
-            raise IOError("`executable` not found")
-    else:
-        try:
-            executable = rs.DCM2NIIX
-            tool = 'dcm2niix'
-        except AttributeError:
-            try:
-                import dcm2niix
-                executable = dcm2niix.bin
-                tool = 'dcm2niix'
-            except ImportError:
-                if tool != 'auto':
-                    raise AttributeError("could not find `DCM2NIIX` in resources.py")
-                tool = 'dicom2nifti'
+    if not executable:
+        executable = getattr(rs, 'DCM2NIIX', None)
+        if not executable:
+            import dcm2niix
+            executable = dcm2niix.bin
+    if not os.path.isfile(executable):
+        raise IOError(f"executable not found:{executable}")
 
     if not os.path.isdir(dcmpth):
         raise IOError("the provided `dcmpth` is not a folder")
@@ -969,17 +950,8 @@ def dcm2nii(
             fimout += time_stamp(simple_ascii=True)
     fimout = fimout.split('.nii')[0]
 
-    if tool == 'dcm2niix':
-        run([executable, '-f', fimout, '-o', opth, dcmpth])
-        fniiout = list(pathlib.Path(opth).glob(f"*{fimout}*.nii*"))
-    elif tool == 'dicom2nifti':
-        fniiout = []
-        for fnii in map(pathlib.Path, dicom2nifti.convert_directory(dcmpth, opth)):
-            dest = fnii.parent / (fimout + fnii.name)
-            fnii.rename(dest)
-            fniiout.append(dest)
-    else:
-        raise KeyError(f"unknown tool:{tool}")
+    run([executable, '-f', fimout, '-o', opth, dcmpth])
+    fniiout = list(pathlib.Path(opth).glob(f"*{fimout}*.nii*"))
 
     if fniiout:
         return str(fniiout[0])
