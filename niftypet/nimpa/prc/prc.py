@@ -487,12 +487,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     dctout = {'affine': A, 'trimpar': trimpar, 'imsum': imsumt}
 
     # NIfTI image description (to be stored in the header)
-    niidescr = 'trim(x,y,z):' \
-               + str(trimpar['x'])+',' \
-               + str(trimpar['y'])+',' \
-               + str((trimpar['z'],)) \
-               + ';scale='+str(scale) \
-               + ';fmx='+str(fmax)
+    niidescr = 'trim(x,y,z):' + str(trimpar['x']) + ',' + str(trimpar['y']) + ',' + str(
+        (trimpar['z'],)) + ';scale=' + str(scale) + ';fmx=' + str(fmax)
 
     # > remove brackets and spaces from the file name
     scale_fnm = str(scale).replace('[', '').replace(']', '').replace(' ', '-')
@@ -1237,7 +1233,6 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
             fn4 = fimout
 
         if not os.path.exists(fn4):
-
             if executable == 'sitk':
                 # =============================================
                 # SimpleITK Bias field correction for T1 and T2
@@ -1262,36 +1257,26 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
                 n4out = corrector.Execute(im, msk)
                 sitk.WriteImage(n4out, fn4)
                 # ------------------------------------------
-
                 if sitk_image_mask:
                     outdct.setdefault('fmsk', [])
                     outdct['fmsk'].append(fmsk)
 
-            elif os.path.basename(executable)=='N4BiasFieldCorrection' \
-                    and os.path.isfile(executable):
-
+            elif os.path.basename(executable) == 'N4BiasFieldCorrection' and os.path.isfile(
+                    executable):
                 cmd = [executable, '-i', fin, '-o', fn4]
-
                 if verbose and os.path.basename(executable) == 'N4BiasFieldCorrection':
                     cmd.extend(['-v', '1'])
-
                 cmd.extend(exe_options)
-
                 run(cmd)
-
                 if 'command' not in outdct:
                     outdct['command'] = []
                 outdct['command'].append(cmd)
-
             elif os.path.isfile(executable):
-
                 cmd = [executable]
                 cmd.extend(exe_options)
                 run(cmd)
-
                 if 'command' not in outdct:
                     outdct['command'] = cmd
-
         else:
             log.info('N4 bias corrected file seems already existing.')
 
@@ -1301,7 +1286,6 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
 
     if len(outdct['fim']) == 1:
         outdct['fim'] = outdct['fim'][0]
-
     return outdct
 
 

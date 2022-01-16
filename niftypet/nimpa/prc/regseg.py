@@ -690,8 +690,10 @@ def coreg_vinci(
     save_res=False,
 ):
     if scheme_xml == '':
-        raise IOError('e> the Vinci schema *.xml file is not provided. \n \
-                i> please add the schema file in the call: scheme_xml=...')
+        raise IOError(
+            dedent("""\
+            the Vinci schema *.xml file is not provided.
+            please add the schema file in the call: scheme_xml=..."""))
 
     # --------------------------------------------------------------------------
     # > output path
@@ -752,8 +754,10 @@ def coreg_vinci(
     try:
         from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT, Vinci_XML
     except ImportError:
-        raise ImportError('e> could not import Vinci:\n \
-                check the variable VINCIPATH (path to Vinci) in resources.py')
+        raise ImportError(
+            dedent("""\
+            could not import Vinci:
+            check the variable VINCIPATH (path to Vinci) in resources.py"""))
 
     # > start Vinci core engine if it is not running/given
     if vc == '' or con == '':
@@ -878,8 +882,10 @@ def resample_vinci(
     try:
         from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT
     except ImportError:
-        raise ImportError('e> could not import Vinci:\n \
-                check the variable VINCIPATH (path to Vinci) in resources.py')
+        raise ImportError(
+            dedent("""\
+            could not import Vinci:
+            check the variable VINCIPATH (path to Vinci) in resources.py"""))
 
     # --------------------------------------------------------------------------
     # > start Vinci core engine if it is not running/given
