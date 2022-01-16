@@ -51,25 +51,12 @@ resources = cs.get_resources()
 # get the current setup, if any
 Cnt = resources.get_setup()
 # check the installation of tools
-chck_tls = tls.check_version(Cnt, chcklst=["RESPATH", "REGPATH", "DCM2NIIX"])
+chck_tls = tls.check_version(Cnt, chcklst=["RESPATH", "REGPATH"])
 
 # -------------------------------------------
 # NiftyPET tools:
 # -------------------------------------------
 if "sdist" not in sys.argv or any(i in sys.argv for i in ["build", "bdist", "wheel"]):
-    # DCM2NIIX
-    if not chck_tls["DCM2NIIX"]:
-        # reply = tls.query_yesno("q> dcm2niix not found.\n   Install it?")
-        # if reply:
-        log.info(
-            dedent("""\
-            --------------------------------------------------------------
-            Installing dcm2niix ...
-            --------------------------------------------------------------"""))
-        Cnt = tls.install_tool("dcm2niix", Cnt)
-    # ---------------------------------------
-
-    # -------------------------------------------
     # NiftyReg
     if not chck_tls["REGPATH"] or not chck_tls["RESPATH"]:
         reply = True

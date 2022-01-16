@@ -10,8 +10,11 @@ import sys
 from subprocess import call
 from textwrap import dedent
 
+import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
+from dipy.align import _public as align
+from dipy.align import affine_registration, center_of_mass, rigid, translation
 from miutil.fdio import hasext
 from spm12.regseg import resample_spm  # NOQA: F401 yapf: disable
 from spm12.regseg import coreg_spm
@@ -98,6 +101,172 @@ def create_mask(
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   R E G I S T R A T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+
+def affine_dipy(
+    fref,
+    fflo,
+    nbins=32,
+    metric='MI',
+    level_iters=None,
+    sigmas=None,
+    factors=None,
+    outpath=None,
+    faffine=None,
+    pickname='ref',
+    fcomment='',
+    rfwhm=15.,
+    ffwhm=15.,
+    verbose=True,
+):
+    """
+    Perform affine 3-stage image registration using DIPY.
+
+    Arguments:
+      fref: file path to the reference image to which the floating image
+        will be registered.
+      fflo: file path to the floating image to be registered to the
+        reference image.
+      outpath: folder path for the output
+    """
+    if level_iters is None:
+        level_iters = [10000, 1000, 200]
+    if sigmas is None:
+        sigmas = [3.0, 1.0, 0.0]
+    if factors is None:
+        factors = [4, 2, 1]
+    # create a folder for images registered to ref
+    if outpath is None:
+        odir = os.path.join(os.path.dirname(fflo), 'affine-dipy')
+    else:
+        odir = os.path.join(outpath, 'affine-dipy')
+    imio.create_dir(odir)
+
+    # output in register with ref and text file for the affine transform
+    if faffine is not None:
+        faff = faffine
+    else:
+        if pickname == 'ref':
+            faff = os.path.join(
+                odir,
+                'affine_dipy_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment + '.npy')
+        elif pickname == 'flo':
+            faff = os.path.join(
+                odir,
+                'affine_dipy_flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment + '.npy')
+
+    # > smoothing if needed:
+    if rfwhm > 0.:
+        fstatic = os.path.basename(fref).split('.nii')[0] + '_smth' + str(rfwhm).replace(
+            '.', '-') + 'mm.nii.gz'
+        fstatic = os.path.join(odir, fstatic)
+        _ = prc.imsmooth(fref, fwhm=rfwhm, fout=fstatic)
+    else:
+        fstatic = fref
+
+    if ffwhm > 0.:
+        fmoving = os.path.basename(fflo).split('.nii')[0] + '_smth' + str(ffwhm).replace(
+            '.', '-') + 'mm.nii.gz'
+        fmoving = os.path.join(odir, fmoving)
+        _ = prc.imsmooth(fflo, fwhm=ffwhm, fout=fmoving)
+    else:
+        fmoving = fflo
+
+    # ------------------------------------------------------------------
+    pipeline = [center_of_mass, translation, rigid]
+
+    txim, txaff = affine_registration(fmoving, fstatic, nbins=nbins, metric=metric,
+                                      pipeline=pipeline, level_iters=level_iters, sigmas=sigmas,
+                                      factors=factors)
+    # ------------------------------------------------------------------
+    np.save(faff, txaff)
+    return {'affine': txaff, 'faff': faff}
+
+
+def resample_dipy(
+    fref,
+    fflo,
+    faff=None,
+    outpath=None,
+    fimout=None,
+    fcomment='',
+    pickname='ref',
+    intrp=1,
+    dtype_nifti=np.float32,
+    verbose=True,
+):
+    """
+    Resample image fflo to the reference fref. Image needs to be given as NIfTI files.
+    Arguments:
+      faff: Numpy array or Numpy file (*.npy) for the affine transformation.
+      intrp: interpolation: 0-NN, 1-linear
+    """
+
+    # > OUTPUT
+    # ------------------------------------------------------------------
+    # > output path
+    if outpath is None and fimout is not None:
+        opth = os.path.dirname(fimout)
+        if opth == '':
+            opth = os.path.dirname(fflo)
+    elif outpath is None or not os.path.isdir(outpath):
+        opth = os.path.dirname(fflo)
+    else:
+        opth = outpath
+
+    imio.create_dir(opth)
+
+    # > the output naming
+    if os.path.dirname(fimout) != '':
+        fout = fimout
+    elif fimout is not None and not os.path.isfile(fimout):
+        fout = os.path.join(opth, fimout)
+    elif pickname == 'ref':
+        fout = os.path.join(
+            opth, 'resampled-dipy_to_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment +
+            '.nii.gz')
+    elif pickname == 'flo':
+        fout = os.path.join(
+            opth, 'resampled-dipy_to_flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment +
+            '.nii.gz')
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    if faff is not None:
+        if faff.endswith('.npy'):
+            affine = np.load(faff)
+        elif isinstance(faff, np.ndarray):
+            affine = faff
+        else:
+            raise ValueError('e> unrecognised affine matrix input')
+    else:
+        affine = None
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    if intrp == 0:
+        interpolation = 'nearest'
+    elif intrp == 1:
+        interpolation = 'linear'
+    else:
+        raise ValueError('e> unrecognised interpolation input')
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # > DIPY RESAMPLING
+    # ------------------------------------------------------------------
+    static, static_affine, moving, moving_affine, between_affine = align._handle_pipeline_inputs(
+        fflo, fref, moving_affine=None, static_affine=None, starting_affine=affine)
+    affine_map = align.AffineMap(between_affine, static.shape, static_affine, moving.shape,
+                                 moving_affine)
+    rsmpl = affine_map.transform(moving, interpolation=interpolation)
+
+    del moving, static
+
+    # > save to NIfTI
+    smpl_nii = nib.Nifti1Image(rsmpl.astype(dtype_nifti), static_affine)
+    nib.save(smpl_nii, fout)
+    return {'fnii': fout, 'im': rsmpl}
 
 
 def affine_niftyreg(
@@ -521,8 +690,10 @@ def coreg_vinci(
     save_res=False,
 ):
     if scheme_xml == '':
-        raise IOError('e> the Vinci schema *.xml file is not provided. \n \
-                i> please add the schema file in the call: scheme_xml=...')
+        raise IOError(
+            dedent("""\
+            the Vinci schema *.xml file is not provided.
+            please add the schema file in the call: scheme_xml=..."""))
 
     # --------------------------------------------------------------------------
     # > output path
@@ -583,8 +754,10 @@ def coreg_vinci(
     try:
         from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT, Vinci_XML
     except ImportError:
-        raise ImportError('e> could not import Vinci:\n \
-                check the variable VINCIPATH (path to Vinci) in resources.py')
+        raise ImportError(
+            dedent("""\
+            could not import Vinci:
+            check the variable VINCIPATH (path to Vinci) in resources.py"""))
 
     # > start Vinci core engine if it is not running/given
     if vc == '' or con == '':
@@ -709,8 +882,10 @@ def resample_vinci(
     try:
         from VinciPy import Vinci_Bin, Vinci_Connect, Vinci_Core, Vinci_ImageT
     except ImportError:
-        raise ImportError('e> could not import Vinci:\n \
-                check the variable VINCIPATH (path to Vinci) in resources.py')
+        raise ImportError(
+            dedent("""\
+            could not import Vinci:
+            check the variable VINCIPATH (path to Vinci) in resources.py"""))
 
     # --------------------------------------------------------------------------
     # > start Vinci core engine if it is not running/given

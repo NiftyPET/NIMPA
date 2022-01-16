@@ -3,6 +3,6 @@
 
 /// main NLM function
 void d_nlm3d(float *dst, const float *src, const float *ref, float sigma, int Z, int Y, int X,
-             int HALF_WIDTH, bool _sync);
+             int HALF_WIDTH, bool _sync = true);
 
 #endif // _NIMPA_NLM_H_

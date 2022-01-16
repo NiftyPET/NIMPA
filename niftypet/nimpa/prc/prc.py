@@ -5,38 +5,32 @@ including partial volume correction (PVC) and ROI extraction and analysis.
 import logging
 import multiprocessing
 import os
+import pathlib
 import re
 import sys
-from glob import glob
 from subprocess import run
 from textwrap import dedent
 from warnings import warn
 
+import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
 from pkg_resources import resource_filename
 from tqdm.auto import trange
 
 from . import imio, regseg
+from .num import conv_separable
 
-try:
-    # GPU routines if compiled
-    import cuvec as cu
-
-    from . import improc
-except ImportError:
-    cu = None
-    improc = None
-sitk_flag = True
 try:
     import SimpleITK as sitk
+    sitk_flag = True
 except ImportError:
     sitk_flag = False
 
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA')
+dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
 
@@ -104,81 +98,13 @@ def psf_measured(scanner='mmr', scale=1):
                     ' only Siemens mMR (mmr) is currently supported')
 
 
-# ----------------------------------------------------------------------
-def conv_separable(vol, knl, dev_id=0):
-    """
-    Args:
-      vol(ndarray): Can be any number of dimensions `ndim`
-        (GPU requires `ndim <= 3`).
-      knl(ndarray): `ndim` x `width` separable kernel
-        (GPU requires `width <= 17`).
-      dev_id(int or bool): GPU device ID to try [default: 0].
-        Set to `False` to force CPU fallback.
-    """
-    assert vol.ndim == len(knl)
-    assert knl.ndim == 2
-    if len(knl) > 3 or knl.shape[1] > 17:
-        log.warning("kernel larger than 3 x 17 not supported on GPU")
-        dev_id = False
-    if improc is not None and dev_id is not False:
-        log.debug("GPU conv")
-        pad = 3 - len(knl)        # <3 dims
-        k_pad = 17 - knl.shape[1] # kernel width < 17
-        if pad or k_pad:
-            knl = np.pad(knl, [(0, pad), (k_pad // 2, k_pad//2 + (k_pad%2))])
-            if pad:
-                knl[-pad:, 17 // 2] = 1
-                vol = vol.reshape(vol.shape + (1,) * pad)
-        src = cu.asarray(vol, dtype='float32')
-        knl = cu.asarray(knl, dtype='float32')
-        dst = improc.convolve(src.cuvec, knl.cuvec, dev_id=dev_id, log=log.getEffectiveLevel())
-        res = cu.asarray(dst, dtype=vol.dtype)
-        return res[(slice(0, None),) * (res.ndim - pad) + (-1,) * pad] if pad else res
-    else:
-        log.debug("CPU conv")
-        for dim in range(len(knl)):
-            h = knl[dim].reshape((1,) * dim + (-1,) + (1,) * (len(knl) - dim - 1))
-            vol = ndi.convolve(vol, h, mode='constant', cval=0.)
-        return vol
-
-
-def nlm(img, ref, sigma=1, half_width=4, output=None, dev_id=0):
-    """
-    3D Non-local means (NLM) guided filter.
-    Args:
-      img(3darray): input image to be filtered.
-      ref(3darray): reference (guidance) image.
-      sigma(float): NLM parameter.
-      half_width(int): neighbourhood half-width.
-      output(CuVec): pre-existing output memory.
-    Reference: https://doi.org/10.1109/CVPR.2005.38
-    """
-    img = cu.asarray(img, 'float32')
-    ref = cu.asarray(ref, 'float32')
-    if img.shape != ref.shape:
-        raise IndexError(f"{img.shape} and {ref.shape} don't match")
-    if img.ndim != 3:
-        raise IndexError(f"must be 3D: got {img.ndim}D")
-    kwargs = {
-        'sigma': sigma, 'half_width': half_width, 'dev_id': dev_id, 'log': log.getEffectiveLevel()}
-    if output is not None:
-        if not isinstance(output, cu.CuVec):
-            raise TypeError("output must be a CuVec")
-        if np.dtype(output.dtype) != np.dtype('float32'):
-            raise TypeError(f"output must be float32: got {output.dtype}")
-        if output.shape != img.shape:
-            raise IndexError("output shape doesn't match")
-        output = cu.asarray(output).cuvec
-    return cu.asarray(improc.nlm(img.cuvec, ref.cuvec, **kwargs))
-
-
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # I M A G E   S M O O T H I N G
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=None, dev_id=0,
-             Cnt=None):
+def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', output_array=None,
+             gpu=None, dev_id=0, sync=True, Cnt=None):
     '''
     Smooth image using Gaussian filter with either the PSF or FWHM given
     as an option.  By default FWHM = 4 is used with voxel size assumed 1 mm.
@@ -192,6 +118,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=N
     - output: can be image as Numpy array or file or both.
     - dev_id: the ID of the CUDA device to try to use for computation
       (set to `False` to force disable GPU)
+    - sync: whether to `cudaDeviceSynchronize()` after GPU operations
     - gpu: ignored
     '''
     if gpu is not None:
@@ -207,23 +134,22 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', gpu=N
         voxsize = imd['voxsize']
         affine = imd['affine']
     elif isinstance(fim, dict) and 'voxsize' in fim:
-        im = imd['im']
-        voxsize = imd['voxsize']
-        affine = imd['affine']
+        im = fim['im']
+        voxsize = fim['voxsize']
+        affine = fim['affine']
     elif isinstance(fim, (np.ndarray, np.generic)):
         im = fim
     else:
         raise ValueError(
             "incorrect image input.\nNIfTI file path, dictionary or Numpy array are accepted.")
 
-    if voxsize is None and Cnt is not None and 'SO_VXZ' in Cnt:
-        voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
-    elif voxsize is None and Cnt is None:
-        raise ValueError('the correct voxel size has to be provided')
-
     if psf is None:
+        if voxsize is None and Cnt is not None and 'SO_VXZ' in Cnt:
+            voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
+        elif voxsize is None and Cnt is None:
+            raise ValueError('the correct voxel size has to be provided')
         psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
-    imsmo = conv_separable(im, psf, dev_id=dev_id)
+    imsmo = conv_separable(im, psf, output=output_array, dev_id=dev_id, sync=sync)
 
     # output dictionary
     dctout = {}
@@ -316,7 +242,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         Cnt = {}
 
     # case when input folder is given
-    if isinstance(fims, str) and os.path.isdir(fims):
+    if isinstance(fims, (str, pathlib.PurePath)) and os.path.isdir(fims):
         # list of input images (e.g., PET)
         fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if f.endswith(niiext)]
         imdic = imio.niisort(fimlist, memlim=memlim)
@@ -331,7 +257,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(fims, str) and os.path.isfile(fims) and fims.endswith(niiext):
+    elif isinstance(
+            fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and str(fims).endswith(niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:
@@ -560,12 +487,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     dctout = {'affine': A, 'trimpar': trimpar, 'imsum': imsumt}
 
     # NIfTI image description (to be stored in the header)
-    niidescr = 'trim(x,y,z):' \
-               + str(trimpar['x'])+',' \
-               + str(trimpar['y'])+',' \
-               + str((trimpar['z'],)) \
-               + ';scale='+str(scale) \
-               + ';fmx='+str(fmax)
+    niidescr = 'trim(x,y,z):' + str(trimpar['x']) + ',' + str(trimpar['y']) + ',' + str(
+        (trimpar['z'],)) + ';scale=' + str(scale) + ';fmx=' + str(fmax)
 
     # > remove brackets and spaces from the file name
     scale_fnm = str(scale).replace('[', '').replace(']', '').replace(' ', '-')
@@ -931,14 +854,21 @@ def ct2mu(im):
 # =============================================================
 
 
-# ==============================================================================
-def centre_mass_img(imdct, output='mm'):
-    ''' Calculate the centre of mass of an image along each axes (x,y,z),
-        separately.
-        Arguments:
-        imdct - the image dictionary with the image and header data.
-        Output the list of the centre of mass for each axis.
-    '''
+def centre_mass_img(img, output='mm'):
+    """
+    Calculate the centre of mass of an image along each axes (x,y,z), separately.
+    Arguments:
+      img: the NIfTI file or image dictionary with the image and header data.
+        Outputs the list of the centre of mass for each axis.
+    """
+
+    # > check the input image
+    if isinstance(img, (str, pathlib.Path)) and os.path.isfile(img):
+        imdct = imio.getnii(img, output='all')
+    elif isinstance(img, dict) and 'shape' in img:
+        imdct = img
+    else:
+        raise ValueError('unrecognised input image')
 
     # > initialise centre of mass array in mm and in voxel indexes
     com = np.zeros(3, dtype=np.float32)
@@ -973,6 +903,126 @@ def centre_mass_img(imdct, output='mm'):
 
 
 # ==============================================================================
+def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment='_com-modified',
+                     fout=None):
+    """
+    Image centre of mass correction. The O point is in the middle of the
+    image centre of voxel value mass (e.g, radio-activity).
+    Arguments:
+      img: input image as a NIfTI file or a dictionary of the input image as by
+        `nimpa.getnii(path_im, output='all')`.
+      com: applying the centre of mass already established.
+      flip: flip the image along any dimension (given as tuple)
+    """
+
+    # > check the input image
+    if isinstance(img, (str, pathlib.Path)) and os.path.isfile(img):
+        imdct = imio.getnii(img, output='all')
+    elif isinstance(img, dict) and 'shape' in img:
+        imdct = img
+    else:
+        raise ValueError('unrecognised input image')
+
+    # ------------------------------------------------------------------
+    # [optional]
+    # > applies if requested a radical correction of orientation by flipping
+    if flip is not None:
+        dimno = len(imdct['im'].shape)
+        if dimno == 4:
+            imdct['im'] = imdct['im'][:, ::flip[0], ::flip[1], ::flip[2]]
+        elif dimno == 3:
+            imdct['im'] = imdct['im'][::flip[0], ::flip[1], ::flip[2]]
+    # ------------------------------------------------------------------
+
+    # > check if the dictionary of constants is given
+    if Cnt is None:
+        Cnt = {}
+
+    # > output the centre of mass if image radiodistribution in each dimension in mm.
+    if com is None:
+        com = centre_mass_img(imdct, output='mm')
+
+    com = np.array(com)
+
+    if not isinstance(com, np.ndarray):
+        raise ValueError('The Centre of Mass is not a Numpy array!')
+
+    # > initialise the list of relative NIfTI image CoMs
+    com_nii = []
+
+    # > modified affine for the centre of mass
+    mA = imdct['affine'].copy()
+
+    # > go through x, y and z
+    for i in range(3):
+        vox_size = max(imdct['affine'][i, :-1], key=abs)
+
+        # > get the relative centre of mass for each axis (relative to the translation
+        # > values in the affine matrix)
+        if vox_size > 0:
+            com_rel = com[2 - i] + imdct['affine'][i, -1]
+        else:
+            com_rel = com[2 - i] - abs(vox_size) * imdct['shape'][-i - 1] + imdct['affine'][i, -1]
+
+        mA[i, -1] -= com_rel
+
+        com_nii.append(com_rel)
+
+    log.info('''
+        \r relative CoM values are:
+        \r {}
+        '''.format(com_nii))
+
+    # >------------------------------------------------------
+    # > get the file name and path separated
+    fsplt = os.path.split(imdct['fim'])
+
+    # > get the output path
+    if outpath is not None:
+        opth = outpath
+        imio.create_dir(opth)
+    else:
+        opth = fsplt[0]
+
+    opth = pathlib.Path(opth)
+
+    # > get the output file name
+    if fout is not None:
+        fimc = fout
+
+        if isinstance(fimc, pathlib.Path) and (fimc.suffix != '.gz' or fimc.suffix != '.nii'):
+            fimc.with_suffix('.nii.gz')
+
+        elif isinstance(fimc, str) and not fimc.endswith(('.nii', 'nii.gz')):
+            fimc = fimc + '.nii.gz'
+
+        fimc = pathlib.Path(fimc)
+
+        if not fimc.parent == '.':
+            opth = fimc.parent
+            fnm = fimc.name
+        else:
+            fnm = fimc
+    else:
+        fnm = fsplt[1].split('.nii')[0] + fcomment + '.nii.gz'
+
+    # save to NIfTI
+    innii = nib.load(imdct['fim'])
+    # get a new NIfTI image for the perturbed MR
+    imdata = innii.get_fdata()
+    if flip is not None:
+        imdata = imdata[::flip[2], ::flip[1], ::flip[0], ...]
+    newnii = nib.Nifti1Image(imdata, mA, innii.header)
+
+    fnew = os.path.join(opth, fnm)
+    # save into a new file name for the T1w
+    nib.save(newnii, fnew)
+    return {'fim': fnew, 'com_rel': com_nii, 'com_abs': com}
+
+
+# ==============================================================================
+
+
 def nii_modify(nii, fimout='', outpath='', fcomment='', voxel_range=None):
     '''
     Modify the NIfTI image given either as a file path or a dictionary,
@@ -1126,7 +1176,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
     # INPUT
     # --------------------------------------------------------------------------
     # > path to a single file
-    if isinstance(fmr, str) and os.path.isfile(fmr):
+    if isinstance(fmr, (str, pathlib.PurePath)) and os.path.isfile(fmr):
         fins = [fmr]
 
     # > list of file paths
@@ -1136,7 +1186,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         fimout = ''
 
     # > path to a folder
-    elif isinstance(fmr, str) and os.path.isdir(fmr):
+    elif isinstance(fmr, (str, pathlib.PurePath)) and os.path.isdir(fmr):
         fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
         log.info('multiple input files from input folder.')
         fimout = ''
@@ -1183,7 +1233,6 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
             fn4 = fimout
 
         if not os.path.exists(fn4):
-
             if executable == 'sitk':
                 # =============================================
                 # SimpleITK Bias field correction for T1 and T2
@@ -1193,7 +1242,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
                 # numberFilltingLevels = 4
 
                 # read input file
-                im = sitk.ReadImage(fin)
+                im = sitk.ReadImage(str(fin))
 
                 # > create a object specific mask
                 fmsk = os.path.join(n4opth, fspl[1].split('.nii')[0] + '_sitk_mask.nii.gz')
@@ -1208,36 +1257,26 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
                 n4out = corrector.Execute(im, msk)
                 sitk.WriteImage(n4out, fn4)
                 # ------------------------------------------
-
                 if sitk_image_mask:
                     outdct.setdefault('fmsk', [])
                     outdct['fmsk'].append(fmsk)
 
-            elif os.path.basename(executable)=='N4BiasFieldCorrection' \
-                    and os.path.isfile(executable):
-
+            elif os.path.basename(executable) == 'N4BiasFieldCorrection' and os.path.isfile(
+                    executable):
                 cmd = [executable, '-i', fin, '-o', fn4]
-
                 if verbose and os.path.basename(executable) == 'N4BiasFieldCorrection':
                     cmd.extend(['-v', '1'])
-
                 cmd.extend(exe_options)
-
                 run(cmd)
-
                 if 'command' not in outdct:
                     outdct['command'] = []
                 outdct['command'].append(cmd)
-
             elif os.path.isfile(executable):
-
                 cmd = [executable]
                 cmd.extend(exe_options)
                 run(cmd)
-
                 if 'command' not in outdct:
                     outdct['command'] = cmd
-
         else:
             log.info('N4 bias corrected file seems already existing.')
 
@@ -1245,6 +1284,8 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         outdct.setdefault('fim', [])
         outdct['fim'].append(fn4)
 
+    if len(outdct['fim']) == 1:
+        outdct['fim'] = outdct['fim'][0]
     return outdct
 
 
@@ -1318,11 +1359,7 @@ def mr2pet_rigid(fpet, mridct, Cnt, outpath='', fcomment='', rmsk=True, rfwhm=15
     elif 'T1bc' in mridct and os.path.isfile(mridct['T1bc']):
         ft1w = mridct['T1bc']
     elif 'T1DCM' in mridct and os.path.exists(mridct['MRT1W']):
-        # create file name for the converted NIfTI image
-        fnii = 'converted'
-        run([Cnt['DCM2NIIX'], '-f', fnii, mridct['T1nii']])
-        ft1nii = glob(os.path.join(mridct['T1nii'], '*converted*.nii*'))
-        ft1w = ft1nii[0]
+        ft1w = imio.dcm2nii(mridct['T1nii'], 'converted', executable=Cnt.get('DCM2NIIX', None))
     else:
         raise ValueError('disaster: no T1w image!')
 

@@ -1,8 +1,8 @@
 """image input/output functionalities."""
 import datetime
-import glob
 import logging
 import os
+import pathlib
 import re
 import shutil
 from subprocess import run
@@ -11,6 +11,11 @@ from textwrap import dedent
 import nibabel as nib
 import numpy as np
 import pydicom as dcm
+from miutil.imio.nii import array2nii  # NOQA: F401 # yapf: disable
+from miutil.imio.nii import getnii  # NOQA: F401 # yapf: disable
+from miutil.imio.nii import nii_gzip  # NOQA: F401 # yapf: disable
+from miutil.imio.nii import nii_ugzip  # NOQA: F401 # yapf: disable
+from miutil.imio.nii import niisort  # NOQA: F401 # yapf: disable
 
 # > NiftyPET resources
 from .. import resources as rs
@@ -18,7 +23,11 @@ from .. import resources as rs
 log = logging.getLogger(__name__)
 
 # possible extentions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA')
+dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
+
+# > DICOM coding of PET isotopes
+istp_code = {
+    'C-111A1': 'F18', 'C-105A1': 'C11', 'C-B1038': 'O15', 'C-128A2': 'Ge68', 'C-131A3': 'Ga68'}
 
 
 def create_dir(pth):
@@ -41,77 +50,6 @@ def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
 
 
-def getnii(fim, nan_replace=None, output='image'):
-    '''
-    Get PET image from NIfTI file.
-    Arguments:
-        fim: input file name for the nifty image
-        nan_replace: the value to be used for replacing the NaNs in the image.
-                     by default no change (None).
-        output: option for choosing output: image, affine matrix or
-                a dictionary with all info.
-    Return:
-        'image': outputs just an image (4D or 3D)
-        'affine': outputs just the affine matrix
-        'all': outputs all as a dictionary
-    '''
-    import numbers
-
-    nim = nib.load(fim)
-
-    dim = nim.header.get('dim')
-    dimno = dim[0]
-
-    if output == 'image' or output == 'all':
-        imr = np.asanyarray(nim.dataobj)
-        # replace NaNs if requested
-        if isinstance(nan_replace, numbers.Number):
-            imr[np.isnan(imr)] = nan_replace
-
-        imr = np.squeeze(imr)
-        if dimno != imr.ndim and dimno == 4:
-            dimno = imr.ndim
-
-        # > get orientations from the affine
-        ornt = nib.io_orientation(nim.affine)
-        trnsp = tuple(2 - np.int8(ornt[:, 0]))
-        flip = tuple(np.int8(ornt[:, 1]))
-
-        # > voxel size
-        voxsize = nim.header.get('pixdim')[1:nim.header.get('dim')[0] + 1]
-        # > rearrange voxel size according to the orientation
-        voxsize = voxsize[np.array(trnsp)]
-
-        # > dimensions
-        dims = dim[1:nim.header.get('dim')[0] + 1]
-        dims = dims[np.array(trnsp)]
-
-        # > flip y-axis and z-axis and then transpose
-        if dimno == 4:   # dynamic
-            imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2], :], (3,) + trnsp)
-        elif dimno == 3: # static
-            imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2]], trnsp)
-
-    if output == 'affine' or output == 'all':
-        # A = nim.get_sform()
-        # if not A[:3,:3].any():
-        #     A = nim.get_qform()
-        A = nim.affine
-
-    if output == 'all':
-        out = {
-            'im': imr, 'affine': A, 'fim': fim, 'dtype': nim.get_data_dtype(), 'shape': imr.shape,
-            'hdr': nim.header, 'voxsize': voxsize, 'dims': dims, 'transpose': trnsp, 'flip': flip}
-    elif output == 'image':
-        out = imr
-    elif output == 'affine':
-        out = A
-    else:
-        raise NameError('Unrecognised output request!')
-
-    return out
-
-
 def getnii_descr(fim):
     '''Extracts the custom description header field to dictionary'''
     nim = nib.load(fim)
@@ -126,70 +64,6 @@ def getnii_descr(fim):
         tmp = rcnlst[ci].split('=')
         rcndic[tmp[0]] = tmp[1]
     return rcndic
-
-
-def array2nii(im, A, fnii, descrip='', trnsp=None, flip=None, storage_as=None):
-    '''
-    Store the numpy array 'im' to a NIfTI file 'fnii'.
-    Arguments:
-        'im':       image to be stored in NIfTI
-        'A':        affine transformation
-        'fnii':     output NIfTI file name.
-        'descrip':  the description given to the file
-        'trsnp':    transpose/permute the dimensions.
-                    In NIfTI it has to be in this order: [x,y,z,t,...])
-        'flip':     flip tupple for flipping the direction of x,y,z axes.
-                    (1: no flip, -1: flip)
-        'storage_as': uses the flip and displacement as given by the following
-                    NifTI dictionary, obtained using
-                    nimpa.getnii(filepath, output='all').
-    '''
-
-    if trnsp is None:
-        trnsp = ()
-    if flip is None:
-        flip = ()
-    if storage_as is None:
-        storage_as = []
-
-    if not len(trnsp) in [0, 3, 4] and not len(flip) in [0, 3]:
-        raise ValueError('e> number of flip and/or transpose elements is incorrect.')
-
-    # --------------------------------------------------------------------------
-    # > TRANSLATIONS and FLIPS
-    # > get the same geometry as the input NIfTI file in the form of dictionary,
-    # >>as obtained from getnii(..., output='all')
-
-    # > permute the axis order in the image array
-    if isinstance(storage_as, dict) and 'transpose' in storage_as \
-            and 'flip' in storage_as:
-
-        trnsp = (storage_as['transpose'].index(0), storage_as['transpose'].index(1),
-                 storage_as['transpose'].index(2))
-
-        flip = storage_as['flip']
-
-    if not trnsp:
-        im = im.transpose()
-    # > check if the image is 4D (dynamic) and modify as needed
-    elif len(trnsp) == 3 and im.ndim == 4:
-        trnsp = tuple([t + 1 for t in trnsp] + [0])
-        im = im.transpose(trnsp)
-    else:
-        im = im.transpose(trnsp)
-
-    # > perform flip of x,y,z axes after transposition into proper NIfTI order
-    if flip and len(flip) == 3:
-        im = im[::-flip[0], ::-flip[1], ::-flip[2], ...]
-    # --------------------------------------------------------------------------
-
-    nii = nib.Nifti1Image(im, A)
-    hdr = nii.header
-    hdr.set_sform(None, code='scanner')
-    hdr['cal_max'] = np.max(im)
-    hdr['cal_min'] = np.min(im)
-    hdr['descrip'] = descrip
-    nib.save(nii, fnii)
 
 
 def orientnii(imfile, Cnt=None):
@@ -213,67 +87,35 @@ def orientnii(imfile, Cnt=None):
     return niiorient
 
 
-def nii_ugzip(imfile, outpath=''):
-    '''Uncompress *.gz file'''
-    import gzip
-    with gzip.open(imfile, 'rb') as f:
-        s = f.read()
-    # Now store the uncompressed data
-    if outpath == '':
-        fout = imfile[:-3]
-    else:
-        fout = os.path.join(outpath, os.path.basename(imfile)[:-3])
-    # store uncompressed file data from 's' variable
-    with open(fout, 'wb') as f:
-        f.write(s)
-    return fout
-
-
-def nii_gzip(imfile, outpath=''):
-    '''Compress *.gz file'''
-    import gzip
-    with open(imfile, 'rb') as f:
-        d = f.read()
-    # Now store the compressed data
-    if outpath == '':
-        fout = imfile + '.gz'
-    else:
-        fout = os.path.join(outpath, os.path.basename(imfile) + '.gz')
-    # store compressed file data from 'd' variable
-    with gzip.open(fout, 'wb') as f:
-        f.write(d)
-    return fout
-
-
 def pick_t1w(mri):
     '''Pick the MR T1w from the dictionary for MR->PET registration.'''
-
-    if isinstance(mri, dict):
-        # check if NIfTI file is given
-        if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
-            ft1w = mri['T1N4']
-        # or another bias corrected
-        elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
-            ft1w = mri['T1bc']
-        elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
-            ft1w = mri['T1nii']
-        elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
-            # create file name for the converted NIfTI image
-            fnii = 'converted'
-            run([rs.DCM2NIIX, '-f', fnii, mri['T1nii']])
-            ft1nii = glob.glob(os.path.join(mri['T1nii'], '*converted*.nii*'))
-            ft1w = ft1nii[0]
-        else:
-            raise IOError('could not find a T1w image!')
-
-    else:
+    if not isinstance(mri, dict):
         raise IOError('incorrect input given for the T1w image')
 
-    return ft1w
+    # check if NIfTI file is given
+    if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
+        return mri['T1N4']
+    # or another bias corrected
+    elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
+        return mri['T1bc']
+    elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
+        return mri['T1nii']
+    elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
+        return dcm2nii(mri['T1nii'], 'converted')
+    raise IOError('could not find a T1w image!')
 
 
-def dcminfo(dcmvar, Cnt=None):
-    '''Get basic info about the DICOM file/header.'''
+# ======================================================================
+def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
+    """
+    Get basic info about the DICOM file/header.
+    Args:
+      dcmvar: DICOM header as a file/string/dictionary
+      Cnt(dict): constants used in advanced reconstruction or analysis
+      output(str): 'detail' outputs all; 'basic' outputs scanner ID and
+        series/protocol string
+      t1_name(str): helps identify T1w MR image present in series or file names
+    """
     if Cnt is None:
         Cnt = {}
 
@@ -284,6 +126,8 @@ def dcminfo(dcmvar, Cnt=None):
         dhdr = dcmvar
     elif isinstance(dcmvar, dcm.dataset.FileDataset):
         dhdr = dcmvar
+    elif isinstance(dcmvar, (pathlib.Path, pathlib.PurePath)):
+        dhdr = dcm.dcmread(dcmvar)
 
     dtype = dhdr[0x08, 0x08].value
     log.debug('   Image Type: {}'.format(dtype))
@@ -302,6 +146,29 @@ def dcminfo(dcmvar, Cnt=None):
     if any(s in scanner_model
            for s in ['mMR', 'Biograph']) and 'siemens' in scanner_vendor.lower():
         scanner_id = 'mmr'
+    elif 'signa' in scanner_model.lower() and 'ge' in scanner_vendor.lower():
+        scanner_id = 'signa'
+    # ------------------------------------------
+
+    # ------------------------------------------
+    # > date/time
+    study_time = None
+    if [0x008, 0x030] in dhdr and [0x008, 0x020] in dhdr:
+        val = dhdr[0x008, 0x020].value + dhdr[0x008, 0x030].value
+        val = val.split('.')[0]
+        study_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+
+    series_time = None
+    if [0x008, 0x031] in dhdr and [0x008, 0x021] in dhdr:
+        val = dhdr[0x008, 0x021].value + dhdr[0x008, 0x031].value
+        val = val.split('.')[0]
+        series_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+
+    acq_time = None
+    if [0x008, 0x032] in dhdr and [0x008, 0x022] in dhdr:
+        val = dhdr[0x008, 0x022].value + dhdr[0x008, 0x032].value
+        val = val.split('.')[0]
+        acq_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
     # ------------------------------------------
 
     # > CSA type (mMR)
@@ -316,9 +183,109 @@ def dcminfo(dcmvar, Cnt=None):
         cmmnt = dhdr[0x0020, 0x4000].value
         log.debug('   Comments: {}'.format(cmmnt))
 
+    prtcl = ''
+    if [0x18, 0x1030] in dhdr:
+        prtcl = dhdr[0x18, 0x1030].value
+
+    srs = ''
+    if [0x08, 0x103e] in dhdr:
+        srs = dhdr[0x08, 0x103e].value
+
+    unt = None
+    if [0x054, 0x1001] in dhdr:
+        unt = dhdr[0x054, 0x1001].value
+
+    # +++++++++++++++++++++++++++++++++++++++++++++
+    if output == 'basic':
+        out = [prtcl, srs, scanner_id]
+        return out
+    # +++++++++++++++++++++++++++++++++++++++++++++
+
+    # ---------------------------------------------
+    # > PET parameters
+    srs_type = None
+    if [0x054, 0x1000] in dhdr:
+        srs_type = dhdr[0x054, 0x1000].value[0]
+
+    recon = None
+    if [0x054, 0x1103] in dhdr:
+        recon = dhdr[0x054, 0x1103].value
+
+    decay_corr = None
+    if [0x054, 0x1102] in dhdr:
+        decay_corr = dhdr[0x054, 0x1102].value
+
+    # > decay factor
+    dcf = None
+    if [0x054, 0x1321] in dhdr:
+        dcf = float(dhdr[0x054, 0x1321].value)
+
+    atten = None
+    if [0x054, 0x1101] in dhdr:
+        atten = dhdr[0x054, 0x1101].value
+
+    scat = None
+    if [0x054, 0x1105] in dhdr:
+        scat = dhdr[0x054, 0x1105].value
+
+    # > scatter factor
+    scf = None
+    if [0x054, 0x1323] in dhdr:
+        scf = float(dhdr[0x054, 0x1323].value)
+
+    # > randoms correction method
+    rand = None
+    if [0x054, 0x1100] in dhdr:
+        rand = dhdr[0x054, 0x1100].value
+
+    # > dose calibration factor
+    dscf = None
+    if [0x054, 0x1322] in dhdr:
+        dscf = float(dhdr[0x054, 0x1322].value)
+
+    # > dead time factor
+    dt = None
+    if [0x054, 0x1324] in dhdr:
+        dt = float(dhdr[0x054, 0x1324].value)
+
+    # RADIO TRACER
+    tracer = None
+    tdose = None
+    hlife = None
+    pfract = None
+    ttime0 = None
+    ttime1 = None
+
+    if [0x054, 0x016] in dhdr:
+        # > all tracer info
+        tinf = dhdr[0x054, 0x016][0]
+
+        if [0x018, 0x031] in tinf:
+            tracer = tinf[0x018, 0x031].value
+
+        if [0x018, 0x1074] in tinf:
+            tdose = float(tinf[0x018, 0x1074].value)
+
+        if [0x018, 0x1075] in tinf:
+            hlife = float(tinf[0x018, 0x1075].value)
+
+        if [0x018, 0x1076] in tinf:
+            pfract = float(tinf[0x018, 0x1076].value)
+
+        if [0x018, 0x1078] in tinf:
+            ttime0 = datetime.datetime.strptime(tinf[0x018, 0x1078].value, '%Y%m%d%H%M%S.%f')
+
+        if [0x018, 0x1079] in tinf:
+            ttime1 = datetime.datetime.strptime(tinf[0x018, 0x1079].value, '%Y%m%d%H%M%S.%f')
+
+    isPET = (tracer is not None) and (srs_type in ['STATIC', 'DYNAMIC', 'WHOLE BODY'
+                                                   'GATED'])
+    # ---------------------------------------------
+
+    # ---------------------------------------------
     # > MR parameters (echo time, etc)
-    TR = 0
-    TE = 0
+    TR = None
+    TE = None
     if [0x18, 0x80] in dhdr:
         TR = float(dhdr[0x18, 0x80].value)
         log.debug('   TR: {}'.format(TR))
@@ -326,7 +293,16 @@ def dcminfo(dcmvar, Cnt=None):
         TE = float(dhdr[0x18, 0x81].value)
         log.debug('   TE: {}'.format(TE))
 
-    # > check if it is norm file
+    validTs = TR is not None and TE is not None
+
+    if validTs:
+        mrdct = {
+            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time,
+            'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
+            'TE': TE}
+    # ---------------------------------------------
+
+    # > check for RAW data
     if any('PET_NORM' in s
            for s in dtype) or cmmnt == 'PET Normalization data' or csatype == 'MRPETNORM':
         out = ['raw', 'norm', scanner_id]
@@ -335,31 +311,57 @@ def dcminfo(dcmvar, Cnt=None):
              for s in dtype) or cmmnt == 'Listmode' or csatype == 'MRPETLM_LARGE':
         out = ['raw', 'list', scanner_id]
 
-    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
-        out = ['raw', 'mumap', 'ute', 'mr', scanner_id]
-
-    elif TR > 400 and TR < 2500 and TE < 20:
-        out = ['mr', 't1', scanner_id]
-
-    elif TR > 2500 and TE > 50:
-        out = ['mr', 't2', scanner_id]
-
-    # > UTE's two sequences: UTE2
-    elif TR < 50 and TE < 20 and TE > 1:
-        out = ['mr', 'ute', 'ute2', scanner_id]
-
-    # > UTE1
-    elif TR < 50 and TE < 20 and TE < 0.1 and TR > 0 and TE > 0:
-        out = ['mr', 'ute', 'ute1', scanner_id]
+    elif any('PET_EM_SINO' in s for s in dtype) or cmmnt == 'Sinogram' or csatype == 'MRPETSINO':
+        out = ['raw', 'sinogram', scanner_id]
 
     # > physio data
     elif 'PET_PHYSIO' in dtype or 'physio' in cmmnt.lower():
         out = ['raw', 'physio', scanner_id]
 
+    elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
+        out = ['mr', 'mumap', 'ute', 'mr', scanner_id]
+
+    elif isPET:
+        petdct = {
+            'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
+            'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type, 'units': unt,
+            'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf, 'attenuation': atten,
+            'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf, 'dead_time': dt,
+            'tracer': tracer, 'total_dose': tdose, 'half_life': hlife, 'positron_fract': pfract,
+            'radio_start_time': ttime0, 'radio_stop_time': ttime1}
+
+        out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
+
+    # > a less stringent way of looking for the T1w sequence
+    # > than the one below
+    elif validTs and (t1_name in prtcl.lower() or t1_name in srs.lower()):
+        out = ['mr', 't1', 'mprage', scanner_id, mrdct]
+
+    elif validTs and TR > 400 and TR < 2500 and TE < 20:
+        if t1_name in prtcl.lower() or t1_name in srs.lower():
+            out = ['mr', 't1', 'mprage', scanner_id, mrdct]
+        else:
+            out = ['mr', 't1', scanner_id]
+
+    elif validTs and TR > 2500 and TE > 50:
+        out = ['mr', 't2', scanner_id, mrdct]
+
+    # > UTE's two sequences:
+    # > UTE2
+    elif validTs and TR < 50 and TE < 20 and TE > 1:
+        out = ['mr', 'ute', 'ute2', scanner_id, mrdct]
+
+    # > UTE1
+    elif validTs and TR < 50 and TE < 0.1 and TR > 0 and TE > 0:
+        out = ['mr', 'ute', 'ute1', scanner_id, mrdct]
+
     else:
         out = ['unknown', str(cmmnt.lower())]
 
     return out
+
+
+# ======================================================================
 
 
 def list_dcm_datain(datain):
@@ -556,169 +558,99 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         dhdr.save_as(dcmf)
 
 
-def dcmsort(folder, copy_series=False, Cnt=None):
+def dcmsort(folder, copy_series=False, Cnt=None, outpath=None):
     '''Sort out the DICOM files in the folder according to the recorded series.'''
     # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
     # list files in the input folder
-    files = os.listdir(folder)
+    files = (str(f) for f in pathlib.Path(folder).iterdir()
+             if f.is_file() and f.suffix[1:] in dcmext)
 
     srs = {}
     for f in files:
-        if os.path.isfile(os.path.join(folder, f)) and f.endswith(dcmext):
-            dhdr = dcm.read_file(os.path.join(folder, f))
-            # --------------------------------
-            # image size
-            imsz = np.zeros(2, dtype=np.int64)
-            if [0x028, 0x010] in dhdr:
-                imsz[0] = dhdr[0x028, 0x010].value
-            if [0x028, 0x011] in dhdr:
-                imsz[1] = dhdr[0x028, 0x011].value
-            # voxel size
-            vxsz = np.zeros(3, dtype=np.float64)
-            if [0x028, 0x030] in dhdr and [0x018, 0x050] in dhdr:
-                pxsz = np.array([float(e) for e in dhdr[0x028, 0x030].value])
-                vxsz[:2] = pxsz
-                vxsz[2] = float(dhdr[0x018, 0x050].value)
-            # orientation
-            ornt = np.zeros(6, dtype=np.float64)
-            if [0x020, 0x037] in dhdr:
-                ornt = np.array([float(e) for e in dhdr[0x20, 0x37].value])
-            # seires description, time and study time
+        try:
+            dhdr = dcm.read_file(f)
+        except (TypeError, dcm.InvalidDicomError):
+            srs.setdefault('unaccounted', [])
+            srs['unaccounted'].append(f)
+            continue
+        # --------------------------------
+        # image size
+        imsz = np.zeros(2, dtype=np.int64)
+        if [0x028, 0x010] in dhdr:
+            imsz[0] = dhdr[0x028, 0x010].value
+        if [0x028, 0x011] in dhdr:
+            imsz[1] = dhdr[0x028, 0x011].value
+        # voxel size
+        vxsz = np.zeros(3, dtype=np.float64)
+        if [0x028, 0x030] in dhdr and [0x018, 0x050] in dhdr:
+            pxsz = np.array([float(e) for e in dhdr[0x028, 0x030].value])
+            vxsz[:2] = pxsz
+            vxsz[2] = float(dhdr[0x018, 0x050].value)
+        # orientation
+        ornt = np.zeros(6, dtype=np.float64)
+        if [0x020, 0x037] in dhdr:
+            ornt = np.array([float(e) for e in dhdr[0x20, 0x37].value])
+        # series description, time and study time
+        srs_dcrp = ''
+        if [0x0008, 0x103e] in dhdr:
             srs_dcrp = dhdr[0x0008, 0x103e].value
-            srs_time = dhdr[0x0008, 0x0031].value[:6]
-            std_time = dhdr[0x0008, 0x0030].value[:6]
+        srs_time = dhdr[0x0008, 0x0031].value[:6]
+        std_time = dhdr[0x0008, 0x0030].value[:6]
 
-            log.info(
-                dedent('''\
-                --------------------------------------
-                DICOM series desciption: {}
-                DICOM series time: {}
-                DICOM study  time: {}
-                --------------------------------------''').format(srs_dcrp, srs_time, std_time))
+        log.info(
+            dedent('''\
+            --------------------------------------
+            DICOM series desciption: {}
+            DICOM series time: {}
+            DICOM study  time: {}
+            --------------------------------------''').format(srs_dcrp, srs_time, std_time))
 
-            # ---------
-            # series for any category (can be multiple scans within the same category)
-            recognised_series = False
-            srs_k = list(srs.keys())
-            for s in srs_k:
-                if (np.array_equal(srs[s]['imorient'], ornt)
-                        and np.array_equal(srs[s]['imsize'], imsz)
-                        and np.array_equal(srs[s]['voxsize'], vxsz)
-                        and srs[s]['tseries'] == srs_time):
-                    recognised_series = True
-                    break
-            # if series was not found, create one
-            if not recognised_series:
-                s = srs_dcrp + '_' + srs_time
-                srs[s] = {}
-                srs[s]['imorient'] = ornt
-                srs[s]['imsize'] = imsz
-                srs[s]['voxsize'] = vxsz
-                srs[s]['tseries'] = srs_time
-            # append the file name
-            if 'files' not in srs[s]: srs[s]['files'] = []
-            if copy_series:
-                srsdir = os.path.join(folder, s)
-                create_dir(srsdir)
-                shutil.copy(os.path.join(folder, f), srsdir)
-                srs[s]['files'].append(os.path.join(srsdir, f))
-            else:
-                srs[s]['files'].append(os.path.join(folder, f))
+        # ---------
+        # series for any category (can be multiple scans within the same category)
+        recognised_series = False
+        srs_k = list(srs.keys())
+        for s in srs_k:
+            if (np.array_equal(srs[s]['imorient'], ornt)
+                    and np.array_equal(srs[s]['imsize'], imsz)
+                    and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
+                    and srs[s]['series'] == srs_dcrp):
+                recognised_series = True
+                break
+        # if series was not found, create one
+        if not recognised_series:
+            s = srs_time + '_' + srs_dcrp
+            srs[s] = {}
+            srs[s]['imorient'] = ornt
+            srs[s]['imsize'] = imsz
+            srs[s]['voxsize'] = vxsz
+            srs[s]['tseries'] = srs_time
+            srs[s]['series'] = srs_dcrp
+
+        # append the file name
+        srs[s].setdefault('files', [])
+
+        if copy_series:
+            out = folder
+            if outpath is not None:
+                try:
+                    create_dir(outpath)
+                except Exception as e:
+                    log.warning(
+                        f"could not create specified output folder, using input folder.\n\n{e}")
+                else:
+                    out = outpath
+
+            srsdir = os.path.join(out, s)
+            create_dir(srsdir)
+            shutil.copy(f, srsdir)
+            srs[s]['files'].append(os.path.join(srsdir, os.path.basename(f)))
+        else:
+            srs[s]['files'].append(f)
 
     return srs
-
-
-def niisort(fims, memlim=True):
-    '''
-    Sort all input NIfTI images and check their shape.
-    Output dictionary of image files and their properties.
-    Options:
-        memlim -- when processing large numbers of frames the memory may
-        not be large enough.  memlim causes that the output does not contain
-        all the arrays corresponding to the images.
-    '''
-    # number of NIfTI images in folder
-    Nim = 0
-    # sorting list (if frame number is present in the form '_frm<dd>', where d is a digit)
-    sortlist = []
-
-    for f in fims:
-        if f.endswith('.nii') or f.endswith('.nii.gz'):
-            Nim += 1
-            _match = re.search(r'(?<=_frm)\d*', f)
-            if _match:
-                frm = int(_match.group(0))
-                freelists = [frm not in i for i in sortlist]
-                listidx = [i for i, f in enumerate(freelists) if f]
-                if listidx:
-                    sortlist[listidx[0]].append(frm)
-                else:
-                    sortlist.append([frm])
-            else:
-                sortlist.append([None])
-
-    if len(sortlist) > 1:
-        # if more than one dynamic set is given, the dynamic mode is cancelled.
-        dyn_flg = False
-        sortlist = list(range(Nim))
-    elif len(sortlist) == 1:
-        dyn_flg = True
-        sortlist = sortlist[0]
-    else:
-        raise ValueError('e> niisort input error.')
-
-    # number of frames (can be larger than the # images)
-    Nfrm = max(sortlist) + 1
-    # sort the list according to the frame numbers
-    _fims = ['Blank'] * Nfrm
-    # list of NIfTI image shapes and data types used
-    shape = []
-    datype = []
-    _nii = []
-    for i in range(Nim):
-        if dyn_flg:
-            _fims[sortlist[i]] = fims[i]
-            _nii = nib.load(fims[i])
-            datype.append(_nii.get_data_dtype())
-            shape.append(_nii.shape)
-        else:
-            _fims[i] = fims[i]
-            _nii = nib.load(fims[i])
-            datype.append(_nii.get_data_dtype())
-            shape.append(_nii.shape)
-
-    # check if all images are of the same shape and data type
-    if _nii and not shape.count(_nii.shape) == len(shape):
-        raise ValueError('Input images are of different shapes.')
-    if _nii and not datype.count(_nii.get_data_dtype()) == len(datype):
-        raise TypeError('Input images are of different data types.')
-    # image shape must be 3D
-    if _nii and not len(_nii.shape) == 3:
-        raise ValueError('Input image(s) must be 3D.')
-
-    out = {
-        'shape': _nii.shape[::-1], 'files': _fims, 'sortlist': sortlist,
-        'dtype': _nii.get_data_dtype(), 'N': Nim}
-
-    if memlim and Nfrm > 50:
-        imdic = getnii(_fims[0], output='all')
-        affine = imdic['affine']
-    else:
-        # get the images into an array
-        _imin = np.zeros((Nfrm,) + _nii.shape[::-1], dtype=_nii.get_data_dtype())
-        for i in range(Nfrm):
-            if i in sortlist:
-                imdic = getnii(_fims[i], output='all')
-                _imin[i, :, :, :] = imdic['im']
-                affine = imdic['affine']
-        out['im'] = _imin[:Nfrm, :, :, :]
-
-    out['affine'] = affine
-
-    return out
 
 
 def dcm2nii(
@@ -728,59 +660,51 @@ def dcm2nii(
     fcomment='',
     outpath='',
     timestamp=True,
-    executable='',
+    executable=None,
     force=False,
 ):
-    '''
-    Convert DICOM files in folder (indicated by <dcmpth>) using DCM2NIIX
-    third-party software.
-    '''
+    """
+    Convert DICOM folder `dcmpth` to NIfTI using `dcm2niix` third-party software.
+    Args:
+      dcmpth: directory containing DICOM files
+    """
     # skip conversion if the output already exists and not force is selected
     if os.path.isfile(fimout) and not force:
         return fimout
 
-    if executable == '':
-        try:
-            executable = rs.DCM2NIIX
-        except AttributeError:
-            raise AttributeError('e> could not find variable DCM2NIIX in resources.py')
-    elif not os.path.isfile(executable):
-        raise IOError('e> the executable is incorrect!')
+    if not executable:
+        executable = getattr(rs, 'DCM2NIIX', None)
+        if not executable:
+            import dcm2niix
+            executable = dcm2niix.bin
+    if not os.path.isfile(executable):
+        raise IOError(f"executable not found:{executable}")
 
     if not os.path.isdir(dcmpth):
-        raise IOError('e> the provided DICOM path is not a folder!')
+        raise IOError("the provided `dcmpth` is not a folder")
 
-    # > output path
-    if outpath == '' and fimout != '' and '/' in fimout:
+    # output path
+    if not outpath and fimout and '/' in fimout:
         opth = os.path.dirname(fimout)
-        if opth == '':
-            opth = dcmpth
+        opth = opth or dcmpth
         fimout = os.path.basename(fimout)
-
-    elif outpath == '':
-        opth = dcmpth
-
     else:
-        opth = outpath
+        opth = outpath or dcmpth
 
     create_dir(opth)
 
-    if fimout == '':
+    if not fimout:
         fimout = fprefix
         if timestamp:
             fimout += time_stamp(simple_ascii=True)
-
     fimout = fimout.split('.nii')[0]
 
-    # convert the DICOM mu-map images to nii
     run([executable, '-f', fimout, '-o', opth, dcmpth])
-
-    fniiout = glob.glob(os.path.join(opth, '*' + fimout + '*.nii*'))
+    fniiout = list(pathlib.Path(opth).glob(f"*{fimout}*.nii*"))
 
     if fniiout:
-        return fniiout[0]
-    else:
-        raise ValueError('e> could not get the output file!')
+        return str(fniiout[0])
+    raise ValueError("could not find output nii file")
 
 
 def dcm2im(fpth):

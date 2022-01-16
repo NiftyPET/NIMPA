@@ -4,6 +4,7 @@ Generates images.
 """
 import logging
 import math
+import pathlib
 
 import numpy as np
 import scipy.ndimage as ndi
@@ -80,9 +81,9 @@ def profile_points(im, p0, p1, steps=100):
 def imdiff(imref, imnew, verbose=False, plot=False, cmap='bwr'):
     """
     Compare the new image (imnew) to the reference image (imref),
-    returning (and optionallt plotting) the difference.
+    returning (and optional plotting) the difference.
     """
-    if isinstance(imref, str):
+    if isinstance(imref, (str, pathlib.Path)):
         imref = imio.getnii(imref)
         log.info('using NIfTI files as image input for the reference')
     elif isinstance(imref, (np.ndarray, np.generic)):

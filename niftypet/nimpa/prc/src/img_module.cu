@@ -11,6 +11,7 @@ Copyrights: 2019
 
 #include "conv.h"
 #include "cuhelpers.h"
+#include "isub.h"
 #include "nlm.h"
 #include "pycuvec.cuh"
 #include "rsmpl.h"
@@ -23,6 +24,7 @@ Copyrights: 2019
 static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs);
 static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs);
+static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs);
 //---
 
 //> Module Method Table
@@ -33,6 +35,8 @@ static PyMethodDef improc_methods[] = {
      "Fast 3D image convolution with separable kernel."},
     {"nlm", (PyCFunction)img_nlm, METH_VARARGS | METH_KEYWORDS,
      "3D Non-local means (NLM) guided filtering."},
+    {"isub", (PyCFunction)img_isub, METH_VARARGS | METH_KEYWORDS,
+     "Indexing into an array (`output = src[idxs, ...]`)."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 
@@ -54,9 +58,9 @@ PyMODINIT_FUNC PyInit_improc(void) {
 }
 
 static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) {
-  PyCuVec<float> *dst = NULL; // output image
   PyCuVec<float> *src = NULL; // original image (to be transformed)
   PyCuVec<float> *A = NULL;   // transformation matrix
+  PyCuVec<float> *dst = NULL; // output image
   PyObject *o_Cim;            // Dictionary of image constants
   bool MEMSET = true;         // whether to zero `dst` first
   bool SYNC = true;           // whether to ensure deviceToHost copy on return
@@ -64,12 +68,11 @@ static PyObject *img_resample(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"src", "A", "Cnt", "output", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|Obb", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&A, &o_Cim, (PyObject **)&dst, &MEMSET, &SYNC,
-                                   &LOG))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&O|Obbi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &A, &o_Cim, &dst, &MEMSET, &SYNC, &LOG))
     return NULL;
-  if (!A || !src) return NULL;
 
+  dst = asPyCuVec(dst);
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
@@ -149,12 +152,11 @@ static PyObject *img_convolve(PyObject *self, PyObject *args, PyObject *kwargs) 
 
   // Parse the input tuple
   static const char *kwds[] = {"img", "knl", "output", "dev_id", "memset", "sync", "log", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Oibbi", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&knl, (PyObject **)&dst, &DEVID, &MEMSET, &SYNC,
-                                   &LOG))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibbi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &knl, &dst, &DEVID, &MEMSET, &SYNC, &LOG))
     return NULL;
-  if (!src || !knl) return NULL;
 
+  dst = asPyCuVec(dst);
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
@@ -209,15 +211,16 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
   // Parse the input tuple
   static const char *kwds[] = {"img",    "ref",  "output", "sigma", "half_width",
                                "dev_id", "sync", "log",    NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Ofiibi", (char **)kwds, (PyObject **)&src,
-                                   (PyObject **)&ref, (PyObject **)&dst, &sigma, &half_width,
-                                   &DEVID, &SYNC, &LOG))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Ofiibi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_f, &ref, &dst, &sigma, &half_width, &DEVID, &SYNC,
+                                   &LOG))
     return NULL;
-  if (!src || !ref || sigma < 0 || half_width < 0) return NULL;
+  if (sigma < 0 || half_width < 0) return NULL;
 
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
   if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
 
+  dst = asPyCuVec(dst);
   if (dst) {
     if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
     Py_INCREF((PyObject *)dst); // anticipating returning
@@ -238,6 +241,53 @@ static PyObject *img_nlm(PyObject *self, PyObject *args, PyObject *kwargs) {
   if (LOG <= LOGDEBUG) fprintf(stderr, "d> input image size z,y,x=%d,%d,%d\n", Z, Y, X);
 
   d_nlm3d(dst->vec.data(), src->vec.data(), ref->vec.data(), sigma, Z, Y, X, half_width, SYNC);
+  if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
+
+  return (PyObject *)dst;
+}
+
+static PyObject *img_isub(PyObject *self, PyObject *args, PyObject *kwargs) {
+  PyCuVec<float> *src = NULL; // input image
+  PyCuVec<int> *idxs = NULL;  // indices
+  PyCuVec<float> *dst = NULL; // output image
+  int DEVID = 0;
+  bool SYNC = true; // whether to ensure deviceToHost copy on return
+  int LOG = LOGDEBUG;
+
+  // Parse the input tuple
+  static const char *kwds[] = {"src", "idxs", "output", "dev_id", "sync", "log", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&|Oibi", (char **)kwds, &asPyCuVec_f, &src,
+                                   &asPyCuVec_i, &idxs, &dst, &DEVID, &SYNC, &LOG))
+    return NULL;
+
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> using device: %d\n", DEVID);
+  if (!HANDLE_PyErr(cudaSetDevice(DEVID))) return NULL;
+
+  if (src->shape.size() != 2 || idxs->shape.size() != 1) {
+    PyErr_SetString(PyExc_IndexError, "input/indices must have ndim 2/1");
+    return NULL;
+  }
+
+  int J = idxs->shape[0];
+  int X = src->shape[1];
+  if (LOG <= LOGDEBUG) fprintf(stderr, "d> output image size y,x=%d,%d\n", J, X);
+
+  dst = asPyCuVec(dst);
+  if (dst) {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> using provided output\n");
+    Py_INCREF((PyObject *)dst); // anticipating returning
+  } else {
+    if (LOG <= LOGDEBUG) fprintf(stderr, "d> creating output image\n");
+    dst = PyCuVec_zeros<float>({J, X});
+    if (!dst) return NULL;
+  }
+
+  if (dst->shape.size() != 2) {
+    PyErr_SetString(PyExc_IndexError, "output must have ndim 2");
+    return NULL;
+  }
+
+  d_isub(dst->vec.data(), src->vec.data(), idxs->vec.data(), J, X, SYNC);
   if (!HANDLE_PyErr(cudaGetLastError())) return NULL;
 
   return (PyObject *)dst;
