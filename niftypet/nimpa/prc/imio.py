@@ -1,6 +1,5 @@
 """image input/output functionalities."""
 import datetime
-import glob
 import logging
 import os
 import pathlib
@@ -79,7 +78,7 @@ def getnii(fim, nan_replace=None, output='image'):
 
         # > get orientations from the affine
         ornt = nib.io_orientation(nim.affine)
-        trnsp = tuple(np.int8([ornt[2, 0],ornt[1, 0],ornt[0, 0]]))
+        trnsp = tuple(np.int8([ornt[2, 0], ornt[1, 0], ornt[0, 0]]))
         flip = tuple(np.int8(ornt[:, 1]))
 
         # > voxel size
@@ -252,29 +251,20 @@ def nii_gzip(imfile, outpath=''):
 
 def pick_t1w(mri):
     '''Pick the MR T1w from the dictionary for MR->PET registration.'''
-
-    if isinstance(mri, dict):
-        # check if NIfTI file is given
-        if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
-            ft1w = mri['T1N4']
-        # or another bias corrected
-        elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
-            ft1w = mri['T1bc']
-        elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
-            ft1w = mri['T1nii']
-        elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
-            # create file name for the converted NIfTI image
-            fnii = 'converted'
-            run([rs.DCM2NIIX, '-f', fnii, mri['T1nii']])
-            ft1nii = glob.glob(os.path.join(mri['T1nii'], '*converted*.nii*'))
-            ft1w = ft1nii[0]
-        else:
-            raise IOError('could not find a T1w image!')
-
-    else:
+    if not isinstance(mri, dict):
         raise IOError('incorrect input given for the T1w image')
 
-    return ft1w
+    # check if NIfTI file is given
+    if 'T1N4' in mri and os.path.isfile(mri['T1N4']):
+        return mri['T1N4']
+    # or another bias corrected
+    elif 'T1bc' in mri and os.path.isfile(mri['T1bc']):
+        return mri['T1bc']
+    elif 'T1nii' in mri and os.path.isfile(mri['T1nii']):
+        return mri['T1nii']
+    elif 'T1DCM' in mri and os.path.exists(mri['MRT1W']):
+        return dcm2nii(mri['T1nii'], 'converted')
+    raise IOError('could not find a T1w image!')
 
 
 # ======================================================================
@@ -921,59 +911,51 @@ def dcm2nii(
     fcomment='',
     outpath='',
     timestamp=True,
-    executable='',
+    executable=None,
     force=False,
 ):
-    '''
-    Convert DICOM files in folder (indicated by <dcmpth>) using DCM2NIIX
-    third-party software.
-    '''
+    """
+    Convert DICOM folder `dcmpth` to NIfTI using `dcm2niix` third-party software.
+    Args:
+      dcmpth: directory containing DICOM files
+    """
     # skip conversion if the output already exists and not force is selected
     if os.path.isfile(fimout) and not force:
         return fimout
 
-    if executable == '':
-        try:
-            executable = rs.DCM2NIIX
-        except AttributeError:
-            raise AttributeError('e> could not find variable DCM2NIIX in resources.py')
-    elif not os.path.isfile(executable):
-        raise IOError('e> the executable is incorrect!')
+    if not executable:
+        executable = getattr(rs, 'DCM2NIIX', None)
+        if not executable:
+            import dcm2niix
+            executable = dcm2niix.bin
+    if not os.path.isfile(executable):
+        raise IOError(f"executable not found:{executable}")
 
     if not os.path.isdir(dcmpth):
-        raise IOError('e> the provided DICOM path is not a folder!')
+        raise IOError("the provided `dcmpth` is not a folder")
 
-    # > output path
-    if outpath == '' and fimout != '' and '/' in fimout:
+    # output path
+    if not outpath and fimout and '/' in fimout:
         opth = os.path.dirname(fimout)
-        if opth == '':
-            opth = dcmpth
+        opth = opth or dcmpth
         fimout = os.path.basename(fimout)
-
-    elif outpath == '':
-        opth = dcmpth
-
     else:
-        opth = outpath
+        opth = outpath or dcmpth
 
     create_dir(opth)
 
-    if fimout == '':
+    if not fimout:
         fimout = fprefix
         if timestamp:
             fimout += time_stamp(simple_ascii=True)
-
     fimout = fimout.split('.nii')[0]
 
-    # convert the DICOM mu-map images to nii
     run([executable, '-f', fimout, '-o', opth, dcmpth])
-
-    fniiout = glob.glob(os.path.join(opth, '*' + fimout + '*.nii*'))
+    fniiout = list(pathlib.Path(opth).glob(f"*{fimout}*.nii*"))
 
     if fniiout:
-        return fniiout[0]
-    else:
-        raise ValueError('e> could not get the output file!')
+        return str(fniiout[0])
+    raise ValueError("could not find output nii file")
 
 
 def dcm2im(fpth):
