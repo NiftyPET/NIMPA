@@ -1286,6 +1286,8 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
 
     if len(outdct['fim']) == 1:
         outdct['fim'] = outdct['fim'][0]
+        outdct['fmsk'] = outdct['fmsk'][0]
+        
     return outdct
 
 
