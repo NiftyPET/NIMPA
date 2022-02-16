@@ -183,6 +183,11 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
         cmmnt = dhdr[0x0020, 0x4000].value
         log.debug('   Comments: {}'.format(cmmnt))
 
+    # > institution
+    inst = ''
+    if [0x008, 0x080] in dhdr:
+        inst = dhdr[0x008, 0x080].value
+
     prtcl = ''
     if [0x18, 0x1030] in dhdr:
         prtcl = dhdr[0x18, 0x1030].value
@@ -297,7 +302,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
 
     if validTs:
         mrdct = {
-            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time,
+            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst':inst,
             'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
             'TE': TE}
     # ---------------------------------------------
@@ -324,7 +329,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     elif isPET:
         petdct = {
             'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
-            'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type, 'units': unt,
+            'inst':inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type, 'units': unt,
             'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf, 'attenuation': atten,
             'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf, 'dead_time': dt,
             'tracer': tracer, 'total_dose': tdose, 'half_life': hlife, 'positron_fract': pfract,
