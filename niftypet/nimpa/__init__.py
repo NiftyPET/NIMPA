@@ -30,7 +30,7 @@ __all__ = [
     'centre_mass_img', 'centre_mass_corr', 'coreg_spm', 'coreg_vinci',
     'create_dir', 'create_mask', 'ct2mu',
     'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort',
-    'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getnii',
+    'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getmgh', 'getnii', 'mgh2nii'
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
@@ -68,6 +68,8 @@ from .prc import (
     dice_coeff,
     dice_coeff_multiclass,
     fwhm2sig,
+    getmgh,
+    mgh2nii,
     getnii,
     getnii_descr,
     im_cut,

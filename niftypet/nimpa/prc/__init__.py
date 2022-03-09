@@ -2,7 +2,7 @@
 __all__ = [
     # imio
     'array2nii', 'create_dir', 'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort', 'fwhm2sig',
-    'getnii', 'getnii_descr', 'nii_gzip', 'nii_ugzip', 'niisort', 'orientnii', 'pick_t1w',
+    'mgh2nii', 'getmgh', 'getnii', 'getnii_descr', 'nii_gzip', 'nii_ugzip', 'niisort', 'orientnii', 'pick_t1w',
     'time_stamp',
     # prc
     'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'ct2mu', 'im_cut',
@@ -26,7 +26,9 @@ from .imio import (
     dcminfo,
     dcmsort,
     fwhm2sig,
+    mgh2nii,
     getnii,
+    getmgh,
     getnii_descr,
     nii_gzip,
     nii_ugzip,

@@ -5,6 +5,7 @@ import os
 import pathlib
 import re
 import shutil
+import numbers
 from subprocess import run
 from textwrap import dedent
 
@@ -16,6 +17,7 @@ from miutil.imio.nii import getnii  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_gzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_ugzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import niisort  # NOQA: F401 # yapf: disable
+
 
 # > NiftyPET resources
 from .. import resources as rs
@@ -48,6 +50,113 @@ def time_stamp(simple_ascii=False):
 
 def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
+
+
+
+def mgh2nii(fim, fout=None, output=None):
+    ''' Convert `*.mgh` or `*.mgz` FreeSurfer image to NIfTI.
+        Arguments:
+            fim: path to the input MGH file
+            fout: path to the output NIfTI file, if None then
+                  creates based on `fim` 
+            output: if not None and an applicable string it will
+            output a dictionary or an array (see below)
+        Return:
+            None: returns nothing
+            'image' or 'im': outputs just the image
+            'affine': outputs just the affine matrix
+            'all': outputs all as a dictionary
+    '''
+
+    if not os.path.isfile(fim):
+        raise ValueError('The input path is incorrect!')
+
+    # > get the image dictionary
+    mghd = getmgh(fim, output='all')
+    im = mghd['im']
+
+    # > sort out the output
+    if fout is None:
+        fout = fim.parent / (fim.name.split('.')[0]+'.nii.gz')
+
+    out = fout
+    if output=='image' or output=='im':
+        out = fout, im
+    elif output=='affine':
+        out = fout, mghd['affine']
+    elif output=='all':
+        out = mghd
+        out.update(dict(fout=fout))
+
+    array2nii(
+        mghd['im'],
+        mghd['affine'],
+        fout,
+        trnsp = (mghd['transpose'].index(0), mghd['transpose'].index(1), mghd['transpose'].index(2)),
+        flip = mghd['flip'])
+
+    return out
+
+
+def getmgh(fim, nan_replace=None, output='image'):
+    '''
+    Get image from `*.mgz` or `*.mgh` file (FreeSurfer).
+    Arguments:
+        fim: input file name for the MGH/Z image
+        output: option for choosing output: 'image', 'affine' matrix or 
+                'all' for a dictionary with all the info.
+    Return:
+        'image': outputs just the image
+        'affine': outputs just the affine matrix
+        'all': outputs all as a dictionary
+    '''
+
+    if not os.path.isfile(fim):
+        raise ValueError('The input path is incorrect!')
+
+    mgh = nib.freesurfer.load(str(fim))
+
+    if output == 'image' or output == 'all':
+        
+        imr = np.asanyarray(mgh.dataobj)
+        # replace NaNs if requested
+        if isinstance(nan_replace, numbers.Number):
+            imr[np.isnan(imr)] = nan_replace
+
+        imr = np.squeeze(imr)
+        dimno = imr.ndim
+
+        # > get orientations from the affine
+        ornt = nib.io_orientation(mgh.affine)
+        trnsp = tuple(np.flip(np.argsort(ornt[:, 0])))
+        flip = tuple(np.int8(ornt[:, 1]))
+
+        # > flip y-axis and z-axis and then transpose
+        if dimno == 4:   # dynamic
+            imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2], :], (3,) + trnsp)
+        elif dimno == 3: # static
+            imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2]], trnsp)
+
+
+        # # > voxel size
+        # voxsize = mgh.header.get('pixdim')[1:mgh.header.get('dim')[0] + 1]
+        # # > rearrange voxel size according to the orientation
+        # voxsize = voxsize[np.array(trnsp)]
+
+
+    if output == 'all':
+        out = {
+            'im': imr, 'affine': mgh.affine, 'fim': fim, 'dtype': mgh.get_data_dtype(), 'shape': imr.shape,
+            'hdr': mgh.header, 'transpose': trnsp, 'flip': flip}
+    elif output == 'image':
+        out = imr
+    elif output == 'affine':
+        out = mgh.affine
+    else:
+        raise NameError("Unrecognised output request!")
+
+    return out
+
 
 
 def getnii_descr(fim):
