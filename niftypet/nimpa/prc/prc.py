@@ -1288,7 +1288,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         outdct['fim'] = outdct['fim'][0]
         if 'fmsk' in outdct:
             outdct['fmsk'] = outdct['fmsk'][0]
-        
+
     return outdct
 
 
