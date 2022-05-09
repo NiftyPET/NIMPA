@@ -34,6 +34,8 @@ It's also recommended (but not required) to use `conda`.
       ipykernel numpy scipy scikit-image matplotlib ipywidgets
     pip install "nimpa>=2"
 
+For optional `dcm2niix <https://github.com/rordenlab/dcm2niix>`_ and/or `niftyreg <https://github.com/KCL-BMEIS/niftyreg>`_ support, use ``pip install nimpa[dcm2niix,niftyreg]>=2``.
+
 External CMake Projects
 ~~~~~~~~~~~~~~~~~~~~~~~
 
