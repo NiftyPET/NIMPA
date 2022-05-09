@@ -727,7 +727,6 @@ def pvc_iyang(
                 ft1w,
                 outpath=os.path.join(outpath, 'PET', 'positioning'),
                 fcomment=fcomment,
-                executable=Cnt['REGPATH'],
                 omp=multiprocessing.cpu_count() / 2,
                 rigOnly=True,
                 affDirect=False,
