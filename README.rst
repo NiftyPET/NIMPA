@@ -21,20 +21,16 @@ In order to facilitate these operations, NIMPA relies on third-party software fo
 Quick Install
 ~~~~~~~~~~~~~
 
-Note that installation prompts for setting the path to ``NiftyPET_tools``.
-This can be avoided by setting the environment variables ``PATHTOOLS``.
-It's also recommended (but not required) to use `conda`.
+Note that it's recommended (but not required) to use `conda`.
 
 .. code:: sh
 
-    # optional (Linux syntax) to avoid prompts
-    export PATHTOOLS=$HOME/NiftyPET_tools
     # cross-platform install
     conda install -c conda-forge python=3 \
-      ipykernel numpy scipy scikit-image matplotlib ipywidgets
+      ipykernel numpy scipy scikit-image matplotlib ipywidgets dcm2niix
     pip install "nimpa>=2"
 
-For optional `dcm2niix <https://github.com/rordenlab/dcm2niix>`_ and/or `niftyreg <https://github.com/KCL-BMEIS/niftyreg>`_ support, simply install them separately (``conda install dcm2niix`` and/or ``pip install niftyreg``).
+For optional `dcm2niix <https://github.com/rordenlab/dcm2niix>`_ and/or `niftyreg <https://github.com/KCL-BMEIS/niftyreg>`_ support, simply install them separately (``pip install dcm2niix niftyreg``).
 
 External CMake Projects
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -70,7 +66,7 @@ Licence
 Copyright 2018-21
 
 - `Pawel J. Markiewicz <https://github.com/pjmark>`__ @ University College London
-- `Casper O. da Costa-Luis <https://github.com/casperdcl>`__ @ King's College London
+- `Casper O. da Costa-Luis <https://github.com/casperdcl>`__ @ University College London/King's College London
 - `Contributors <https://github.com/NiftyPET/NIMPA/graphs/contributors>`__
 
 .. |Docs| image:: https://readthedocs.org/projects/niftypet/badge/?version=latest
