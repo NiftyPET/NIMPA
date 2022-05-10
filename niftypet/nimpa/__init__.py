@@ -37,7 +37,10 @@ __all__ = [
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
     'time_stamp'] # yapf: disable
 
-from numcu import add, div, mul
+try:
+    from numcu import add, div, mul
+except ImportError:
+    pass
 from pkg_resources import resource_filename
 
 from niftypet.ninst import cudasetup as cs
