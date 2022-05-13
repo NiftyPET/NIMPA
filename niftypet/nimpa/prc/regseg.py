@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import sys
+from os import fspath
 from subprocess import call
 from textwrap import dedent
 
@@ -276,7 +277,7 @@ def affine_niftyreg(
     fname_aff='',
     pickname='ref',
     fcomment='',
-    executable='',
+    executable=None,
     omp=1,
     rigOnly=False,
     affDirect=False,
@@ -294,10 +295,13 @@ def affine_niftyreg(
     fthrsh=0.05,
     verbose=True,
 ):
-
-    # check if the executable exists:
+    if not executable:
+        executable = getattr(rs, 'REGPATH', None)
+        if not executable:
+            from niftyreg import bin_path
+            executable = fspath(next(bin_path.glob("reg_aladin*")))
     if not os.path.isfile(executable):
-        raise IOError('Incorrect path to executable file for registration.')
+        raise IOError(f"executable not found:{executable}")
 
     # create a folder for images registered to ref
     if outpath != '':
@@ -377,16 +381,16 @@ def resample_niftyreg(
     fcomment='',
     pickname='ref',
     intrp=1,
-    executable='',
+    executable=None,
     verbose=True,
 ):
-
-    # check if the executable exists:
-    # if executable=='' and 'RESPATH' in Cnt and os.path.isfile(Cnt['RESPATH']):
-    #     executable = Cnt['RESPATH']
-
+    if not executable:
+        executable = getattr(rs, 'RESPATH', None)
+        if not executable:
+            from niftyreg import bin_path
+            executable = fspath(next(bin_path.glob("reg_resample*")))
     if not os.path.isfile(executable):
-        raise IOError('Incorrect path to executable file for registration.')
+        raise IOError(f"executable not found:{executable}")
 
     # > output path
     if outpath == '' and fimout != '':
