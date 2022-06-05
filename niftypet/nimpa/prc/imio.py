@@ -744,19 +744,19 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             
             if grouping=='t+d':
                 if (np.array_equal(srs[s]['imorient'], ornt)
-                    and np.array_equal(srs[s]['imsize'], imsz)
-                    and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
-                    and srs[s]['series'] == srs_dcrp):
-                recognised_series = True
-                break
+                        and np.array_equal(srs[s]['imsize'], imsz)
+                        and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
+                        and srs[s]['series'] == srs_dcrp):
+                    recognised_series = True
+                    break
                 
             elif grouping=='d':
                 if (np.array_equal(srs[s]['imorient'], ornt)
-                    and np.array_equal(srs[s]['imsize'], imsz)
-                    and np.array_equal(srs[s]['voxsize'], vxsz)
-                    and srs[s]['series'] == srs_dcrp):
-                recognised_series = True
-                break
+                        and np.array_equal(srs[s]['imsize'], imsz)
+                        and np.array_equal(srs[s]['voxsize'], vxsz)
+                        and srs[s]['series'] == srs_dcrp):
+                    recognised_series = True
+                    break
 
             else:
                 raise ValueError('Unrecognised grouping option')
