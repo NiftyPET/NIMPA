@@ -672,8 +672,18 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         dhdr.save_as(dcmf)
 
 
-def dcmsort(folder, copy_series=False, Cnt=None, outpath=None):
-    '''Sort out the DICOM files in the folder according to the recorded series.'''
+def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
+    '''
+        sort out the DICOM files in the folder according to the recorded series.
+        options:
+        - copy_series: if True it makes folders for each series and copies DICOM
+                       files into each corresponding folder.
+        - Cnt: dictionary of constants (currently not used)
+        - outpath: the output path where the series folders are created
+        - grouping: defines how series are recognised, i.e., either by time plus
+                    series description ('t+d') or by the description only ('d').
+    '''
+
     # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
@@ -690,29 +700,40 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None):
             srs.setdefault('unaccounted', [])
             srs['unaccounted'].append(f)
             continue
+        
         # --------------------------------
-        # image size
+        # > image size
         imsz = np.zeros(2, dtype=np.int64)
         if [0x028, 0x010] in dhdr:
             imsz[0] = dhdr[0x028, 0x010].value
         if [0x028, 0x011] in dhdr:
             imsz[1] = dhdr[0x028, 0x011].value
-        # voxel size
+        
+        # > voxel size
         vxsz = np.zeros(3, dtype=np.float64)
         if [0x028, 0x030] in dhdr and [0x018, 0x050] in dhdr:
             pxsz = np.array([float(e) for e in dhdr[0x028, 0x030].value])
             vxsz[:2] = pxsz
             vxsz[2] = float(dhdr[0x018, 0x050].value)
-        # orientation
+        
+        # > orientation
         ornt = np.zeros(6, dtype=np.float64)
         if [0x020, 0x037] in dhdr:
             ornt = np.array([float(e) for e in dhdr[0x20, 0x37].value])
-        # series description, time and study time
+        
+        # > series description, time and study time
         srs_dcrp = ''
         if [0x0008, 0x103e] in dhdr:
             srs_dcrp = dhdr[0x0008, 0x103e].value
+
+        prtcl = ''
+        # > protocol
+        if [0x018, 0x1030] in d:
+            prtcl = d[0x018, 0x1030].value
+
         srs_time = dhdr[0x0008, 0x0031].value[:6]
         std_time = dhdr[0x0008, 0x0030].value[:6]
+        # --------------------------------
 
         log.info(
             dedent('''\
@@ -735,13 +756,20 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None):
                 break
         # if series was not found, create one
         if not recognised_series:
-            s = srs_time + '_' + srs_dcrp
+            if grouping=='t+d':
+                s = srs_time + '_' + srs_dcrp
+            elif grouping=='d':
+                s = srs_dcrp
+            else:
+                raise ValueError('Unrecognised grouping option')
+
             srs[s] = {}
             srs[s]['imorient'] = ornt
             srs[s]['imsize'] = imsz
             srs[s]['voxsize'] = vxsz
             srs[s]['tseries'] = srs_time
             srs[s]['series'] = srs_dcrp
+            srs[s]['protocol'] = prtcl
 
         # append the file name
         srs[s].setdefault('files', [])
