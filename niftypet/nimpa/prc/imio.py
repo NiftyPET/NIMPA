@@ -741,13 +741,29 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         recognised_series = False
         srs_k = list(srs.keys())
         for s in srs_k:
-            if (np.array_equal(srs[s]['imorient'], ornt)
+            
+            if grouping=='t+d':
+                if (np.array_equal(srs[s]['imorient'], ornt)
                     and np.array_equal(srs[s]['imsize'], imsz)
                     and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
                     and srs[s]['series'] == srs_dcrp):
                 recognised_series = True
                 break
-        # if series was not found, create one
+                
+            elif grouping=='d':
+                if (np.array_equal(srs[s]['imorient'], ornt)
+                    and np.array_equal(srs[s]['imsize'], imsz)
+                    and np.array_equal(srs[s]['voxsize'], vxsz)
+                    and srs[s]['series'] == srs_dcrp):
+                recognised_series = True
+                break
+
+            else:
+                raise ValueError('Unrecognised grouping option')
+
+            
+        
+        # >  if series was not found, create one
         if not recognised_series:
             if grouping=='t+d':
                 s = srs_time + '_' + srs_dcrp
