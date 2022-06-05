@@ -727,7 +727,6 @@ def pvc_iyang(
                 ft1w,
                 outpath=os.path.join(outpath, 'PET', 'positioning'),
                 fcomment=fcomment,
-                executable=Cnt['REGPATH'],
                 omp=multiprocessing.cpu_count() / 2,
                 rigOnly=True,
                 affDirect=False,
@@ -1288,7 +1287,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
         outdct['fim'] = outdct['fim'][0]
         if 'fmsk' in outdct:
             outdct['fmsk'] = outdct['fmsk'][0]
-        
+
     return outdct
 
 

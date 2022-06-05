@@ -1,11 +1,11 @@
 """image input/output functionalities."""
 import datetime
 import logging
+import numbers
 import os
 import pathlib
 import re
 import shutil
-import numbers
 from subprocess import run
 from textwrap import dedent
 
@@ -17,7 +17,6 @@ from miutil.imio.nii import getnii  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_gzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_ugzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import niisort  # NOQA: F401 # yapf: disable
-
 
 # > NiftyPET resources
 from .. import resources as rs
@@ -52,13 +51,12 @@ def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
 
 
-
 def mgh2nii(fim, fout=None, output=None):
     ''' Convert `*.mgh` or `*.mgz` FreeSurfer image to NIfTI.
         Arguments:
             fim: path to the input MGH file
             fout: path to the output NIfTI file, if None then
-                  creates based on `fim` 
+                  creates based on `fim`
             output: if not None and an applicable string it will
             output a dictionary or an array (see below)
         Return:
@@ -77,23 +75,21 @@ def mgh2nii(fim, fout=None, output=None):
 
     # > sort out the output
     if fout is None:
-        fout = fim.parent / (fim.name.split('.')[0]+'.nii.gz')
+        fout = fim.parent / (fim.name.split('.')[0] + '.nii.gz')
 
     out = fout
-    if output=='image' or output=='im':
+    if output == 'image' or output == 'im':
         out = fout, im
-    elif output=='affine':
+    elif output == 'affine':
         out = fout, mghd['affine']
-    elif output=='all':
+    elif output == 'all':
         out = mghd
-        out.update(dict(fout=fout))
+        out['fout'] = fout
 
     array2nii(
-        mghd['im'],
-        mghd['affine'],
-        fout,
-        trnsp = (mghd['transpose'].index(0), mghd['transpose'].index(1), mghd['transpose'].index(2)),
-        flip = mghd['flip'])
+        mghd['im'], mghd['affine'], fout,
+        trnsp=(mghd['transpose'].index(0), mghd['transpose'].index(1), mghd['transpose'].index(2)),
+        flip=mghd['flip'])
 
     return out
 
@@ -103,7 +99,7 @@ def getmgh(fim, nan_replace=None, output='image'):
     Get image from `*.mgz` or `*.mgh` file (FreeSurfer).
     Arguments:
         fim: input file name for the MGH/Z image
-        output: option for choosing output: 'image', 'affine' matrix or 
+        output: option for choosing output: 'image', 'affine' matrix or
                 'all' for a dictionary with all the info.
     Return:
         'image': outputs just the image
@@ -117,7 +113,7 @@ def getmgh(fim, nan_replace=None, output='image'):
     mgh = nib.freesurfer.load(str(fim))
 
     if output == 'image' or output == 'all':
-        
+
         imr = np.asanyarray(mgh.dataobj)
         # replace NaNs if requested
         if isinstance(nan_replace, numbers.Number):
@@ -137,17 +133,15 @@ def getmgh(fim, nan_replace=None, output='image'):
         elif dimno == 3: # static
             imr = np.transpose(imr[::-flip[0], ::-flip[1], ::-flip[2]], trnsp)
 
-
         # # > voxel size
         # voxsize = mgh.header.get('pixdim')[1:mgh.header.get('dim')[0] + 1]
         # # > rearrange voxel size according to the orientation
         # voxsize = voxsize[np.array(trnsp)]
 
-
     if output == 'all':
         out = {
-            'im': imr, 'affine': mgh.affine, 'fim': fim, 'dtype': mgh.get_data_dtype(), 'shape': imr.shape,
-            'hdr': mgh.header, 'transpose': trnsp, 'flip': flip}
+            'im': imr, 'affine': mgh.affine, 'fim': fim, 'dtype': mgh.get_data_dtype(),
+            'shape': imr.shape, 'hdr': mgh.header, 'transpose': trnsp, 'flip': flip}
     elif output == 'image':
         out = imr
     elif output == 'affine':
@@ -156,7 +150,6 @@ def getmgh(fim, nan_replace=None, output='image'):
         raise NameError("Unrecognised output request!")
 
     return out
-
 
 
 def getnii_descr(fim):
@@ -411,7 +404,7 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
 
     if validTs:
         mrdct = {
-            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst':inst,
+            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst': inst,
             'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
             'TE': TE}
     # ---------------------------------------------
@@ -438,11 +431,11 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     elif isPET:
         petdct = {
             'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
-            'inst':inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type, 'units': unt,
-            'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf, 'attenuation': atten,
-            'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf, 'dead_time': dt,
-            'tracer': tracer, 'total_dose': tdose, 'half_life': hlife, 'positron_fract': pfract,
-            'radio_start_time': ttime0, 'radio_stop_time': ttime1}
+            'inst': inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type,
+            'units': unt, 'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf,
+            'attenuation': atten, 'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf,
+            'dead_time': dt, 'tracer': tracer, 'total_dose': tdose, 'half_life': hlife,
+            'positron_fract': pfract, 'radio_start_time': ttime0, 'radio_stop_time': ttime1}
 
         out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
 

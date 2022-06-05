@@ -30,14 +30,17 @@ __all__ = [
     'centre_mass_img', 'centre_mass_corr', 'coreg_spm', 'coreg_vinci',
     'create_dir', 'create_mask', 'ct2mu',
     'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort',
-    'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getmgh', 'getnii', 'mgh2nii'
+    'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getmgh', 'getnii', 'mgh2nii',
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
     'time_stamp'] # yapf: disable
 
-from numcu import add, div, mul
+try:
+    from numcu import add, div, mul
+except ImportError:
+    pass
 from pkg_resources import resource_filename
 
 from niftypet.ninst import cudasetup as cs
@@ -69,7 +72,6 @@ from .prc import (
     dice_coeff_multiclass,
     fwhm2sig,
     getmgh,
-    mgh2nii,
     getnii,
     getnii_descr,
     im_cut,
@@ -77,6 +79,7 @@ from .prc import (
     imsmooth,
     isub,
     iyang,
+    mgh2nii,
     motion_reg,
     nii_gzip,
     nii_modify,

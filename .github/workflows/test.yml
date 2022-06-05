@@ -69,8 +69,6 @@ jobs:
         gpg_key: ${{ secrets.GPG_KEY }}
         password: ${{ secrets.PYPI_TOKEN }}
         upload: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
-      env:
-        PATHTOOLS: ${{ github.workspace }}/NiftyPET_tools
     - id: meta
       name: Changelog
       run: |
