@@ -726,6 +726,9 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
 
         srs_time = dhdr[0x0008, 0x0031].value[:6]
         std_time = dhdr[0x0008, 0x0030].value[:6]
+
+        # > study date
+        std_date = dhdr[0x008, 0x020].value
         # --------------------------------
 
         log.info(
@@ -777,6 +780,8 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['imsize'] = imsz
             srs[s]['voxsize'] = vxsz
             srs[s]['tseries'] = srs_time
+            srs[s]['tstudy'] = std_time
+            srs[s]['dstudy'] = std_date
             srs[s]['series'] = srs_dcrp
             srs[s]['protocol'] = prtcl
 
