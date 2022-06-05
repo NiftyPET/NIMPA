@@ -721,8 +721,8 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
 
         prtcl = ''
         # > protocol
-        if [0x018, 0x1030] in d:
-            prtcl = d[0x018, 0x1030].value
+        if [0x018, 0x1030] in dhdr:
+            prtcl = dhdr[0x018, 0x1030].value
 
         srs_time = dhdr[0x0008, 0x0031].value[:6]
         std_time = dhdr[0x0008, 0x0030].value[:6]
