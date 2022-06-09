@@ -681,18 +681,23 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
     if Cnt is None:
         Cnt = {}
 
-    # list files in the input folder
-    files = (str(f) for f in pathlib.Path(folder).iterdir()
-             if f.is_file() and f.suffix[1:] in dcmext)
+    # # list files in the input folder
+    # files = (str(f) for f in pathlib.Path(folder).iterdir()
+    #          if f.is_file() and f.suffix[1:] in dcmext)
 
     srs = {}
-    for f in files:
+
+    for f in pathlib.Path(folder).iterdir():
+
+        #---------------------------------
+        if not f.is_file(): continue
         try:
-            dhdr = dcm.read_file(f)
-        except (TypeError, dcm.InvalidDicomError):
-            srs.setdefault('unaccounted', [])
-            srs['unaccounted'].append(f)
+            dhdr = dcm.dcmread(f)
+            files.append(f)
+        except:
             continue
+        #---------------------------------
+
         
         # --------------------------------
         # > image size
