@@ -693,7 +693,6 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         if not f.is_file(): continue
         try:
             dhdr = dcm.dcmread(f)
-            files.append(f)
         except:
             continue
         #---------------------------------
