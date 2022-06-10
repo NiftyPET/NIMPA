@@ -674,7 +674,9 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         - Cnt: dictionary of constants (currently not used)
         - outpath: the output path where the series folders are created
         - grouping: defines how series are recognised, i.e., either by time plus
-                    series description ('t+d') or by the description only ('d').
+                    series description ('t+d') or by the description only ('d'), 
+                    or by acquisition and series times plus series description
+                    ('a+t+d').
     '''
 
     # > check if the dictionary of constant is given
@@ -730,6 +732,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
 
         srs_time = dhdr[0x0008, 0x0031].value[:6]
         std_time = dhdr[0x0008, 0x0030].value[:6]
+        acq_time = dhdr[0x0008, 0x0032].value[:6]
 
         # > study date
         std_date = dhdr[0x008, 0x020].value
@@ -754,6 +757,14 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                         and np.array_equal(srs[s]['imsize'], imsz)
                         and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
                         and srs[s]['series'] == srs_dcrp):
+                    recognised_series = True
+                    break
+
+            if grouping=='a+t+d':
+                if (np.array_equal(srs[s]['imorient'], ornt)
+                        and np.array_equal(srs[s]['imsize'], imsz)
+                        and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
+                        and srs[s]['tacq'] == acq_time and srs[s]['series'] == srs_dcrp):
                     recognised_series = True
                     break
                 
@@ -783,6 +794,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['imorient'] = ornt
             srs[s]['imsize'] = imsz
             srs[s]['voxsize'] = vxsz
+            srs[s]['tacq'] = acq_time
             srs[s]['tseries'] = srs_time
             srs[s]['tstudy'] = std_time
             srs[s]['dstudy'] = std_date
