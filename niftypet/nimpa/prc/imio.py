@@ -785,6 +785,8 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         if not recognised_series:
             if grouping=='t+d':
                 s = srs_time + '_' + srs_dcrp
+            elif grouping=='a+t+d':
+                s = acq_time +'_'+ srs_time +'_'+ srs_dcrp
             elif grouping=='d':
                 s = srs_dcrp
             else:
