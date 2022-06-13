@@ -380,10 +380,12 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
             pfract = float(tinf[0x018, 0x1076].value)
 
         if [0x018, 0x1078] in tinf:
-            ttime0 = datetime.datetime.strptime(tinf[0x018, 0x1078].value, '%Y%m%d%H%M%S.%f')
+            tmp = tinf[0x018, 0x1078].value.split('.')[0]
+            ttime0 = datetime.datetime.strptime(tmp, '%Y%m%d%H%M%S')
 
         if [0x018, 0x1079] in tinf:
-            ttime1 = datetime.datetime.strptime(tinf[0x018, 0x1079].value, '%Y%m%d%H%M%S.%f')
+            tmp = tinf[0x018, 0x1079].value.split('.')[0]
+            ttime1 = datetime.datetime.strptime(tmp, '%Y%m%d%H%M%S')
 
     isPET = (tracer is not None) and (srs_type in ['STATIC', 'DYNAMIC', 'WHOLE BODY'
                                                    'GATED'])
