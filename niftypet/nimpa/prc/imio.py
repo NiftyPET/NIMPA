@@ -208,14 +208,15 @@ def pick_t1w(mri):
 
 
 # ======================================================================
-def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
+def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
     """
-    Get basic info about the DICOM file/header.
+    Get DICOM info from file/header.
     Args:
       dcmvar: DICOM header as a file/string/dictionary
       Cnt(dict): constants used in advanced reconstruction or analysis
-      output(str): 'detail' outputs all; 'basic' outputs scanner ID and
-        series/protocol string
+      output(str): 'class' outputs all with classification;
+        'basic' outputs scanner ID and series/protocol string;
+        'detail' gives most relevant tags in dictionary
       t1_name(str): helps identify T1w MR image present in series or file names
     """
     if Cnt is None:
@@ -234,15 +235,20 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     dtype = dhdr[0x08, 0x08].value
     log.debug('   Image Type: {}'.format(dtype))
 
+    # > output dictionary
+    outdct = {}
+
     # ------------------------------------------
     # > scanner ID
     scanner_vendor = 'unknown'
     if [0x008, 0x070] in dhdr:
         scanner_vendor = dhdr[0x008, 0x070].value
+        outdct['scnr_vndr'] = scanner_vendor
 
     scanner_model = 'unknown'
     if [0x008, 0x1090] in dhdr:
         scanner_model = dhdr[0x008, 0x1090].value
+        outdct['scnr_mdl'] = scanner_model
 
     scanner_id = 'other'
     if any(s in scanner_model
@@ -250,6 +256,8 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
         scanner_id = 'mmr'
     elif 'signa' in scanner_model.lower() and 'ge' in scanner_vendor.lower():
         scanner_id = 'signa'
+
+    outdct['scnr_id'] = scanner_id
     # ------------------------------------------
 
     # ------------------------------------------
@@ -257,50 +265,83 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     study_time = None
     if [0x008, 0x030] in dhdr and [0x008, 0x020] in dhdr:
         val = dhdr[0x008, 0x020].value + dhdr[0x008, 0x030].value
-        val = val.split('.')[0]
-        study_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+        if '.' in val:
+            study_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
+        else:
+            study_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+
+        outdct['st_time'] = study_time
 
     series_time = None
     if [0x008, 0x031] in dhdr and [0x008, 0x021] in dhdr:
         val = dhdr[0x008, 0x021].value + dhdr[0x008, 0x031].value
-        val = val.split('.')[0]
-        series_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+        if '.' in val:
+            series_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
+        else:
+            series_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+
+        outdct['sr_time'] = series_time
 
     acq_time = None
     if [0x008, 0x032] in dhdr and [0x008, 0x022] in dhdr:
         val = dhdr[0x008, 0x022].value + dhdr[0x008, 0x032].value
-        val = val.split('.')[0]
-        acq_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+        if '.' in val:
+            acq_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
+        else:
+            acq_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+
+        outdct['aq_time'] = acq_time
     # ------------------------------------------
-
-    # > CSA type (mMR)
-    csatype = ''
-    if [0x29, 0x1108] in dhdr:
-        csatype = dhdr[0x29, 0x1108].value
-        log.debug('   CSA Data Type: {}'.format(csatype))
-
-    # > DICOM comment or on MR parameters
-    cmmnt = ''
-    if [0x20, 0x4000] in dhdr:
-        cmmnt = dhdr[0x0020, 0x4000].value
-        log.debug('   Comments: {}'.format(cmmnt))
 
     # > institution
     inst = ''
     if [0x008, 0x080] in dhdr:
         inst = dhdr[0x008, 0x080].value
+        outdct['inst_name'] = inst
 
     prtcl = ''
     if [0x18, 0x1030] in dhdr:
         prtcl = dhdr[0x18, 0x1030].value
+        outdct['pr_name'] = prtcl
 
     srs = ''
     if [0x08, 0x103e] in dhdr:
         srs = dhdr[0x08, 0x103e].value
+        outdct['sr_name'] = srs
 
+    # > units
     unt = None
     if [0x054, 0x1001] in dhdr:
         unt = dhdr[0x054, 0x1001].value
+        outdct['units'] = unt
+
+    # > sequence name
+    if [0x018, 0x024] in dhdr:
+        outdct['sq_name'] = dhdr[0x018, 0x024].value
+
+    #------- PATIENT -------
+    # > patient size
+    if [0x010, 0x1020] in dhdr:
+        outdct['pat_size'] = dhdr[0x010, 0x1020].value
+
+    # > patient sex
+    if [0x010, 0x040] in dhdr:
+        outdct['pat_sex'] = dhdr[0x010, 0x040].value
+
+    # > patient DoB
+    if [0x010, 0x030] in dhdr:
+        outdct['pat_dob'] = dhdr[0x010, 0x030].value
+
+    # > patient weight
+    if [0x010, 0x1030] in dhdr:
+        outdct['pat_weight'] = dhdr[0x010, 0x1030].value
+
+    # > patient age
+    if [0x010, 0x1010] in dhdr:
+        outdct['pat_age'] = dhdr[0x010, 0x1010].value
+    #-----------------------
+
+
 
     # +++++++++++++++++++++++++++++++++++++++++++++
     if output == 'basic':
@@ -308,53 +349,71 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
         return out
     # +++++++++++++++++++++++++++++++++++++++++++++
 
-    # ---------------------------------------------
+
+
+    #=================================================================
+    # PET
+    #-----------------------------------------------------------------
+    if [0x054, 0x1000] in dhdr or [0x054, 0x000] in dhdr:
+        outdct['PET'] = {}
+
     # > PET parameters
     srs_type = None
     if [0x054, 0x1000] in dhdr:
         srs_type = dhdr[0x054, 0x1000].value[0]
+        outdct['PET']['sr_type'] = srs_type
 
     recon = None
     if [0x054, 0x1103] in dhdr:
         recon = dhdr[0x054, 0x1103].value
+        outdct['PET']['recon'] = recon
 
     decay_corr = None
     if [0x054, 0x1102] in dhdr:
         decay_corr = dhdr[0x054, 0x1102].value
+        outdct['PET']['decay_crr'] = decay_corr
 
     # > decay factor
     dcf = None
     if [0x054, 0x1321] in dhdr:
         dcf = float(dhdr[0x054, 0x1321].value)
+        outdct['PET']['decay_fcr'] = dcf
 
     atten = None
     if [0x054, 0x1101] in dhdr:
         atten = dhdr[0x054, 0x1101].value
+        outdct['PET']['ac_mth'] = atten
 
     scat = None
     if [0x054, 0x1105] in dhdr:
         scat = dhdr[0x054, 0x1105].value
+        outdct['PET']['sc_mth'] = scat
 
     # > scatter factor
     scf = None
     if [0x054, 0x1323] in dhdr:
         scf = float(dhdr[0x054, 0x1323].value)
+        outdct['PET']['sc_fcr'] = scf
 
     # > randoms correction method
     rand = None
     if [0x054, 0x1100] in dhdr:
         rand = dhdr[0x054, 0x1100].value
+        outdct['PET']['rc_mth'] = rand
 
     # > dose calibration factor
     dscf = None
     if [0x054, 0x1322] in dhdr:
         dscf = float(dhdr[0x054, 0x1322].value)
+        outdct['PET']['dose_calib_fcr'] = dscf
 
     # > dead time factor
     dt = None
     if [0x054, 0x1324] in dhdr:
         dt = float(dhdr[0x054, 0x1324].value)
+        outdct['PET']['dt_fcr'] = dt
 
+    #-----------------------------------------------------------------
     # RADIO TRACER
     tracer = None
     tdose = None
@@ -369,28 +428,40 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
 
         if [0x018, 0x031] in tinf:
             tracer = tinf[0x018, 0x031].value
+            outdct['PET']['tracer'] = tracer
 
         if [0x018, 0x1074] in tinf:
             tdose = float(tinf[0x018, 0x1074].value)
+            outdct['PET']['dose_tot'] = tdose
 
         if [0x018, 0x1075] in tinf:
             hlife = float(tinf[0x018, 0x1075].value)
+            outdct['PET']['hlife'] = hlife
 
         if [0x018, 0x1076] in tinf:
             pfract = float(tinf[0x018, 0x1076].value)
+            outdct['PET']['positron_frc'] = pfract
 
         if [0x018, 0x1078] in tinf:
-            tmp = tinf[0x018, 0x1078].value.split('.')[0]
-            ttime0 = datetime.datetime.strptime(tmp, '%Y%m%d%H%M%S')
+            val = tinf[0x018, 0x1078].value
+            if '.' in val:
+                ttime0 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
+            else:
+                ttime0 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+            
+            outdct['PET']['radio_start_time'] = ttime0
 
         if [0x018, 0x1079] in tinf:
-            tmp = tinf[0x018, 0x1079].value.split('.')[0]
-            ttime1 = datetime.datetime.strptime(tmp, '%Y%m%d%H%M%S')
+            tmp = tinf[0x018, 0x1079].value
+            if '.' in val:
+                ttime1 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
+            else:
+                ttime1 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+            
+            outdct['PET']['radio_stop_time'] = ttime1
+    #-----------------------------------------------------------------
 
-    isPET = (tracer is not None) and (srs_type in ['STATIC', 'DYNAMIC', 'WHOLE BODY'
-                                                   'GATED'])
-    # ---------------------------------------------
-
+    
     # ---------------------------------------------
     # > MR parameters (echo time, etc)
     TR = None
@@ -405,11 +476,33 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
     validTs = TR is not None and TE is not None
 
     if validTs:
-        mrdct = {
-            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst': inst,
-            'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
-            'TE': TE}
+        outdct['MR'] = dict(TR=TR, TE=TE)
+        # mrdct = {
+        #     'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst': inst,
+        #     'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
+        #     'TE': TE}
+        mrdct = outdct
     # ---------------------------------------------
+
+
+    # +++++++++++++++++++++++++++++++++++++++++++++
+    if output=='detail':
+        return outdct
+    # +++++++++++++++++++++++++++++++++++++++++++++
+
+    isPET = (tracer is not None) and (srs_type in ['STATIC', 'DYNAMIC', 'WHOLE BODY', 'GATED'])
+
+    # > CSA type (mMR)
+    csatype = ''
+    if [0x29, 0x1108] in dhdr:
+        csatype = dhdr[0x29, 0x1108].value
+        log.debug('   CSA Data Type: {}'.format(csatype))
+
+    # > DICOM comment or on MR parameters
+    cmmnt = ''
+    if [0x20, 0x4000] in dhdr:
+        cmmnt = dhdr[0x0020, 0x4000].value
+        log.debug('   Comments: {}'.format(cmmnt))
 
     # > check for RAW data
     if any('PET_NORM' in s
@@ -431,13 +524,14 @@ def dcminfo(dcmvar, Cnt=None, output='detail', t1_name='mprage'):
         out = ['mr', 'mumap', 'ute', 'mr', scanner_id]
 
     elif isPET:
-        petdct = {
-            'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
-            'inst': inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type,
-            'units': unt, 'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf,
-            'attenuation': atten, 'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf,
-            'dead_time': dt, 'tracer': tracer, 'total_dose': tdose, 'half_life': hlife,
-            'positron_fract': pfract, 'radio_start_time': ttime0, 'radio_stop_time': ttime1}
+        # petdct = {
+        #     'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
+        #     'inst': inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type,
+        #     'units': unt, 'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf,
+        #     'attenuation': atten, 'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf,
+        #     'dead_time': dt, 'tracer': tracer, 'total_dose': tdose, 'half_life': hlife,
+        #     'positron_fract': pfract, 'radio_start_time': ttime0, 'radio_stop_time': ttime1}
+        petdct = outdct
 
         out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
 
