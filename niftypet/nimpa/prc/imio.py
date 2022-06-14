@@ -291,6 +291,12 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
             acq_time = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
 
         outdct['aq_time'] = acq_time
+
+    # > frame duration time
+    if [0x018, 0x1242] in dhdr:
+        val = np.int32(dhdr[0x018, 0x1242].value)
+        outdct['frm_dur'] = datetime.timedelta(milliseconds=val)
+
     # ------------------------------------------
 
     # > institution
