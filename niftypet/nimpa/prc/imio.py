@@ -466,6 +466,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
             
             outdct['PET']['radio_stop_time'] = ttime1
     #-----------------------------------------------------------------
+        
 
     
     # ---------------------------------------------
@@ -649,6 +650,16 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         if [0x018, 0x1242] in dhdr:
             val = np.round(int(dhdr[0x018, 0x1242].value)/1e3, decimals=1)
             frm_dur = datetime.timedelta(seconds=val)
+
+        # > time of tracer administration (start)
+        if [0x054, 0x016] in dhdr:
+            trinf = dhdr[0x054, 0x016][0]
+            if [0x018, 0x1078] in trinf:
+                val = trinf[0x018, 0x1078].value
+                if '.' in val:
+                    tinjct = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
+                else:
+                    tinjct = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
         # --------------------------------
 
         log.info(
@@ -715,6 +726,9 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['dstudy'] = std_date
             srs[s]['series'] = srs_dcrp
             srs[s]['protocol'] = prtcl
+            
+            if [0x054, 0x016] in dhdr and [0x018, 0x1078] in dhdr[0x054, 0x016][0]:
+                srs[s]['radio_start_time'] = tinjct
             if frm_dur is not None:
                 srs[s]['frm_dur'] = frm_dur
 
