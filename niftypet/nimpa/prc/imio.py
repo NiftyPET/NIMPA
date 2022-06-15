@@ -652,6 +652,9 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             frm_dur = datetime.timedelta(seconds=val)
 
         # > time of tracer administration (start)
+        tinjct = None
+        # > PET tracer if present
+        trcr = None
         if [0x054, 0x016] in dhdr:
             trinf = dhdr[0x054, 0x016][0]
             if [0x018, 0x1078] in trinf:
@@ -660,6 +663,9 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                     tinjct = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
                 else:
                     tinjct = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+
+            if [0x018, 0x031] in trinf:
+                trcr = trinf[0x018, 0x031].value
         # --------------------------------
 
         log.info(
@@ -727,10 +733,12 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['series'] = srs_dcrp
             srs[s]['protocol'] = prtcl
 
-            if [0x054, 0x016] in dhdr and [0x018, 0x1078] in dhdr[0x054, 0x016][0]:
+            if tinjct is not None:
                 srs[s]['radio_start_time'] = tinjct
             if frm_dur is not None:
                 srs[s]['frm_dur'] = frm_dur
+            if trcr is not None:
+                srs[s]['tracer'] = trcr
 
         # append the file name
         srs[s].setdefault('files', [])
