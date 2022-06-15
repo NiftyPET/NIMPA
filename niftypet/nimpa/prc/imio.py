@@ -294,7 +294,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
 
     # > frame duration time
     if [0x018, 0x1242] in dhdr:
-        val = np.int32(dhdr[0x018, 0x1242].value)
+        val = int(dhdr[0x018, 0x1242].value)
         outdct['frm_dur'] = datetime.timedelta(milliseconds=val)
 
     # ------------------------------------------
