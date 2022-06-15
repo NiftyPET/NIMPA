@@ -23,8 +23,13 @@ from .. import resources as rs
 
 log = logging.getLogger(__name__)
 
-# possible extentions for DICOM files
+# > possible extensions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
+
+
+# > remove characters unwanted in file/folder names
+avoid_chars = '{}[]!@#$%^&*.()+=:;~ '
+
 
 # > DICOM coding of PET isotopes
 istp_code = {
@@ -49,6 +54,18 @@ def time_stamp(simple_ascii=False):
 
 def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
+
+
+
+def rem_chars(txt, replacement_char='_'):
+    for c in avoid_chars:
+        txt = txt.replace(c, '_')
+
+    while txt[0]==rplcm_char:
+        txt = txt[1:]
+    
+    return txt
+
 
 
 def mgh2nii(fim, fout=None, output=None):
@@ -754,7 +771,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 else:
                     out = outpath
 
-            srsdir = os.path.join(out, s)
+            srsdir = os.path.join(out, rem_chars(s))
             create_dir(srsdir)
             shutil.copy(f, srsdir)
             srs[s]['files'].append(os.path.join(srsdir, os.path.basename(f)))
