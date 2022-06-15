@@ -61,7 +61,7 @@ def rem_chars(txt, replacement_char='_'):
     for c in avoid_chars:
         txt = txt.replace(c, '_')
 
-    while txt[0]==rplcm_char:
+    while txt[0]==replacement_char:
         txt = txt[1:]
     
     return txt
