@@ -648,7 +648,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         frm_dur = None
         # > frame duration time (for PET)
         if [0x018, 0x1242] in dhdr:
-            val = np.round(int(dhdr[0x018, 0x1242].value)/1e3, decimals=1)
+            val = np.round(int(dhdr[0x018, 0x1242].value)/1e3, decimals=0)
             frm_dur = datetime.timedelta(seconds=val)
 
         # > time of tracer administration (start)
@@ -726,7 +726,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['dstudy'] = std_date
             srs[s]['series'] = srs_dcrp
             srs[s]['protocol'] = prtcl
-            
+
             if [0x054, 0x016] in dhdr and [0x018, 0x1078] in dhdr[0x054, 0x016][0]:
                 srs[s]['radio_start_time'] = tinjct
             if frm_dur is not None:
