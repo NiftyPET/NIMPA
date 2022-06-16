@@ -4,6 +4,7 @@ import logging
 import numbers
 import os
 import pathlib
+from pathlib import Path
 import re
 import shutil
 from subprocess import run
@@ -604,17 +605,19 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                     ('a+t+d').
     '''
 
+
+    # > insure that `folder` is Path object
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise ValueError('Incorrect input folder!')
+
     # > check if the dictionary of constant is given
     if Cnt is None:
         Cnt = {}
 
-    # # list files in the input folder
-    # files = (str(f) for f in pathlib.Path(folder).iterdir()
-    #          if f.is_file() and f.suffix[1:] in dcmext)
-
     srs = {}
 
-    for f in pathlib.Path(folder).iterdir():
+    for f in folder.iterdir():
 
         #---------------------------------
         if not f.is_file(): continue
@@ -769,12 +772,12 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                     log.warning(
                         f"could not create specified output folder, using input folder.\n\n{e}")
                 else:
-                    out = outpath
+                    out = Path(outpath)
 
-            srsdir = os.path.join(out, rem_chars(s))
+            srsdir = out/rem_chars(s)
             create_dir(srsdir)
-            shutil.copy(f, srsdir)
-            srs[s]['files'].append(os.path.join(srsdir, os.path.basename(f)))
+            shutil.copy(f, ssrsdir)
+            srs[s]['files'].append(srsdir/f.name)
         else:
             srs[s]['files'].append(f)
 
