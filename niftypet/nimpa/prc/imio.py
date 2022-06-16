@@ -776,7 +776,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
 
             srsdir = out/rem_chars(s)
             create_dir(srsdir)
-            shutil.copy(f, ssrsdir)
+            shutil.copy(f, srsdir)
             srs[s]['files'].append(srsdir/f.name)
         else:
             srs[s]['files'].append(f)
