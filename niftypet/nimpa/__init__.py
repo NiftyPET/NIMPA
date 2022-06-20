@@ -35,7 +35,7 @@ __all__ = [
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
-    'time_stamp'] # yapf: disable
+    'time_stamp', 'rem_chars'] # yapf: disable
 
 try:
     from numcu import add, div, mul
@@ -100,6 +100,7 @@ from .prc import (
     resample_spm,
     resample_vinci,
     time_stamp,
+    rem_chars,
 )
 
 # for use in `cmake -DCMAKE_PREFIX_PATH=...`

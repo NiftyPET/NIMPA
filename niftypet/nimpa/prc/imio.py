@@ -59,6 +59,9 @@ def fwhm2sig(fwhm, voxsize=2.0):
 
 
 def rem_chars(txt, replacement_char='_'):
+    ''' remove disallowed or inconvenient characters
+        (as def. in `avoid_chars`) from file/folder names.
+    '''
     for c in avoid_chars:
         txt = txt.replace(c, '_')
 
