@@ -330,7 +330,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
 
     # ------------------------------------------------------
     # store images in this folder
-    if outpath is not None:
+    if outpath is None:
         petudir = os.path.join(fldrin, 'trimmed')
     else:
         petudir = os.path.join(outpath, 'trimmed')
