@@ -661,9 +661,12 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         if [0x018, 0x1030] in dhdr:
             prtcl = dhdr[0x018, 0x1030].value
 
+        # > series, study and acquisition times
         srs_time = dhdr[0x0008, 0x0031].value[:6]
         std_time = dhdr[0x0008, 0x0030].value[:6]
-        acq_time = dhdr[0x0008, 0x0032].value[:6]
+        acq_time = ''
+        if [0x0008, 0x0032] in dhdr:
+            acq_time = dhdr[0x0008, 0x0032].value[:6]
 
         # > study date
         std_date = dhdr[0x008, 0x020].value
@@ -691,7 +694,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 trcr = trinf[0x018, 0x031].value
         # --------------------------------
 
-        log.info(
+        log.debug(
             dedent('''\
             --------------------------------------
             DICOM series desciption: {}
