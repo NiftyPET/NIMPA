@@ -471,7 +471,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
             outdct['PET']['radio_start_time'] = ttime0
 
         if [0x018, 0x1079] in tinf:
-            tmp = tinf[0x018, 0x1079].value
+            val = tinf[0x018, 0x1079].value
             if '.' in val:
                 ttime1 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
             else:
