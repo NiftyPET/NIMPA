@@ -206,9 +206,10 @@ def im_project3(im):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_order=0, outpath=None,
-             fname='', fcomment='', fcomment_pfx='', store_avg=False, store_img_intrmd=False,
-             store_img=False, imdtype=np.float32, memlim=False, verbose=False, Cnt=None):
+def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_order=0,
+             outpath=None, fname='', fcomment='', fcomment_pfx='', store_avg=False,
+             store_img_intrmd=False, store_img=False, imdtype=np.float32, memlim=False,
+             verbose=False, Cnt=None):
     '''
     Trim and upsample PET image(s), e.g., for GPU execution,
     PVC correction, ROI sampling, etc.

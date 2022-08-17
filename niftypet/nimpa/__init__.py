@@ -93,6 +93,7 @@ from .prc import (
     psf_measured,
     pvc_iyang,
     realign_mltp_spm,
+    rem_chars,
     resample_dipy,
     resample_fsl,
     resample_mltp_spm,
@@ -100,7 +101,6 @@ from .prc import (
     resample_spm,
     resample_vinci,
     time_stamp,
-    rem_chars,
 )
 
 # for use in `cmake -DCMAKE_PREFIX_PATH=...`

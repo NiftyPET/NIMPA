@@ -4,9 +4,9 @@ import logging
 import numbers
 import os
 import pathlib
-from pathlib import Path
 import re
 import shutil
+from pathlib import Path
 from subprocess import run
 from textwrap import dedent
 
@@ -27,10 +27,8 @@ log = logging.getLogger(__name__)
 # > possible extensions for DICOM files
 dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 
-
 # > remove characters unwanted in file/folder names
 avoid_chars = '{}[]!@#$%^&*.()+=:;~ '
-
 
 # > DICOM coding of PET isotopes
 istp_code = {
@@ -57,7 +55,6 @@ def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
 
 
-
 def rem_chars(txt, replacement_char='_'):
     ''' remove disallowed or inconvenient characters
         (as def. in `avoid_chars`) from file/folder names.
@@ -65,11 +62,10 @@ def rem_chars(txt, replacement_char='_'):
     for c in avoid_chars:
         txt = txt.replace(c, '_')
 
-    while txt[0]==replacement_char:
+    while txt[0] == replacement_char:
         txt = txt[1:]
-    
-    return txt
 
+    return txt
 
 
 def mgh2nii(fim, fout=None, output=None):
@@ -346,7 +342,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
     if [0x018, 0x024] in dhdr:
         outdct['sq_name'] = dhdr[0x018, 0x024].value
 
-    #------- PATIENT -------
+    # ------- PATIENT -------
     # > patient size
     if [0x010, 0x1020] in dhdr:
         outdct['pat_size'] = dhdr[0x010, 0x1020].value
@@ -366,9 +362,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
     # > patient age
     if [0x010, 0x1010] in dhdr:
         outdct['pat_age'] = dhdr[0x010, 0x1010].value
-    #-----------------------
-
-
+    # -----------------------
 
     # +++++++++++++++++++++++++++++++++++++++++++++
     if output == 'basic':
@@ -376,11 +370,9 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
         return out
     # +++++++++++++++++++++++++++++++++++++++++++++
 
-
-
-    #=================================================================
+    # =================================================================
     # PET
-    #-----------------------------------------------------------------
+    # -----------------------------------------------------------------
     if [0x054, 0x1000] in dhdr or [0x054, 0x000] in dhdr:
         outdct['PET'] = {}
 
@@ -440,7 +432,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
         dt = float(dhdr[0x054, 0x1324].value)
         outdct['PET']['dt_fcr'] = dt
 
-    #-----------------------------------------------------------------
+    # -----------------------------------------------------------------
     # RADIO TRACER
     tracer = None
     tdose = None
@@ -475,7 +467,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
                 ttime0 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
             else:
                 ttime0 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
-            
+
             outdct['PET']['radio_start_time'] = ttime0
 
         if [0x018, 0x1079] in tinf:
@@ -484,12 +476,10 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
                 ttime1 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
             else:
                 ttime1 = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
-            
-            outdct['PET']['radio_stop_time'] = ttime1
-    #-----------------------------------------------------------------
-        
 
-    
+            outdct['PET']['radio_stop_time'] = ttime1
+    # -----------------------------------------------------------------
+
     # ---------------------------------------------
     # > MR parameters (echo time, etc)
     TR = None
@@ -504,17 +494,18 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
     validTs = TR is not None and TE is not None
 
     if validTs:
-        outdct['MR'] = dict(TR=TR, TE=TE)
-        # mrdct = {
-        #     'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst': inst,
-        #     'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
-        #     'TE': TE}
+        outdct['MR'] = {'TR': TR, 'TE': TE}
+        """
+        mrdct = {
+            'series': srs, 'protocol': prtcl, 'units': unt, 'study_time': study_time, 'inst': inst,
+            'series_time': series_time, 'acq_time': acq_time, 'scanner_id': scanner_id, 'TR': TR,
+            'TE': TE}
+        """
         mrdct = outdct
     # ---------------------------------------------
 
-
     # +++++++++++++++++++++++++++++++++++++++++++++
-    if output=='detail':
+    if output == 'detail':
         return outdct
     # +++++++++++++++++++++++++++++++++++++++++++++
 
@@ -552,13 +543,15 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
         out = ['mr', 'mumap', 'ute', 'mr', scanner_id]
 
     elif isPET:
-        # petdct = {
-        #     'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
-        #     'inst': inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type,
-        #     'units': unt, 'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf,
-        #     'attenuation': atten, 'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf,
-        #     'dead_time': dt, 'tracer': tracer, 'total_dose': tdose, 'half_life': hlife,
-        #     'positron_fract': pfract, 'radio_start_time': ttime0, 'radio_stop_time': ttime1}
+        """
+        petdct = {
+            'series': srs, 'protocol': prtcl, 'study_time': study_time, 'series_time': series_time,
+            'inst': inst, 'acq_time': acq_time, 'scanner_id': scanner_id, 'type': srs_type,
+            'units': unt, 'recon': recon, 'decay_corr': decay_corr, 'dcf': dcf,
+            'attenuation': atten, 'scatter': scat, 'scf': scf, 'randoms': rand, 'dose_calib': dscf,
+            'dead_time': dt, 'tracer': tracer, 'total_dose': tdose, 'half_life': hlife,
+            'positron_fract': pfract, 'radio_start_time': ttime0, 'radio_stop_time': ttime1}
+        """
         petdct = outdct
 
         out = ['pet', tracer.lower(), srs_type.lower(), scanner_id, petdct]
@@ -591,6 +584,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
 
     return out
 
+
 # ======================================================================
 
 
@@ -603,11 +597,10 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         - Cnt: dictionary of constants (currently not used)
         - outpath: the output path where the series folders are created
         - grouping: defines how series are recognised, i.e., either by time plus
-                    series description ('t+d') or by the description only ('d'), 
+                    series description ('t+d') or by the description only ('d'),
                     or by acquisition and series times plus series description
                     ('a+t+d').
     '''
-
 
     # > insure that `folder` is Path object
     folder = Path(folder)
@@ -622,15 +615,14 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
 
     for f in folder.iterdir():
 
-        #---------------------------------
+        # ---------------------------------
         if not f.is_file(): continue
         try:
             dhdr = dcm.dcmread(f)
-        except:
+        except Exception:
             continue
-        #---------------------------------
+        # ---------------------------------
 
-        
         # --------------------------------
         # > image size
         imsz = np.zeros(2, dtype=np.int64)
@@ -638,19 +630,19 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             imsz[0] = dhdr[0x028, 0x010].value
         if [0x028, 0x011] in dhdr:
             imsz[1] = dhdr[0x028, 0x011].value
-        
+
         # > voxel size
         vxsz = np.zeros(3, dtype=np.float64)
         if [0x028, 0x030] in dhdr and [0x018, 0x050] in dhdr:
             pxsz = np.array([float(e) for e in dhdr[0x028, 0x030].value])
             vxsz[:2] = pxsz
             vxsz[2] = float(dhdr[0x018, 0x050].value)
-        
+
         # > orientation
         ornt = np.zeros(6, dtype=np.float64)
         if [0x020, 0x037] in dhdr:
             ornt = np.array([float(e) for e in dhdr[0x20, 0x37].value])
-        
+
         # > series description, time and study time
         srs_dcrp = ''
         if [0x0008, 0x103e] in dhdr:
@@ -674,7 +666,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         frm_dur = None
         # > frame duration time (for PET)
         if [0x018, 0x1242] in dhdr:
-            val = np.round(int(dhdr[0x018, 0x1242].value)/1e3, decimals=0)
+            val = np.round(int(dhdr[0x018, 0x1242].value) / 1e3, decimals=0)
             frm_dur = datetime.timedelta(seconds=val)
 
         # > time of tracer administration (start)
@@ -707,24 +699,25 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         recognised_series = False
         srs_k = list(srs.keys())
         for s in srs_k:
-            
-            if grouping=='t+d':
+
+            if grouping == 't+d':
                 if (np.array_equal(srs[s]['imorient'], ornt)
                         and np.array_equal(srs[s]['imsize'], imsz)
-                        and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
+                        and np.array_equal(srs[s]['voxsize'], vxsz)
+                        and srs[s]['tseries'] == srs_time and srs[s]['series'] == srs_dcrp):
+                    recognised_series = True
+                    break
+
+            if grouping == 'a+t+d':
+                if (np.array_equal(srs[s]['imorient'], ornt)
+                        and np.array_equal(srs[s]['imsize'], imsz)
+                        and np.array_equal(srs[s]['voxsize'], vxsz)
+                        and srs[s]['tseries'] == srs_time and srs[s]['tacq'] == acq_time
                         and srs[s]['series'] == srs_dcrp):
                     recognised_series = True
                     break
 
-            if grouping=='a+t+d':
-                if (np.array_equal(srs[s]['imorient'], ornt)
-                        and np.array_equal(srs[s]['imsize'], imsz)
-                        and np.array_equal(srs[s]['voxsize'], vxsz) and srs[s]['tseries'] == srs_time
-                        and srs[s]['tacq'] == acq_time and srs[s]['series'] == srs_dcrp):
-                    recognised_series = True
-                    break
-                
-            elif grouping=='d':
+            elif grouping == 'd':
                 if (np.array_equal(srs[s]['imorient'], ornt)
                         and np.array_equal(srs[s]['imsize'], imsz)
                         and np.array_equal(srs[s]['voxsize'], vxsz)
@@ -735,15 +728,13 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             else:
                 raise ValueError('Unrecognised grouping option')
 
-            
-        
         # >  if series was not found, create one
         if not recognised_series:
-            if grouping=='t+d':
+            if grouping == 't+d':
                 s = srs_time + '_' + srs_dcrp
-            elif grouping=='a+t+d':
-                s = acq_time +'_'+ srs_time +'_'+ srs_dcrp
-            elif grouping=='d':
+            elif grouping == 'a+t+d':
+                s = acq_time + '_' + srs_time + '_' + srs_dcrp
+            elif grouping == 'd':
                 s = srs_dcrp
             else:
                 raise ValueError('Unrecognised grouping option')
@@ -780,18 +771,17 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 else:
                     out = Path(outpath)
 
-            srsdir = out/rem_chars(s)
+            srsdir = out / rem_chars(s)
             create_dir(srsdir)
             shutil.copy(f, srsdir)
-            srs[s]['files'].append(srsdir/f.name)
+            srs[s]['files'].append(srsdir / f.name)
         else:
             srs[s]['files'].append(f)
 
     return srs
+
+
 # ======================================================================
-
-
-
 
 
 def list_dcm_datain(datain):
@@ -986,9 +976,6 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
                 log.debug('   > anonymised physician name')
 
         dhdr.save_as(dcmf)
-
-
-
 
 
 def dcm2nii(

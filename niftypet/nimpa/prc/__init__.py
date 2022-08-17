@@ -3,7 +3,7 @@ __all__ = [
     # imio
     'array2nii', 'create_dir', 'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort', 'fwhm2sig',
     'mgh2nii', 'getmgh', 'getnii', 'getnii_descr', 'nii_gzip', 'nii_ugzip', 'niisort', 'orientnii',
-    'pick_t1w', 'time_stamp', 'rem_chars'
+    'pick_t1w', 'time_stamp', 'rem_chars',
     # prc
     'bias_field_correction', 'centre_mass_img', 'centre_mass_corr', 'ct2mu', 'im_cut',
     'imsmooth', 'imtrimup',
@@ -35,8 +35,8 @@ from .imio import (
     niisort,
     orientnii,
     pick_t1w,
-    time_stamp,
     rem_chars,
+    time_stamp,
 )
 from .num import conv_separable, isub, nlm
 
