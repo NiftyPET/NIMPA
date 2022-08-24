@@ -708,7 +708,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                     recognised_series = True
                     break
 
-            if grouping == 'a+t+d':
+            elif grouping == 'a+t+d':
                 if (np.array_equal(srs[s]['imorient'], ornt)
                         and np.array_equal(srs[s]['imsize'], imsz)
                         and np.array_equal(srs[s]['voxsize'], vxsz)
