@@ -599,7 +599,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         - grouping: defines how series are recognised, i.e., either by time plus
                     series description ('t+d') or by the description only ('d'),
                     or by acquisition and series times plus series description
-                    ('a+t+d').
+                    ('a+t+d'), or using series instance unique id ('d+suid').
     '''
 
     # > insure that `folder` is Path object
@@ -647,6 +647,10 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         srs_dcrp = ''
         if [0x0008, 0x103e] in dhdr:
             srs_dcrp = dhdr[0x0008, 0x103e].value
+
+        srs_uid = ''
+        if [0x020, 0x00e] in dhdr:
+            srs_uid = dhdr[0x020, 0x00e].value
 
         prtcl = ''
         # > protocol
@@ -725,6 +729,15 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                     recognised_series = True
                     break
 
+            elif grouping == 'd+suid':
+                if (np.array_equal(srs[s]['imorient'], ornt)
+                        and np.array_equal(srs[s]['imsize'], imsz)
+                        and np.array_equal(srs[s]['voxsize'], vxsz)
+                        and srs[s]['series'] == srs_dcrp
+                        and srs[s]['series_uid']== srs_uid):
+                    recognised_series = True
+                    break
+
             else:
                 raise ValueError('Unrecognised grouping option')
 
@@ -736,6 +749,8 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 s = acq_time + '_' + srs_time + '_' + srs_dcrp
             elif grouping == 'd':
                 s = srs_dcrp
+            elif grouping == 'd+suid':
+                s = srs_dcrp + '_' + srs_uid[-10:]
             else:
                 raise ValueError('Unrecognised grouping option')
 
@@ -748,6 +763,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['tstudy'] = std_time
             srs[s]['dstudy'] = std_date
             srs[s]['series'] = srs_dcrp
+            srs[s]['series_uid'] = srs_uid
             srs[s]['protocol'] = prtcl
 
             if tinjct is not None:
