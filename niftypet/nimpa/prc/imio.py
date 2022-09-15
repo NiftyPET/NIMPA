@@ -733,8 +733,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 if (np.array_equal(srs[s]['imorient'], ornt)
                         and np.array_equal(srs[s]['imsize'], imsz)
                         and np.array_equal(srs[s]['voxsize'], vxsz)
-                        and srs[s]['series'] == srs_dcrp
-                        and srs[s]['series_uid']== srs_uid):
+                        and srs[s]['series'] == srs_dcrp and srs[s]['series_uid'] == srs_uid):
                     recognised_series = True
                     break
 
