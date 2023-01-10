@@ -218,10 +218,10 @@ def resample_dipy(
     imio.create_dir(opth)
 
     # > the output naming
-    if os.path.dirname(fimout) != '':
+    if fimout is not None and os.path.dirname(fimout) != '':
         fout = fimout
-    elif fimout is not None and not os.path.isfile(fimout):
-        fout = os.path.join(opth, fimout)
+    # elif fimout is not None and not os.path.isfile(fimout):
+    #     fout = os.path.join(opth, fimout)
     elif pickname == 'ref':
         fout = os.path.join(
             opth, 'resampled-dipy_to_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment +
