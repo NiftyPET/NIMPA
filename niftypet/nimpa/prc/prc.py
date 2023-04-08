@@ -11,7 +11,7 @@ import sys
 from subprocess import run
 from textwrap import dedent
 from warnings import warn
-
+from pathlib import Path, PurePath
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
@@ -127,7 +127,8 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
         dev_id = Cnt['DEVID']
 
     isfile = False
-    if isinstance(fim, str) and os.path.isfile(fim):
+    if isinstance(fim, (str,Path,PurePath)) and os.path.isfile(fim):
+        fim = Path(fim)
         isfile = True
         imd = imio.getnii(fim, output='all')
         im = imd['im']
@@ -157,7 +158,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
     dctout['fwhm'] = fwhm
 
     if isfile and fout == '':
-        if fim.endswith('.nii.gz'):
+        if fim.name.endswith('.nii.gz'):
             fout = fim.split('.nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
         else:
             fout = os.path.splitext(fim)[0] + '_smo' + str(fwhm).replace(

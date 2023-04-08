@@ -24,7 +24,7 @@ __all__ = [
     # improc
     'conv_separable', 'isub', 'nlm',
     # core
-    'create_disk', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
+    'create_disk', 'get_cylinder', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
     'affine_fsl', 'affine_dipy', 'affine_niftyreg',
     'array2nii', 'bias_field_correction',
     'centre_mass_img', 'centre_mass_corr', 'coreg_spm', 'coreg_vinci',
@@ -47,7 +47,7 @@ from niftypet.ninst import cudasetup as cs
 from niftypet.ninst.dinf import dev_info, gpuinfo
 from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resources
 
-from .img import create_disk, imdiff, imscroll, profile_points
+from .img import get_cylinder, create_disk, imdiff, imscroll, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
     affine_dipy,
