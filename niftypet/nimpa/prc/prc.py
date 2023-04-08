@@ -1007,17 +1007,20 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
     else:
         fnm = fsplt[1].split('.nii')[0] + fcomment + '.nii.gz'
 
-    # save to NIfTI
+    # > save to NIfTI, first load
     innii = nib.load(imdct['fim'])
-    # get a new NIfTI image for the perturbed MR
+    
+    # > get the data and flip if needed
     imdata = innii.get_fdata()
     if flip is not None:
         imdata = imdata[::flip[2], ::flip[1], ::flip[0], ...]
-    newnii = nib.Nifti1Image(imdata, mA, innii.header)
 
+    # > generate a new NIfTI image
     fnew = os.path.join(opth, fnm)
-    # save into a new file name for the T1w
+    innii.header['descrip'] = 'NiftyPET: CoM-modified'
+    newnii = nib.Nifti1Image(imdata, mA, innii.header)
     nib.save(newnii, fnew)
+
     return {'fim': fnew, 'com_rel': com_nii, 'com_abs': com}
 
 
