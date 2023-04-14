@@ -372,6 +372,9 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     if any(scale > 1):
         newshape = (scale[0] * imshape[0], scale[1] * imshape[1], scale[2] * imshape[2])
         imsum = np.zeros(newshape, dtype=imdtype)
+        mode = 'constant'
+        if grid_mode==True:
+            mode = 'grid-'+mode
         if not memlim:
             imscl = np.zeros((Nim,) + newshape, dtype=imdtype)
             with trange(Nim, desc="loading-scaling",
@@ -380,7 +383,9 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
                 for i in pbar:
                     imscl[i, :, :, :] = ndi.interpolation.zoom(
                                             imin[i, :, :, :], tuple(scale),
-                                            order=int_order, grid_mode=grid_mode)
+                                            order=int_order,
+                                            mode=mode,
+                                            grid_mode=grid_mode)
                     imsum += imscl[i, :, :, :]
         else:
             with trange(Nim, desc="loading-scaling",
@@ -391,11 +396,14 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
                         imin_temp = imio.getnii(imdic['files'][i])
                         imsum += ndi.interpolation.zoom(
                                     imin_temp, tuple(scale),
-                                    order=int_order, grid_mode=grid_mode)
+                                    order=int_order,
+                                    mode=mode,
+                                    grid_mode=grid_mode)
                         log.debug(' image sum: read {}'.format(imdic['files'][i]))
                     else:
                         imsum += ndi.interpolation.zoom(
                                     imin[i, :, :, :], tuple(scale),
+                                    mode=mode,
                                     order=int_order, grid_mode=grid_mode)
     else:
         imscl = imin

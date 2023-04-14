@@ -35,7 +35,9 @@ __all__ = [
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
     'psf_gaussian', 'psf_measured', 'pvc_iyang', 'realign_mltp_spm', 'resample_fsl',
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
-    'time_stamp', 'rem_chars'] # yapf: disable
+    'time_stamp', 'rem_chars',
+    # Signa
+    'pifa2nii', 'nii2pifa'] # yapf: disable
 
 try:
     from numcu import add, div, mul
@@ -48,6 +50,7 @@ from niftypet.ninst.dinf import dev_info, gpuinfo
 from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resources
 
 from .img import get_cylinder, create_disk, imdiff, imscroll, profile_points
+from .img import pifa2nii, nii2pifa
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
     affine_dipy,

@@ -116,8 +116,8 @@ def affine_dipy(
     faffine=None,
     pickname='ref',
     fcomment='',
-    rfwhm=15.,
-    ffwhm=15.,
+    rfwhm=8.,
+    ffwhm=8.,
     verbose=True,
 ):
     """
