@@ -35,11 +35,14 @@ istp_code = {
     'C-111A1': 'F18', 'C-105A1': 'C11', 'C-B1038': 'O15', 'C-128A2': 'Ge68', 'C-131A3': 'Ga68'}
 
 
+#------------------------------------------------
 def create_dir(pth):
     if not os.path.exists(pth):
         os.makedirs(pth)
+#------------------------------------------------
 
 
+#------------------------------------------------
 def time_stamp(simple_ascii=False):
     now = datetime.datetime.now()
     if simple_ascii:
@@ -49,12 +52,16 @@ def time_stamp(simple_ascii=False):
         nowstr = str(now.year) + '-' + str(now.month) + '-' + str(now.day) + ' ' + str(
             now.hour) + ':' + str(now.minute)
     return nowstr
+#------------------------------------------------
 
 
+#------------------------------------------------
 def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
+#------------------------------------------------
 
 
+#------------------------------------------------
 def rem_chars(txt, replacement_char='_'):
     ''' remove disallowed or inconvenient characters
         (as def. in `avoid_chars`) from file/folder names.
@@ -66,6 +73,39 @@ def rem_chars(txt, replacement_char='_'):
         txt = txt[1:]
 
     return txt
+#------------------------------------------------
+
+
+#------------------------------------------------
+def isdcm(f):
+    try:
+        dcm.dcmread(f)
+        r = True
+    except:
+        r = False
+    return r
+
+
+def dcmdir(inpth):
+    '''
+    Check if the folder has DICOM files and 
+    specify them
+    '''
+    dcmlst = []
+    if not inpth.is_dir():
+        raise IOError('unrecognised folder')
+
+    for f in inpth.iterdir():
+        if isdcm(f):
+            dcmlst.append(f)
+    # > number of DICOM files
+    Ndcm = len(dcmlst)
+
+    if Ndcm>0:
+        return dict(fdcm=dcmlst, N=Ndcm)
+    else:
+        return None
+#------------------------------------------------
 
 
 def mgh2nii(fim, fout=None, output=None):
