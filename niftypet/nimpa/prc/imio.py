@@ -69,6 +69,9 @@ def rem_chars(txt, replacement_char='_'):
     for c in avoid_chars:
         txt = txt.replace(c, '_')
 
+    if not c:
+        txt = 'undefined'
+
     while txt[0] == replacement_char:
         txt = txt[1:]
 
