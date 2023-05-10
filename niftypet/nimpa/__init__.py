@@ -29,7 +29,7 @@ __all__ = [
     'array2nii', 'bias_field_correction',
     'centre_mass_img', 'centre_mass_corr', 'coreg_spm', 'coreg_vinci',
     'create_dir', 'create_mask', 'ct2mu',
-    'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort',
+    'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort', 'isdcm', 'dcmdir'
     'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getmgh', 'getnii', 'mgh2nii',
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
@@ -37,7 +37,13 @@ __all__ = [
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm', 'resample_vinci', 'resample_dipy',
     'time_stamp', 'rem_chars',
     # Signa
-    'pifa2nii', 'nii2pifa'] # yapf: disable
+    'pifa2nii', 'nii2pifa',
+    # ACR
+    # 'get_params', 'get_paths', 'extract_reso_part', 'sampling_masks'
+    # 'create_mumap_core', 'create_nac_core', 'create_reso', 'create_sampl_reso', 'create_sampl',
+    # 'standard_analysis', 'estimate_fwhm'
+    ] # yapf: disable
+
 
 try:
     from numcu import add, div, mul
@@ -71,6 +77,8 @@ from .prc import (
     dcmanonym,
     dcminfo,
     dcmsort,
+    isdcm,
+    dcmdir,
     dice_coeff,
     dice_coeff_multiclass,
     fwhm2sig,
@@ -105,6 +113,8 @@ from .prc import (
     resample_vinci,
     time_stamp,
 )
+
+from . import acr
 
 # for use in `cmake -DCMAKE_PREFIX_PATH=...`
 cmake_prefix = resource_filename(__name__, "cmake")
