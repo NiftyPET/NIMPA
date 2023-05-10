@@ -151,7 +151,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
             raise ValueError('the correct voxel size has to be provided')
         
         # > check if the GPU kernel size (17, radius=8) will be sufficient to fit the PSF 
-        if 2*(fwhm/np.min(voxsize))>(17-1):
+        if any(2*(fwhm/np.min(voxsize))>(17-1)):
             hradius = (2*(fwhm/np.min(voxsize))+1)//2
             psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm, hradius=hradius)
         else:
