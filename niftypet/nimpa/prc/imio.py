@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 
 # > remove characters unwanted in file/folder names
-avoid_chars = '{}[]!@#$%^&*.()+=:;~ '
+avoid_chars = '/{}[]!@#$%^&*.()+=:;~ '
 
 # > DICOM coding of PET isotopes
 istp_code = {
