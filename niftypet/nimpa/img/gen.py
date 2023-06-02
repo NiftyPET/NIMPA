@@ -28,7 +28,7 @@ def absmax(a):
     amin = a.min()
     return np.where(-amin > amax, amin, amax)
 
-
+#----------------------------------------------------------
 def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
     if len(shape_in) == 2:
         shape = (1,) + shape_in
@@ -56,13 +56,17 @@ def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
     elif len(shape_in) == 2:
         msk = imsk
     return msk
+#----------------------------------------------------------
 
 
 #----------------------------------------------------------
-# a better version of generating disk/cylinder in a given image space
 def get_cylinder(Cnt, rad=25, xo=0, yo=0, unival=1, gpu_dim=False, mask=True, two_d=False):
-    '''Outputs image with a uniform cylinder of intensity = unival,
-        radius = rad, and transaxial centre (xo, yo).
+    ''' Output image with a uniform cylinder of intensity = `unival`.
+        A better version of generating disk/cylinder in a given image space.
+        Arguments:
+        Cnt:    dictionary containing constants for the image space
+        rad:    radius
+        xo, yo: transaxial centre
     '''
 
     if mask:  unival = 1

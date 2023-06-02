@@ -10,6 +10,7 @@ import sys
 from os import fspath
 from subprocess import call
 from textwrap import dedent
+from pathlib import PurePath, Path
 
 import nibabel as nib
 import numpy as np
@@ -234,7 +235,7 @@ def resample_dipy(
 
     # ------------------------------------------------------------------
     if faff is not None:
-        if faff.endswith('.npy'):
+        if isinstance(faff, (str, PurePath)) and Path(faff).name.endswith('.npy'):
             affine = np.load(faff)
         elif isinstance(faff, np.ndarray):
             affine = faff
