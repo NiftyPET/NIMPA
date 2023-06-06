@@ -14,12 +14,9 @@ import numpy as np
 
 from ..prc import imio
 
-# > Signa default axial voxel size
-SZ_VXZ = 2.78
+SZ_VXZ = 2.78      # Signa default axial voxel size
 
 
-#----------------------------------------------------------------------
-#----------------------------------------------------------------------
 def pifa2nii(fpifa, fnii=None, outpath=None):
     ''' Convert the GE PIFA file format to NIfTI. For generating PIFA
         file in the same space as the PET reconstructed image, a NIfTI
@@ -64,7 +61,7 @@ def pifa2nii(fpifa, fnii=None, outpath=None):
 
     # > if affine is not provided through the NIfTI
     if affine is None:
-        #> affine matrix
+        # > affine matrix
         A = np.eye(4)
         A[0, 0] = -SP_VXY
         A[1, 1] = SP_VXY
@@ -93,15 +90,10 @@ def pifa2nii(fpifa, fnii=None, outpath=None):
     return fout
 
 
-#----------------------------------------------------------------------
-#----------------------------------------------------------------------
-
-
-#----------------------------------------------------------------------
-#----------------------------------------------------------------------
 def nii2pifa(fnii, fpifa, outpath=None, bed_mask_thresh=0.2):
-    ''' Convert a newly generated PIFA NIfTI `fnii` file to the
-        GE PIFA file format using the original PIFA file `fpifa`.
+    '''
+    Convert a newly generated PIFA NIfTI `fnii` file to the
+    GE PIFA file format using the original PIFA file `fpifa`.
     '''
 
     fpifa = Path(fpifa)
@@ -114,10 +106,7 @@ def nii2pifa(fnii, fpifa, outpath=None, bed_mask_thresh=0.2):
         raise FileNotFoundError('PIFA files are unrecognised')
 
     # > output folder
-    if outpath is None:
-        pifadir = fpifa.parent
-    else:
-        pifadir = Path(outpath)
+    pifadir = fpifa.parent if outpath is None else Path(outpath)
     imio.create_dir(pifadir)
 
     # > new PIFA
@@ -126,45 +115,34 @@ def nii2pifa(fnii, fpifa, outpath=None, bed_mask_thresh=0.2):
     shutil.copyfile(fpifa, fpifa_n)
     shutil.copyfile(fpifa_ivv, fpifa_ivv_n)
 
-    fh = h5py.File(fpifa_n, 'r+')
-    fh_ivv = h5py.File(fpifa_ivv_n, 'r+')
+    with h5py.File(fpifa_n, 'r+') as fh, h5py.File(fpifa_ivv_n, 'r+') as fh_ivv:
+        # > get all the components of original PIFA
+        pifa = np.array(fh['PifaData'])
+        pifa_ivv = np.array(fh_ivv['PifaData'])
+        bed = pifa - pifa_ivv
+        msk_bed = bed > bed_mask_thresh * np.max(bed)
 
-    # > get all the components of original PIFA
-    pifa = np.array(fh['PifaData'])
-    pifa_ivv = np.array(fh_ivv['PifaData'])
-    bed = pifa - pifa_ivv
-    msk_bed = bed > bed_mask_thresh * np.max(bed)
+        # > make the new mu-map to PIFA
+        newpifa_ivv = 0.1 * imio.getnii(fnii)
+        # > flip the z-axis (in GE systems it's the other way round)
+        # > and set to zero the voxels which belong to the bed/table
+        newpifa_ivv = newpifa_ivv[::-1, ...] * ~msk_bed
 
-    # > make the new mu-map to PIFA
-    newpifa_ivv = 0.1 * imio.getnii(fnii)
-    # > flip the z-axis (in GE systems it's the other way round)
-    # > and set to zero the voxels which belong to the bed/table
-    newpifa_ivv = newpifa_ivv[::-1, ...] * ~msk_bed
+        # > blend the bed and object
+        newpifa = np.maximum(bed, newpifa_ivv)
 
-    # > blend the bed and object
-    newpifa = np.maximum(bed, newpifa_ivv)
+        fh['PifaData'][...] = newpifa
+        fh_ivv['PifaData'][...] = newpifa_ivv
 
-    fh['PifaData'][...] = newpifa
-    fh_ivv['PifaData'][...] = newpifa_ivv
-
-    fh.close()
-    fh_ivv.close()
-
-    #> check if edited:
-    fcheck = h5py.File(fpifa_n, 'r')
-    dcheck = fcheck['PifaData'][...]
-    fcheck.close()
+    # > check if edited:
+    with h5py.File(fpifa_n, 'r') as fcheck:
+        dcheck = fcheck['PifaData'][...]
     if not np.allclose(dcheck, newpifa):
-        raise ValueError('e> the CT modification did not work')
+        raise ValueError('the CT modification did not work')
 
-    fcheck = h5py.File(fpifa_ivv_n, 'r')
-    dcheck = fcheck['PifaData'][...]
-    fcheck.close()
+    with h5py.File(fpifa_ivv_n, 'r') as fcheck:
+        dcheck = fcheck['PifaData'][...]
     if not np.allclose(dcheck, newpifa_ivv):
-        raise ValueError('e> the CT modification did not work')
+        raise ValueError('the CT modification did not work')
 
-    return dict(fpifa=fpifa_n, fpifa_ivv=fpifa_ivv_n, pifa=newpifa, opifa=pifa)
-
-
-#----------------------------------------------------------------------
-#----------------------------------------------------------------------
+    return {'fpifa': fpifa_n, 'fpifa_ivv': fpifa_ivv_n, 'pifa': newpifa, 'opifa': pifa}

@@ -29,11 +29,10 @@ def absmax(a):
     return np.where(-amin > amax, amin, amax)
 
 
-#----------------------------------------------------------
 def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
     if len(shape_in) == 2:
         shape = (1,) + shape_in
-    if len(shape_in) == 3:
+    elif len(shape_in) == 3:
         shape = shape_in
 
     imsk = np.zeros((gen_scale * shape[1], gen_scale * shape[2]), dtype=np.float32)
@@ -53,16 +52,11 @@ def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
         imsk = imsk > threshold
 
     if len(shape_in) == 3:
-        msk = np.repeat(imsk.reshape((1, shape[1], shape[1])), shape[0], axis=0)
+        return np.repeat(imsk.reshape((1, shape[1], shape[1])), shape[0], axis=0)
     elif len(shape_in) == 2:
-        msk = imsk
-    return msk
+        return imsk
 
 
-#----------------------------------------------------------
-
-
-#----------------------------------------------------------
 def get_cylinder(Cnt, rad=25, xo=0, yo=0, unival=1, gpu_dim=False, mask=True, two_d=False):
     ''' Output image with a uniform cylinder of intensity = `unival`.
         A better version of generating disk/cylinder in a given image space.
@@ -95,9 +89,6 @@ def get_cylinder(Cnt, rad=25, xo=0, yo=0, unival=1, gpu_dim=False, mask=True, tw
         return np.transpose(imdsk, (1, 2, 0))
     else:
         return imdsk
-
-
-#----------------------------------------------------------
 
 
 def profile_points(im, p0, p1, steps=100):

@@ -35,7 +35,6 @@ dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
 niiext = ('nii.gz', 'nii', 'img', 'hdr')
 
 
-# ----------------------------------------------------------------------
 def num(s):
     '''Converts the string to a float or integer number.'''
     try:
@@ -44,7 +43,6 @@ def num(s):
         return float(s)
 
 
-# ----------------------------------------------------------------------
 def psf_gaussian(vx_size=(1, 1, 1), fwhm=(6, 5, 5), hradius=8):
     '''
     Separable kernels for Gaussian convolution executed on the GPU device
@@ -373,7 +371,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         newshape = (scale[0] * imshape[0], scale[1] * imshape[1], scale[2] * imshape[2])
         imsum = np.zeros(newshape, dtype=imdtype)
         mode = 'constant'
-        if grid_mode == True:
+        if grid_mode:
             mode = 'grid-' + mode
         if not memlim:
             imscl = np.zeros((Nim,) + newshape, dtype=imdtype)

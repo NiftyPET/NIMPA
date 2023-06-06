@@ -1,7 +1,6 @@
 """ACR/Jaszczak PET phantom design, image reconstruction and analysis"""
 __author__ = "Pawel Markiewicz"
 __copyright__ = "Copyright 2021-3"
-#-------------------------------------------------------------------------------
 
 from pathlib import Path
 
@@ -12,41 +11,37 @@ from scipy.optimize import curve_fit
 from ..prc import imio, prc
 
 
-#----------------------------------------------------
-# > error function and its derivative
 def erf(x, a, u, k, b):
+    """error function"""
     return a * scipy.special.erf(k * (x-u)) + b
 
 
 def derf(x, a, u, k):
+    """derivative of error function"""
     return a * k * 2 / (np.pi**.5) * np.exp(-(k * (x-u))**2)
 
 
-#----------------------------------------------------
-
-
-#==========================================================
 def standard_analysis(
-    fim,
-    vois,
-    fwhm=4.,
-    patient_weight=70,  #kg
-    simulated_dose=220, # MBq
-    width_mm=10,
-    zoffset=0,
-):
-    '''
-    Perform the standard ACR analysis.  Arguments:
-    fim:        the input NIfTI image in high resolution.
-    vois:       the masks for VOIs to perform the analysis.
-    fwhm:       the FWHM of the smoothing Gaussian kernel.
-    zoffset:    offset from the middle of the axial extension
-                of the inserts.  By default the slice for
-                the analysis is in the middle of the insert's
-                axial extension.
-    patient_does: patient simulated does in MBq
-    patient_weight: patient weight in kg
-    '''
+        fim,
+        vois,
+        fwhm=4.,
+        patient_weight=70,  # kg
+        simulated_dose=220, # MBq
+        width_mm=10,
+        zoffset=0):
+    """
+    Perform the standard ACR analysis.
+    Arguments:
+      fim:        the input NIfTI image in high resolution.
+      vois:       the masks for VOIs to perform the analysis.
+      fwhm:       the FWHM of the smoothing Gaussian kernel.
+      zoffset:    offset from the middle of the axial extension
+                  of the inserts.  By default the slice for
+                  the analysis is in the middle of the insert's
+                  axial extension.
+      patient_does: patient simulated does in MBq
+      patient_weight: patient weight in kg
+    """
 
     fim = Path(fim)
     if not fim.is_file():
@@ -54,7 +49,7 @@ def standard_analysis(
 
     imd = imio.getnii(fim, output='all')
 
-    #> for SUV calculations
+    # > for SUV calculations
     dose2wght = simulated_dose * 1e6 / (patient_weight*1e3)
 
     im_smo = prc.imsmooth(imd['im'], fwhm=fwhm, voxsize=imd['voxsize'])
@@ -104,11 +99,12 @@ def standard_analysis(
     air_bone = air_min / bone_min
     h2o_bone = h2o_min / bone_min
 
-    out = dict(h1max=h1, h2max=h2, h3max=h3, h4max=h4, bckg_avg=bckg_avg, bone_avg=bone_avg,
-               h2o_avg=h2o_avg, air_avg=air_avg, bckg_min=bckg_min, bone_min=bone_min,
-               h2o_min=h2o_min, air_min=air_min, h1_bckg=h1_bckg, h2_bckg=h2_bckg, h3_bckg=h3_bckg,
-               h4_bckg=h4_bckg, h2_h1=h2_h1, h3_h1=h3_h1, h4_h1=h4_h1, air_bone=air_bone,
-               h2o_bone=h2o_bone)
+    out = {
+        'h1max': h1, 'h2max': h2, 'h3max': h3, 'h4max': h4, 'bckg_avg': bckg_avg,
+        'bone_avg': bone_avg, 'h2o_avg': h2o_avg, 'air_avg': air_avg, 'bckg_min': bckg_min,
+        'bone_min': bone_min, 'h2o_min': h2o_min, 'air_min': air_min, 'h1_bckg': h1_bckg,
+        'h2_bckg': h2_bckg, 'h3_bckg': h3_bckg, 'h4_bckg': h4_bckg, 'h2_h1': h2_h1, 'h3_h1': h3_h1,
+        'h4_h1': h4_h1, 'air_bone': air_bone, 'h2o_bone': h2o_bone}
 
     for k in out:
         out[k] = np.float32(out[k])
@@ -127,10 +123,6 @@ def standard_analysis(
     return out
 
 
-#==========================================================
-
-
-#==========================================================
 def estimate_fwhm(fim, vois, Cntd, insert='water'):
     ''' Estimate the effective image resolution
         for any given ACR cylindrical insert
@@ -151,14 +143,14 @@ def estimate_fwhm(fim, vois, Cntd, insert='water'):
     ins = insert
 
     # > ring index ranges
-    RIR = dict(
-        bone=[90, 102], # bone
-        air=[70, 82],   # air
-        water=[50, 62], # water
-        hot1=[10, 20],  # from biggest to smallest hot insert
-        hot2=[20, 30],
-        hot3=[30, 40],
-        hot4=[40, 50])
+    RIR = {
+        'bone': [90, 102], # bone
+        'air': [70, 82],   # air
+        'water': [50, 62], # water
+        'hot1': [10, 20],  # from biggest to smallest hot insert
+        'hot2': [20, 30],
+        'hot3': [30, 40],
+        'hot4': [40, 50]}
 
     if ins not in RIR:
         raise ValueError('unrecognised insert name')
@@ -173,8 +165,9 @@ def estimate_fwhm(fim, vois, Cntd, insert='water'):
     # > extracted ring index values
     riv = np.zeros((RIR[ins][1] - RIR[ins][0]), dtype=np.float64)
 
-    res = dict(y=np.zeros(len(x), dtype=np.float64), dy=np.zeros(len(x), dtype=np.float64), fwhm=0,
-               peak=0, parg=0, mnmx=0)
+    res = {
+        'y': np.zeros(len(x), dtype=np.float64), 'dy': np.zeros(len(x), dtype=np.float64),
+        'fwhm': 0, 'peak': 0, 'parg': 0, 'mnmx': 0}
 
     irngs = range(RIR[ins][0], RIR[ins][1])
     nrng = len(irngs)
@@ -190,7 +183,7 @@ def estimate_fwhm(fim, vois, Cntd, insert='water'):
     r = Cntd['sinsrt'][range(nrng)]
     re = x
 
-    #------- ERF fitting and derivative --------
+    # ------- ERF fitting and derivative --------
     pe0 = [np.max(riv), np.median(r), .1, np.min(riv)]
 
     pe, pcov = curve_fit(erf, r, riv, pe0)
@@ -200,7 +193,6 @@ def estimate_fwhm(fim, vois, Cntd, insert='water'):
 
     dye = derf(re, *pe[:-1])
     res['dy'] = dye
-    #-------
 
     sgm = 1 / (np.sqrt(2) * pe[2])
     res['fwhm'] = 2 * np.sqrt(2 * np.log(2)) * sgm
@@ -215,7 +207,6 @@ def estimate_fwhm(fim, vois, Cntd, insert='water'):
     else:
         res['mnmx'] = np.min(riv)
     res['r'] = r
-    #-------
 
     fig, ax = plt.subplots(2, 1)
     ax[0].plot(res['r'], riv, 'o')
@@ -227,8 +218,4 @@ def estimate_fwhm(fim, vois, Cntd, insert='water'):
     ax[1].set_xlabel('distance from insert centre [mm]')
 
     res['r_values'] = riv
-
     return res
-
-
-#==========================================================

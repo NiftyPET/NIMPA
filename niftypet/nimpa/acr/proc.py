@@ -1,7 +1,6 @@
 """ACR/Jaszczak PET phantom I/O and auxiliary functions"""
 __author__ = "Pawel Markiewicz"
-__copyright__ = "Copyright 2021-3"
-#-------------------------------------------------------------------------------
+__copyright__ = "Copyright 2021-23"
 
 import os
 from pathlib import Path, PurePath
@@ -12,16 +11,9 @@ import dcm2niix
 from ..prc import imio, prc
 
 
-#----------------------------------------------------------
 def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
-    '''
-    Convert to NIfTI (if DICOM), smooth using the Gaussian and trim/scale up.
-    '''
-
-    if outpath is None:
-        opth = dcm_dir.parent
-    else:
-        opth = Path(outpath)
+    """Convert to NIfTI (if DICOM), smooth using the Gaussian and trim/scale up."""
+    opth = dcm_dir.parent if outpath is None else Path(outpath)
 
     if mode == 'nac':
         outdir = opth / mode.upper()
@@ -37,7 +29,6 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
             raise IOError('the provided folder does not contain DICOM files')
         dcm_dir = Path(indat)
 
-        #--------------------------------------------------
         # > CONVERT TO NIfTI
         # > remove previous files
         fs_ = list(outdir.glob('*.nii*')) + list(outdir.glob('*.json'))
@@ -50,7 +41,6 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
             fnii = fnii[0]
         else:
             raise ValueError('Confusing or missing NIfTI output')
-        #--------------------------------------------------
 
     elif isinstance(indat,
                     (str, PurePath)) and Path(indat).is_file() and Path(indat).name.endswith(
@@ -60,7 +50,6 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
     else:
         raise ValueError('the input NIfTI file or DICOM folder do not exist')
 
-    #--------------------------------------------------
     # > Gaussian smooth image data if needed
     if smooth:
         if Cntd['fwhm_' + mode[:3]] > 0:
@@ -69,11 +58,10 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
                 fnii, fwhm=Cntd['fwhm_' + mode[:3]], fout=outdir /
                 (mode.upper() + '_' + fnii.name.split('.nii')[0] + smostr + '.nii.gz'),
                 output='file')
-    #--------------------------------------------------
 
     Cntd['f' + mode] = fnii
 
-    #> trim and upsample the PET
+    # > trim and upsample the PET
     imup = prc.imtrimup(
         fnii,
         refim=reftrim,
@@ -86,6 +74,3 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
     Cntd['f' + mode + 'up'] = Path(imup['fim'])
 
     return Cntd
-
-
-#----------------------------------------------------------
