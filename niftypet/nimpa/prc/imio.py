@@ -39,6 +39,8 @@ istp_code = {
 def create_dir(pth):
     if not os.path.exists(pth):
         os.makedirs(pth)
+
+
 #------------------------------------------------
 
 
@@ -52,12 +54,16 @@ def time_stamp(simple_ascii=False):
         nowstr = str(now.year) + '-' + str(now.month) + '-' + str(now.day) + ' ' + str(
             now.hour) + ':' + str(now.minute)
     return nowstr
+
+
 #------------------------------------------------
 
 
 #------------------------------------------------
 def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
+
+
 #------------------------------------------------
 
 
@@ -76,6 +82,8 @@ def rem_chars(txt, replacement_char='_'):
         txt = txt[1:]
 
     return txt
+
+
 #------------------------------------------------
 
 
@@ -91,7 +99,7 @@ def isdcm(f):
 
 def dcmdir(inpth):
     '''
-    Check if the folder has DICOM files and 
+    Check if the folder has DICOM files and
     specify them
     '''
     dcmlst = []
@@ -104,10 +112,12 @@ def dcmdir(inpth):
     # > number of DICOM files
     Ndcm = len(dcmlst)
 
-    if Ndcm>0:
+    if Ndcm > 0:
         return dict(fdcm=dcmlst, N=Ndcm)
     else:
         return None
+
+
 #------------------------------------------------
 
 

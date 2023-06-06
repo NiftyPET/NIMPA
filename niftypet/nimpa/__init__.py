@@ -55,8 +55,8 @@ from niftypet.ninst import cudasetup as cs
 from niftypet.ninst.dinf import dev_info, gpuinfo
 from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resources
 
-from .img import get_cylinder, create_disk, imdiff, imscroll, profile_points
-from .img import pifa2nii, nii2pifa
+from . import acr
+from .img import create_disk, get_cylinder, imdiff, imscroll, nii2pifa, pifa2nii, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
     affine_dipy,
@@ -75,10 +75,9 @@ from .prc import (
     dcm2im,
     dcm2nii,
     dcmanonym,
+    dcmdir,
     dcminfo,
     dcmsort,
-    isdcm,
-    dcmdir,
     dice_coeff,
     dice_coeff_multiclass,
     fwhm2sig,
@@ -88,6 +87,7 @@ from .prc import (
     im_cut,
     imfill,
     imsmooth,
+    isdcm,
     isub,
     iyang,
     mgh2nii,
@@ -113,8 +113,6 @@ from .prc import (
     resample_vinci,
     time_stamp,
 )
-
-from . import acr
 
 # for use in `cmake -DCMAKE_PREFIX_PATH=...`
 cmake_prefix = resource_filename(__name__, "cmake")

@@ -8,10 +8,11 @@ import os
 import pathlib
 import re
 import sys
+from pathlib import Path, PurePath
 from subprocess import run
 from textwrap import dedent
 from warnings import warn
-from pathlib import Path, PurePath
+
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
@@ -127,7 +128,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
         dev_id = Cnt['DEVID']
 
     isfile = False
-    if isinstance(fim, (str,Path,PurePath)) and os.path.isfile(fim):
+    if isinstance(fim, (str, Path, PurePath)) and os.path.isfile(fim):
         fim = Path(fim)
         isfile = True
         imd = imio.getnii(fim, output='all')
@@ -149,15 +150,14 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
             voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
         elif voxsize is None and Cnt is None:
             raise ValueError('the correct voxel size has to be provided')
-        
-        # > check if the GPU kernel size (17, radius=8) will be sufficient to fit the PSF 
-        if np.any(2*(fwhm/np.min(voxsize))>(17-1)):
-            hradius = (2*(fwhm/np.min(voxsize))+1)//2
+
+        # > check if the GPU kernel size (17, radius=8) will be sufficient to fit the PSF
+        if np.any(2 * (fwhm / np.min(voxsize)) > (17 - 1)):
+            hradius = (2 * (fwhm / np.min(voxsize)) + 1) // 2
             psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm, hradius=hradius)
         else:
             psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
 
-    
     imsmo = conv_separable(im, psf, output=output_array, dev_id=dev_id, sync=sync)
 
     # output dictionary
@@ -217,8 +217,8 @@ def im_project3(im):
 
 def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_order=0,
              outpath=None, fname='', fcomment='', fcomment_pfx='', store_avg=False,
-             store_img_intrmd=False, store_img=False, imdtype=np.float32,
-             grid_mode=True, memlim=False, verbose=False, Cnt=None):
+             store_img_intrmd=False, store_img=False, imdtype=np.float32, grid_mode=True,
+             memlim=False, verbose=False, Cnt=None):
     '''
     Trim and upsample PET image(s), e.g., for GPU execution,
     PVC correction, ROI sampling, etc.
@@ -245,7 +245,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     store_img_intrmd: stores intermediate images with suffix '_i'
     store_avg: stores the average image (if multiple images are given)
     imdtype: data type for output images
-    grid_mode: mode for scipy zooming.  Default is True, where the distance including 
+    grid_mode: mode for scipy zooming.  Default is True, where the distance including
                the full pixel extent is used.
     memlim: Ture for cases when memory is limited and takes more processing time instead.
     verbose: verbose mode [True/False]
@@ -373,38 +373,29 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         newshape = (scale[0] * imshape[0], scale[1] * imshape[1], scale[2] * imshape[2])
         imsum = np.zeros(newshape, dtype=imdtype)
         mode = 'constant'
-        if grid_mode==True:
-            mode = 'grid-'+mode
+        if grid_mode == True:
+            mode = 'grid-' + mode
         if not memlim:
             imscl = np.zeros((Nim,) + newshape, dtype=imdtype)
-            with trange(Nim, desc="loading-scaling",
-                        disable=log.getEffectiveLevel() > logging.INFO,
-                        leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+            with trange(Nim, desc="loading-scaling", disable=log.getEffectiveLevel()
+                        > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
                 for i in pbar:
-                    imscl[i, :, :, :] = ndi.interpolation.zoom(
-                                            imin[i, :, :, :], tuple(scale),
-                                            order=int_order,
-                                            mode=mode,
-                                            grid_mode=grid_mode)
+                    imscl[i, :, :, :] = ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale),
+                                                               order=int_order, mode=mode,
+                                                               grid_mode=grid_mode)
                     imsum += imscl[i, :, :, :]
         else:
-            with trange(Nim, desc="loading-scaling",
-                        disable=log.getEffectiveLevel() > logging.INFO,
-                        leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+            with trange(Nim, desc="loading-scaling", disable=log.getEffectiveLevel()
+                        > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
                 for i in pbar:
                     if Nim > 50 and using_multiple_files:
                         imin_temp = imio.getnii(imdic['files'][i])
-                        imsum += ndi.interpolation.zoom(
-                                    imin_temp, tuple(scale),
-                                    order=int_order,
-                                    mode=mode,
-                                    grid_mode=grid_mode)
+                        imsum += ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order,
+                                                        mode=mode, grid_mode=grid_mode)
                         log.debug(' image sum: read {}'.format(imdic['files'][i]))
                     else:
-                        imsum += ndi.interpolation.zoom(
-                                    imin[i, :, :, :], tuple(scale),
-                                    mode=mode,
-                                    order=int_order, grid_mode=grid_mode)
+                        imsum += ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale), mode=mode,
+                                                        order=int_order, grid_mode=grid_mode)
     else:
         imscl = imin
         imsum = np.sum(imin, axis=0)
@@ -502,9 +493,10 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     A = np.diag(np.append(sf[::-1], 1.) * np.diag(affine))
 
     # > note half of new voxel offset is used for the new centre of voxels
-    A[0, 3] = affine[0, 3] + A[0, 0] * (ix0-0.5*(scale[2]-1))
-    A[1, 3] = affine[1, 3] + (affine[1, 1] * (imshape[1] - 1) - A[1, 1] * (iy1-0.5*(scale[1]-1)))
-    A[2, 3] = affine[2, 3] - A[2, 2] * 0.5*(scale[0]-1)
+    A[0, 3] = affine[0, 3] + A[0, 0] * (ix0 - 0.5 * (scale[2] - 1))
+    A[1, 3] = affine[1, 3] + (affine[1, 1] * (imshape[1] - 1) - A[1, 1] * (iy1 - 0.5 *
+                                                                           (scale[1] - 1)))
+    A[2, 3] = affine[2, 3] - A[2, 2] * 0.5 * (scale[0] - 1)
     A[3, 3] = 1
 
     # output dictionary
@@ -529,9 +521,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     # list of file names for the upsampled and trimmed images
     fpetu = []
     # > perform the trimming and save the intermediate images if requested
-    with trange(Nim, desc="finalising trimming/scaling",
-                disable=log.getEffectiveLevel() > logging.INFO,
-                leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+    with trange(Nim, desc="finalising trimming/scaling", disable=log.getEffectiveLevel()
+                > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
 
         for i in pbar:
 
@@ -1031,7 +1022,7 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
 
     # > save to NIfTI, first load
     innii = nib.load(imdct['fim'])
-    
+
     # > get the data and flip if needed
     imdata = innii.get_fdata()
     if flip is not None:

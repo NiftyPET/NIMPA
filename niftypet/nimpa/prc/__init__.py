@@ -23,12 +23,14 @@ from .imio import (
     dcm2im,
     dcm2nii,
     dcmanonym,
+    dcmdir,
     dcminfo,
     dcmsort,
     fwhm2sig,
     getmgh,
     getnii,
     getnii_descr,
+    isdcm,
     mgh2nii,
     nii_gzip,
     nii_ugzip,
@@ -37,10 +39,7 @@ from .imio import (
     pick_t1w,
     rem_chars,
     time_stamp,
-    isdcm,
-    dcmdir,
 )
-
 from .num import conv_separable, isub, nlm
 
 # will be deprecated
