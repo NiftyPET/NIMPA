@@ -13,11 +13,12 @@ from textwrap import dedent
 import nibabel as nib
 import numpy as np
 import pydicom as dcm
-from miutil.imio.nii import array2nii  # NOQA: F401 # yapf: disable
+from miutil.fdio import create_dir
 from miutil.imio.nii import getnii  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_gzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_ugzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import niisort  # NOQA: F401 # yapf: disable
+from miutil.imio.nii import array2nii
 
 # > NiftyPET resources
 from .. import resources as rs
@@ -35,14 +36,6 @@ istp_code = {
     'C-111A1': 'F18', 'C-105A1': 'C11', 'C-B1038': 'O15', 'C-128A2': 'Ge68', 'C-131A3': 'Ga68'}
 
 
-#------------------------------------------------
-def create_dir(pth):
-    if not os.path.exists(pth):
-        os.makedirs(pth)
-#------------------------------------------------
-
-
-#------------------------------------------------
 def time_stamp(simple_ascii=False):
     now = datetime.datetime.now()
     if simple_ascii:
@@ -52,67 +45,46 @@ def time_stamp(simple_ascii=False):
         nowstr = str(now.year) + '-' + str(now.month) + '-' + str(now.day) + ' ' + str(
             now.hour) + ':' + str(now.minute)
     return nowstr
-#------------------------------------------------
 
 
-#------------------------------------------------
 def fwhm2sig(fwhm, voxsize=2.0):
     return (fwhm/voxsize) / (2 * (2 * np.log(2))**.5)
-#------------------------------------------------
 
 
-#------------------------------------------------
 def rem_chars(txt, replacement_char='_'):
     ''' remove disallowed or inconvenient characters
         (as def. in `avoid_chars`) from file/folder names.
     '''
     for c in avoid_chars:
         txt = txt.replace(c, '_')
-
-    if not txt:
-        txt = 'undefined'
-
-    while txt[0] == replacement_char:
-        txt = txt[1:]
-
-    return txt
-#------------------------------------------------
+    txt = txt.lstrip(replacement_char)
+    return txt or 'undefined'
 
 
-#------------------------------------------------
 def isdcm(f):
     try:
         dcm.dcmread(f)
-        r = True
-    except:
-        r = False
-    return r
+    except Exception:
+        return False
+    else:
+        return True
 
 
 def dcmdir(inpth):
     '''
-    Check if the folder has DICOM files and 
+    Check if the folder has DICOM files and
     specify them
     '''
-    dcmlst = []
     if not inpth.is_dir():
         raise IOError('unrecognised folder')
-
-    for f in inpth.iterdir():
-        if isdcm(f):
-            dcmlst.append(f)
-    # > number of DICOM files
-    Ndcm = len(dcmlst)
-
-    if Ndcm>0:
-        return dict(fdcm=dcmlst, N=Ndcm)
-    else:
-        return None
-#------------------------------------------------
+    dcmlst = [f for f in inpth.iterdir() if isdcm(f)]
+    Ndcm = len(dcmlst) # number of DICOM files
+    return {'fdcm': dcmlst, 'N': Ndcm} if Ndcm > 0 else None
 
 
 def mgh2nii(fim, fout=None, output=None):
-    ''' Convert `*.mgh` or `*.mgz` FreeSurfer image to NIfTI.
+    '''
+    Convert `*.mgh` or `*.mgz` FreeSurfer image to NIfTI.
         Arguments:
             fim: path to the input MGH file
             fout: path to the output NIfTI file, if None then

@@ -38,16 +38,13 @@ Cnt = resources.get_setup()
 
 build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
 setup_kwargs = {
-    "use_scm_version": True, "packages": find_packages(exclude=["tests"]),
-    "package_data": {"niftypet": [
-    						"nimpa/auxdata/*", 
-    						"nimpa/acr_design/core_mumap/*",
-    						"nimpa/acr_design/core_nac/*",
-    						"nimpa/acr_design/rods/*",
-    						"nimpa/acr_design/sampling/*"]},
-    	"install_requires": [
-        'dipy>=1.3.0', 'miutil[nii]>=0.10.0', 'nibabel>=2.4.0', 'ninst>=0.12.0', 'numpy>=1.14',
-        'pydicom>=1.0.2', 'scipy', 'setuptools', 'spm12', 'imageio>=2.22.4', 'dcm2niix', 'SimpleITK']}
+    "use_scm_version": True, "packages": find_packages(exclude=["tests"]), "package_data": {
+        "niftypet": [
+            "nimpa/auxdata/*", "nimpa/acr_design/core_mumap/*", "nimpa/acr_design/core_nac/*",
+            "nimpa/acr_design/rods/*", "nimpa/acr_design/sampling/*"]}, "install_requires": [
+                'dipy>=1.3.0', 'miutil[nii]>=0.10.0', 'nibabel>=2.4.0', 'ninst>=0.12.0',
+                'numpy>=1.14', 'pydicom>=1.0.2', 'scipy', 'setuptools', 'spm12', 'imageio>=2.22.4',
+                'dcm2niix', 'SimpleITK']}
 # 'SimpleITK>=1.2.0'
 cmake_args = [
     f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",

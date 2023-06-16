@@ -25,7 +25,7 @@ Note that it's recommended (but not required) to use `conda`.
 
     # cross-platform install
     conda install -c conda-forge python=3 \
-      ipykernel numpy scipy scikit-image matplotlib ipywidgets dcm2niix
+      ipykernel numpy scipy scikit-image matplotlib ipywidgets dipy nibabel pydicom
     pip install "nimpa>=2"
 
 For optional `dcm2niix <https://github.com/rordenlab/dcm2niix>`_ (image conversion from DICOM to NIfTI) and/or `niftyreg <https://github.com/KCL-BMEIS/niftyreg>`_ (image registration) support, simply install them separately (``pip install dcm2niix niftyreg``).

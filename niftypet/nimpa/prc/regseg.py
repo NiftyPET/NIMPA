@@ -8,9 +8,9 @@ import os
 import shutil
 import sys
 from os import fspath
+from pathlib import Path, PurePath
 from subprocess import call
 from textwrap import dedent
-from pathlib import PurePath, Path
 
 import nibabel as nib
 import numpy as np

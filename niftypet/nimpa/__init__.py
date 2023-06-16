@@ -29,7 +29,7 @@ __all__ = [
     'array2nii', 'bias_field_correction',
     'centre_mass_img', 'centre_mass_corr', 'coreg_spm', 'coreg_vinci',
     'create_dir', 'create_mask', 'ct2mu',
-    'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort', 'isdcm', 'dcmdir'
+    'dcm2im', 'dcm2nii', 'dcmanonym', 'dcminfo', 'dcmsort', 'isdcm', 'dcmdir',
     'dice_coeff', 'dice_coeff_multiclass', 'fwhm2sig', 'getmgh', 'getnii', 'mgh2nii',
     'getnii_descr', 'im_cut', 'imfill', 'imsmooth', 'iyang', 'motion_reg', 'nii_gzip',
     'nii_modify', 'nii_ugzip', 'niisort', 'orientnii', 'pet2pet_rigid', 'pick_t1w',
@@ -39,6 +39,7 @@ __all__ = [
     # Signa
     'pifa2nii', 'nii2pifa',
     # ACR
+    'acr'
     # 'get_params', 'get_paths', 'extract_reso_part', 'sampling_masks'
     # 'create_mumap_core', 'create_nac_core', 'create_reso', 'create_sampl_reso', 'create_sampl',
     # 'standard_analysis', 'estimate_fwhm'
@@ -55,8 +56,8 @@ from niftypet.ninst import cudasetup as cs
 from niftypet.ninst.dinf import dev_info, gpuinfo
 from niftypet.ninst.tools import LOG_FORMAT, LogHandler, path_resources, resources
 
-from .img import get_cylinder, create_disk, imdiff, imscroll, profile_points
-from .img import pifa2nii, nii2pifa
+from . import acr
+from .img import create_disk, get_cylinder, imdiff, imscroll, nii2pifa, pifa2nii, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
     affine_dipy,
@@ -76,10 +77,9 @@ from .prc import (
     dcm2im,
     dcm2nii,
     dcmanonym,
+    dcmdir,
     dcminfo,
     dcmsort,
-    isdcm,
-    dcmdir,
     dice_coeff,
     dice_coeff_multiclass,
     fwhm2sig,
@@ -89,6 +89,7 @@ from .prc import (
     im_cut,
     imfill,
     imsmooth,
+    isdcm,
     isub,
     iyang,
     mgh2nii,
@@ -114,8 +115,6 @@ from .prc import (
     resample_vinci,
     time_stamp,
 )
-
-from . import acr
 
 # for use in `cmake -DCMAKE_PREFIX_PATH=...`
 cmake_prefix = resource_filename(__name__, "cmake")
