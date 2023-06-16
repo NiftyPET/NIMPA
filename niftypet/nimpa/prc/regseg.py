@@ -258,7 +258,7 @@ def resample_dipy(
     # > DIPY RESAMPLING
     # ------------------------------------------------------------------
     static, static_affine, moving, moving_affine, between_affine = align._handle_pipeline_inputs(
-        fflo, fref, moving_affine=None, static_affine=None, starting_affine=affine)
+        str(fflo), str(fref), moving_affine=None, static_affine=None, starting_affine=affine)
     affine_map = align.AffineMap(between_affine, static.shape, static_affine, moving.shape,
                                  moving_affine)
     rsmpl = affine_map.transform(moving, interpolation=interpolation)

@@ -66,6 +66,7 @@ from .prc import (
     bias_field_correction,
     centre_mass_corr,
     centre_mass_img,
+    centre_mass_rel,
     conv_separable,
     coreg_spm,
     coreg_vinci,

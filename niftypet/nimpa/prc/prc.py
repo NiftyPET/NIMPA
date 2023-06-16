@@ -924,6 +924,51 @@ def centre_mass_img(img, output='mm'):
 
 # ==============================================================================
 
+def centre_mass_rel(im, com=None):
+    '''
+    get the relative centre of mass and the corrected affine matrix
+    '''
+
+    if isinstance(im, (str, PurePath)):
+        imdct = imio.getnii(im, output='all')
+    elif isinstance(im, dict) and 'shape' in im:
+        imdct = im
+    else:
+        raise ValueError('unrecognised input image')
+
+
+    if com is None:
+        com = centre_mass_img(imdct)
+        
+
+    # > initialise the list of relative NIfTI image CoMs
+    com_nii = []
+
+    # > modified affine for the centre of mass
+    mA = imdct['affine'].copy()
+
+    # > go through x, y and z
+    for i in range(3):
+        vox_size = max(imdct['affine'][i, :-1], key=abs)
+
+        # > get the relative centre of mass for each axis (relative to the translation
+        # > values in the affine matrix)
+        if vox_size > 0:
+            com_rel = com[2 - i] + imdct['affine'][i, -1]
+        else:
+            com_rel = com[2 - i] - abs(vox_size) * imdct['shape'][-i - 1] + imdct['affine'][i, -1]
+
+        mA[i, -1] -= com_rel
+
+        com_nii.append(com_rel)
+
+    log.info('''
+        \r relative CoM values are:
+        \r {}
+        '''.format(com_nii))
+
+    return mA, com_nii
+
 
 # ==============================================================================
 def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment='_com-modified',
@@ -970,31 +1015,7 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
     if not isinstance(com, np.ndarray):
         raise ValueError('The Centre of Mass is not a Numpy array!')
 
-    # > initialise the list of relative NIfTI image CoMs
-    com_nii = []
-
-    # > modified affine for the centre of mass
-    mA = imdct['affine'].copy()
-
-    # > go through x, y and z
-    for i in range(3):
-        vox_size = max(imdct['affine'][i, :-1], key=abs)
-
-        # > get the relative centre of mass for each axis (relative to the translation
-        # > values in the affine matrix)
-        if vox_size > 0:
-            com_rel = com[2 - i] + imdct['affine'][i, -1]
-        else:
-            com_rel = com[2 - i] - abs(vox_size) * imdct['shape'][-i - 1] + imdct['affine'][i, -1]
-
-        mA[i, -1] -= com_rel
-
-        com_nii.append(com_rel)
-
-    log.info('''
-        \r relative CoM values are:
-        \r {}
-        '''.format(com_nii))
+    mA, com_nii = centre_mass_rel(imdct, com)
 
     # >------------------------------------------------------
     # > get the file name and path separated
