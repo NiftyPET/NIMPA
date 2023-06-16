@@ -913,6 +913,7 @@ def centre_mass_img(img, output='mm'):
 
 # ==============================================================================
 
+
 def centre_mass_rel(im, com=None):
     '''
     get the relative centre of mass and the corrected affine matrix
@@ -925,10 +926,8 @@ def centre_mass_rel(im, com=None):
     else:
         raise ValueError('unrecognised input image')
 
-
     if com is None:
         com = centre_mass_img(imdct)
-        
 
     # > initialise the list of relative NIfTI image CoMs
     com_nii = []

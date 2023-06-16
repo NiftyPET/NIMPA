@@ -102,6 +102,7 @@ def create_mask(
 # I M A G E   R E G I S T R A T I O N
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
+
 # ------------------------------------------------------------------------------
 def aff_dist(A, pnt, offset=40):
     ''' find average point distance after applying
@@ -110,24 +111,23 @@ def aff_dist(A, pnt, offset=40):
     '''
 
     # > get the sampling point(s) for evaluation of motion
-    p = np.array(pnt+[1])
-    pp =  np.matmul(A, p)
+    p = np.array(pnt + [1])
+    pp = np.matmul(A, p)
 
     # > measure of distance after applying the transformation
-    dist = np.sum((pp-p)**2)**.5
-    
+    dist = np.sum((pp - p)**2)**.5
+
     # > get it in a list for all the offsets
     dist = [dist]
-    for x in [p[0]-offset, p[0]+offset]:
-        for y in [p[1]-offset, p[1]+offset]:
-            for z in [p[2]-offset, p[2]+offset]:
-                
-                p = np.array([x,y,z,1])
+    for x in [p[0] - offset, p[0] + offset]:
+        for y in [p[1] - offset, p[1] + offset]:
+            for z in [p[2] - offset, p[2] + offset]:
+
+                p = np.array([x, y, z, 1])
                 pp = np.matmul(A, p)
-                dist.append(np.sum((pp-p)**2)**.5)
+                dist.append(np.sum((pp - p)**2)**.5)
 
     return max(dist)
-
 
 
 # ------------------------------------------------------------------------------
