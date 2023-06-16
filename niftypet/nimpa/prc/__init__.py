@@ -11,7 +11,7 @@ __all__ = [
     # num
     'conv_separable', 'isub', 'nlm',
     # regseg
-    'affine_dipy', 'affine_fsl', 'affine_niftyreg',
+    'aff_dist', 'affine_dipy', 'affine_fsl', 'affine_niftyreg',
     'coreg_spm', 'coreg_vinci', 'create_mask', 'dice_coeff', 'dice_coeff_multiclass',
     'imfill', 'motion_reg', 'realign_mltp_spm', 'resample_fsl', 'resample_dipy',
     'resample_mltp_spm', 'resample_niftyreg', 'resample_spm',
@@ -60,6 +60,7 @@ from .prc import (
     pvc_iyang,
 )
 from .regseg import (
+    aff_dist,
     affine_dipy,
     affine_fsl,
     affine_niftyreg,

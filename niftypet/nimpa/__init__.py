@@ -60,6 +60,7 @@ from . import acr
 from .img import create_disk, get_cylinder, imdiff, imscroll, nii2pifa, pifa2nii, profile_points
 from .prc import imtrimup  # for backward compatibility
 from .prc import (
+    aff_dist,
     affine_dipy,
     affine_fsl,
     affine_niftyreg,
