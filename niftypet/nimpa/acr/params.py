@@ -46,7 +46,7 @@ intord = 0
 pad = 4
 
 # angle of rotations for the initial position of resolution rods (cold)
-rods_rotate = 0    #-150
+rods_rotate = 0
 
 # > buffer size for the activity image for registration purposes
 buff_size = 16

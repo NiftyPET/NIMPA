@@ -334,14 +334,12 @@ def zmask(masks, key, Cntd, axial_offset=8, width_mm=10, z_start_idx=None, level
         zax = np.sum(masks[key] == level, axis=(1, 2))
     zax = np.where(zax > 0)[0]
 
-    off = 8   # offset from the borders of the ROI mask
-
     # width of axial voxel extension
     width_vox = int(np.round(width_mm / imupd['voxsize'][0]))
 
     # the range
     z0 = zax[0] + axial_offset
-    z1 = zax[-1] - axial_offset #-width_vox
+    z1 = zax[-1] - axial_offset # wip: maybe -width_vox
 
     msk = np.zeros(masks[key].shape, dtype=bool)
 

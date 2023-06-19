@@ -22,7 +22,7 @@ __all__ = [
     # numcu
     'add', 'div', 'mul',
     # improc
-    'conv_separable', 'isub', 'nlm',
+    'conv_separable', 'isub', 'nlm', 'aff_dist', 'centre_mass_rel',
     # core
     'create_disk', 'get_cylinder', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
     'affine_fsl', 'affine_dipy', 'affine_niftyreg',

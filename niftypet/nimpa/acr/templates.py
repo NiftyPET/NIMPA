@@ -639,15 +639,16 @@ def create_sampl(Cntd, return_raw=False):
     else:
         raise ValueError('Upscaled and trimmed ACR QNT PET image cannot be found')
 
-    bckg_png = imageio.imread(Cntd['fs_bckg'])
-    ibckg_png = imageio.imread(Cntd['fs_ibckg'])
-    air_png = imageio.imread(Cntd['fs_air'])
-    h2o_png = imageio.imread(Cntd['fs_h2o'])
-    bone_png = imageio.imread(Cntd['fs_bone'])
-    hot1_png = imageio.imread(Cntd['fs_hot1'])
-    hot2_png = imageio.imread(Cntd['fs_hot2'])
-    hot3_png = imageio.imread(Cntd['fs_hot3'])
-    hot4_png = imageio.imread(Cntd['fs_hot4'])
+    # Unused for now:
+    # bckg_png = imageio.imread(Cntd['fs_bckg'])
+    # ibckg_png = imageio.imread(Cntd['fs_ibckg'])
+    # air_png = imageio.imread(Cntd['fs_air'])
+    # h2o_png = imageio.imread(Cntd['fs_h2o'])
+    # bone_png = imageio.imread(Cntd['fs_bone'])
+    # hot1_png = imageio.imread(Cntd['fs_hot1'])
+    # hot2_png = imageio.imread(Cntd['fs_hot2'])
+    # hot3_png = imageio.imread(Cntd['fs_hot3'])
+    # hot4_png = imageio.imread(Cntd['fs_hot4'])
 
     # > converted and combined in fewer templates
     insrts = None
