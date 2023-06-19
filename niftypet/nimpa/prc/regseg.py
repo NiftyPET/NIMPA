@@ -308,7 +308,7 @@ def affine_niftyreg(
     omp=1,
     rigOnly=False,
     affDirect=False,
-    maxit=5,
+    maxit=10,
     speed=True,
     pi=50,
     pv=50,
@@ -374,7 +374,8 @@ def affine_niftyreg(
         str(pi), '-pv',
         str(pv), '-smooF',
         str(smof), '-smooR',
-        str(smor), '-maxit', '10', '-omp',
+        str(smor), '-maxit',
+        str(maxit), '-omp',
         str(omp), '-res', fout]
     if speed:
         cmd.append('-speeeeed')
