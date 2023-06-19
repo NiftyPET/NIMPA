@@ -3,7 +3,81 @@
 requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4",
             "ninst>=0.12.0", "cuvec-base", "miutil[cuda]>=0.4.0",
             "scikit-build>=0.11.0", "cmake>=3.18", "ninja"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "niftypet/nimpa/_dist_ver.py"
 write_to_template = "__version__ = '{version}'\n"
+
+[project.urls]
+documentation = "https://niftypet.readthedocs.io"
+repository = "https://github.com/NiftyPET/NIMPA"
+changelog = "https://github.com/NiftyPET/NIMPA/releases"
+
+[project]
+name = "nimpa"
+dynamic = ["version"]
+authors = [{name = "Pawel Markiewicz", email = "p.markiewicz@ucl.ac.uk"}]
+maintainers = [{name = "Casper da Costa-Luis", email = "casper.dcl@physics.org"}]
+description = "CUDA-accelerated Python utilities for high-throughput neuroimage processing and analysis"
+readme = "README.rst"
+requires-python = ">=3.7"
+keywords = ["PET", "MR", "processing", "analysis"]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: GPU",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Intended Audience :: Education",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Medical Science Apps."]
+
+[project.optional-dependencies]
+dev = ["pytest>=6", "pytest-cov", "pytest-timeout", "pytest-xdist"]
+plot = ["miutil[plot]"]
+cuda = ["cuvec>=2.3.1", "numcu"]
+dcm2niix = ["dcm2niix>=1.0.20220116"]
+niftyreg = ["niftyreg"]
+
+[tool.flake8]
+max_line_length = 99
+extend_ignore = ["E228", "E261", "E701", "P101", "P103"]
+exclude = [".git", "__pycache__", "build", "dist", ".eggs"]
+
+[tool.yapf]
+spaces_before_comment = [15, 20]
+arithmetic_precedence_indication = true
+allow_split_before_dict_value = false
+coalesce_brackets = true
+column_limit = 99
+each_dict_entry_on_separate_line = false
+space_between_ending_comma_and_closing_bracket = false
+split_before_named_assigns = false
+split_before_closing_bracket = false
+blank_line_before_nested_class_or_def = false
+
+[tool.isort]
+profile = "black"
+line_length = 99
+known_first_party = ["niftypet", "tests"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+timeout = 300
+log_level = "INFO"
+python_files = ["tests/test_*.py"]
+testpaths = ["tests"]
+addopts = "-v --tb=short -rxs -W=error -n=auto --durations=0 --durations-min=2 --cov=niftypet --cov-report=term-missing --cov-report=xml"
