@@ -47,7 +47,8 @@ jobs:
       with:
         fetch-depth: 0
     - name: Run setup-python
-      run: setup-python -p${{ matrix.python }}
+      # `dipy` lacks PEP518 support, so requries `packaging, numpy`
+      run: setup-python -p${{ matrix.python }} packaging numpy
     - run: pip install -U -e .[dev]
       env:
         # https://github.com/scikit-build/scikit-build/issues/740
