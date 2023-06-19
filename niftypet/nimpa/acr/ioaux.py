@@ -5,10 +5,14 @@ import os
 from pathlib import Path, PurePath
 
 import dipy.align as align
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
+
+try:
+    import matplotlib.patches as patches
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 
 from ..prc import imio
 
@@ -429,7 +433,7 @@ def plot_hotins(im, masks, Cntd, inserts=None, axes=None, ylim=None, colour='k',
     rinsrt = [12.5, 8, 6, 4]
 
     if axes is None:
-        fig, ax = plt.subplots(1)
+        _, ax = plt.subplots(1)
     else:
         ax = axes
 
