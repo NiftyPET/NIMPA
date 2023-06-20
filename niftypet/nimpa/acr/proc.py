@@ -33,8 +33,7 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
         for f in chain(outdir.glob('*.nii*'), outdir.glob('*.json')):
             # remove previous files
             os.remove(f)
-
-        run([dcm2niix.bin, '-i', 'y', '-v', 'n', '-o', outdir, 'f', '%f_%s', str(indat)])
+        run([dcm2niix.bin, '-i', 'y', '-v', 'n', '-o', outdir, '-f', '%f_%s', str(indat)])
         fnii = list(outdir.glob('*offline3D*.nii*'))
         if len(fnii) == 1:
             fnii = fnii[0]
