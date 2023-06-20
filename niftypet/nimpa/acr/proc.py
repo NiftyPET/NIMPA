@@ -13,7 +13,7 @@ from ..prc import imio, prc
 
 def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
     """Convert to NIfTI (if DICOM), smooth using the Gaussian and trim/scale up."""
-    opth = dcm_dir.parent if outpath is None else Path(outpath)
+    opth = Path(indat).parent if outpath is None else Path(outpath)
 
     if mode == 'nac':
         outdir = opth / mode.upper()
@@ -27,7 +27,6 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
     if isinstance(indat, (str, PurePath)) and Path(indat).is_dir():
         if not imio.dcmdir(indat):
             raise IOError('the provided folder does not contain DICOM files')
-        dcm_dir = Path(indat)
 
         # > CONVERT TO NIfTI
         # > remove previous files
@@ -35,7 +34,7 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
         for f in fs_:
             os.remove(f)
 
-        run([dcm2niix.bin, '-i', 'y', '-v', 'n', '-o', outdir, 'f', '%f_%s', dcm_dir])
+        run([dcm2niix.bin, '-i', 'y', '-v', 'n', '-o', outdir, 'f', '%f_%s', str(indat)])
         fnii = list(outdir.glob('*offline3D*.nii*'))
         if len(fnii) == 1:
             fnii = fnii[0]
@@ -71,6 +70,6 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
         fcomment_pfx=fnii.name.split('.nii')[0] + '__',
         store_img=True)
 
-    Cntd['f' + mode + 'up'] = Path(imup['fim'])
+    Cntd[f'f{mode}up'] = Path(imup['fim'])
 
     return Cntd

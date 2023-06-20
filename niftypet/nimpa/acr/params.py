@@ -6,7 +6,11 @@ import os
 from pathlib import Path
 
 import numpy as np
-from pkg_resources import resource_filename
+
+try:          # py<3.9
+    import importlib_resources as resources
+except ImportError:
+    from importlib import resources
 
 # CONSTANTS/PARAMTERS
 
@@ -46,7 +50,7 @@ intord = 0
 pad = 4
 
 # angle of rotations for the initial position of resolution rods (cold)
-rods_rotate = 0    #-150
+rods_rotate = 0
 
 # > buffer size for the activity image for registration purposes
 buff_size = 16
@@ -118,9 +122,8 @@ def get_params(cpath=None):
       cpath  : path of custom ACR design files
     """
     if cpath is None:
-        f_core_main_comp = resource_filename("niftypet.nimpa",
-                                             "acr_design/core_mumap/acr-main-compartment.png")
-        f_core_main_comp = Path(f_core_main_comp)
+        f_core_main_comp = resources.files(
+            "niftypet.nimpa").resolve() / "acr_design" / "core_mumap" / "acr-main-compartment.png"
         if not f_core_main_comp.is_file():
             raise IOError('Design ACR phantom files are missing in the NIMPA package')
         mfldr = f_core_main_comp.parent.parent

@@ -13,10 +13,14 @@ from subprocess import run
 from textwrap import dedent
 from warnings import warn
 
+try:          # py<3.9
+    import importlib_resources as resources
+except ImportError:
+    from importlib import resources
+
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
-from pkg_resources import resource_filename
 from tqdm.auto import trange
 
 from . import imio, regseg
@@ -89,7 +93,8 @@ def psf_gaussian(vx_size=(1, 1, 1), fwhm=(6, 5, 5), hradius=8):
 def psf_measured(scanner='mmr', scale=1):
     if scanner == 'mmr':
         # file name for the mMR's PSF and chosen scale
-        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
+        fdat = os.fspath(
+            resources.files("niftypet.nimpa").resolve() / "auxdata" / f"PSF-17_scl-{scale:d}.npy")
         # transaxial and axial PSF
         Hxy, Hz = np.load(fdat)
         return np.array([Hz, Hxy, Hxy], dtype=np.float32)
@@ -913,6 +918,7 @@ def centre_mass_img(img, output='mm'):
 
 # ==============================================================================
 
+
 def centre_mass_rel(im, com=None):
     '''
     get the relative centre of mass and the corrected affine matrix
@@ -925,10 +931,8 @@ def centre_mass_rel(im, com=None):
     else:
         raise ValueError('unrecognised input image')
 
-
     if com is None:
         com = centre_mass_img(imdct)
-        
 
     # > initialise the list of relative NIfTI image CoMs
     com_nii = []

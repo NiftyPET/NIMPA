@@ -50,7 +50,7 @@ def pifa2nii(fpifa, fnii=None, outpath=None):
     # > PIFA x-y voxel size
     SZ_IMX = fh['HeaderData/xMatrix'][0]
     SZ_IMZ = fh['HeaderData/zMatrix'][0]
-    ZLOCAT = fh['HeaderData/tableLocation'][0] # << check if this is really correct
+    # ZLOCAT = fh['HeaderData/tableLocation'][0] # << check if this is really correct
     SP_VXY = DFOV / SZ_IMX
 
     # > the mu-map in units of 1/mm

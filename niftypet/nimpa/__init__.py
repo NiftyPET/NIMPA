@@ -22,7 +22,7 @@ __all__ = [
     # numcu
     'add', 'div', 'mul',
     # improc
-    'conv_separable', 'isub', 'nlm',
+    'conv_separable', 'isub', 'nlm', 'aff_dist', 'centre_mass_rel',
     # core
     'create_disk', 'get_cylinder', 'imdiff', 'imscroll', 'profile_points', 'imtrimup',
     'affine_fsl', 'affine_dipy', 'affine_niftyreg',
@@ -45,12 +45,17 @@ __all__ = [
     # 'standard_analysis', 'estimate_fwhm'
     ] # yapf: disable
 
+from os import fspath
+
+try:          # py<3.9
+    import importlib_resources as iresources
+except ImportError:
+    from importlib import resources as iresources
 
 try:
     from numcu import add, div, mul
 except ImportError:
     pass
-from pkg_resources import resource_filename
 
 from niftypet.ninst import cudasetup as cs
 from niftypet.ninst.dinf import dev_info, gpuinfo
@@ -118,4 +123,4 @@ from .prc import (
 )
 
 # for use in `cmake -DCMAKE_PREFIX_PATH=...`
-cmake_prefix = resource_filename(__name__, "cmake")
+cmake_prefix = fspath(iresources.files("niftypet.nimpa").resolve() / "cmake")

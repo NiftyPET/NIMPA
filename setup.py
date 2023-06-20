@@ -5,7 +5,6 @@ for namespace 'niftypet'.
 """
 import logging
 import re
-import sys
 from pathlib import Path
 
 from setuptools import find_packages, setup
@@ -47,7 +46,7 @@ setup_kwargs = {
                 'dcm2niix', 'SimpleITK']}
 # 'SimpleITK>=1.2.0'
 cmake_args = [
-    f"-DNIMPA_BUILD_VERSION={build_ver}", f"-DPython3_ROOT_DIR={sys.prefix}",
+    f"-DNIMPA_BUILD_VERSION={build_ver}",
     f"-DNIMPA_KERNEL_RADIUS={getattr(resources, 'RSZ_PSF_KRNL', 8)}"]
 
 try:

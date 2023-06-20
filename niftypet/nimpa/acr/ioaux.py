@@ -5,10 +5,14 @@ import os
 from pathlib import Path, PurePath
 
 import dipy.align as align
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
+
+try:
+    import matplotlib.patches as patches
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 
 from ..prc import imio
 
@@ -334,14 +338,12 @@ def zmask(masks, key, Cntd, axial_offset=8, width_mm=10, z_start_idx=None, level
         zax = np.sum(masks[key] == level, axis=(1, 2))
     zax = np.where(zax > 0)[0]
 
-    off = 8   # offset from the borders of the ROI mask
-
     # width of axial voxel extension
     width_vox = int(np.round(width_mm / imupd['voxsize'][0]))
 
     # the range
     z0 = zax[0] + axial_offset
-    z1 = zax[-1] - axial_offset #-width_vox
+    z1 = zax[-1] - axial_offset # wip: maybe -width_vox
 
     msk = np.zeros(masks[key].shape, dtype=bool)
 
@@ -431,7 +433,7 @@ def plot_hotins(im, masks, Cntd, inserts=None, axes=None, ylim=None, colour='k',
     rinsrt = [12.5, 8, 6, 4]
 
     if axes is None:
-        fig, ax = plt.subplots(1)
+        _, ax = plt.subplots(1)
     else:
         ax = axes
 
