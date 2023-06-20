@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 from os import fspath
+from pathlib import PurePath
 from subprocess import call
 from textwrap import dedent
 
@@ -37,11 +38,16 @@ def imfill(immsk):
     return immsk
 
 
+# SPM options
+# 'mi'  - Mutual Information (default)
+# 'nmi' - Normalised Mutual Information
+# 'ecc' - Entropy Correlation Coefficient
+# 'ncc' - Normalised Cross Correlation
+
+
 # ------------------------------------------------------------------------------
 # Create object mask for the input image
 # ------------------------------------------------------------------------------
-
-
 def create_mask(
     fnii,
     fimout='',
@@ -104,6 +110,34 @@ def create_mask(
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
+# ------------------------------------------------------------------------------
+def aff_dist(A, pnt, offset=40):
+    ''' find average point distance after applying
+        the affine transformation `A` to a point `pnt`
+        and its `offset` in all directions.
+    '''
+
+    # > get the sampling point(s) for evaluation of motion
+    p = np.array(pnt + [1])
+    pp = np.matmul(A, p)
+
+    # > measure of distance after applying the transformation
+    dist = np.sum((pp - p)**2)**.5
+
+    # > get it in a list for all the offsets
+    dist = [dist]
+    for x in [p[0] - offset, p[0] + offset]:
+        for y in [p[1] - offset, p[1] + offset]:
+            for z in [p[2] - offset, p[2] + offset]:
+
+                p = np.array([x, y, z, 1])
+                pp = np.matmul(A, p)
+                dist.append(np.sum((pp - p)**2)**.5)
+
+    return max(dist)
+
+
+# ------------------------------------------------------------------------------
 def affine_dipy(
     fref,
     fflo,
@@ -116,8 +150,8 @@ def affine_dipy(
     faffine=None,
     pickname='ref',
     fcomment='',
-    rfwhm=15.,
-    ffwhm=15.,
+    rfwhm=8.,
+    ffwhm=8.,
     verbose=True,
 ):
     """
@@ -218,10 +252,10 @@ def resample_dipy(
     imio.create_dir(opth)
 
     # > the output naming
-    if os.path.dirname(fimout) != '':
+    if fimout is not None and os.path.dirname(fimout) != '':
         fout = fimout
-    elif fimout is not None and not os.path.isfile(fimout):
-        fout = os.path.join(opth, fimout)
+    # elif fimout is not None and not os.path.isfile(fimout):
+    #     fout = os.path.join(opth, fimout)
     elif pickname == 'ref':
         fout = os.path.join(
             opth, 'resampled-dipy_to_ref-' + os.path.basename(fref).split('.nii')[0] + fcomment +
@@ -234,7 +268,7 @@ def resample_dipy(
 
     # ------------------------------------------------------------------
     if faff is not None:
-        if faff.endswith('.npy'):
+        if isinstance(faff, (str, PurePath)) and hasext(faff, 'npy'):
             affine = np.load(faff)
         elif isinstance(faff, np.ndarray):
             affine = faff
@@ -257,7 +291,7 @@ def resample_dipy(
     # > DIPY RESAMPLING
     # ------------------------------------------------------------------
     static, static_affine, moving, moving_affine, between_affine = align._handle_pipeline_inputs(
-        fflo, fref, moving_affine=None, static_affine=None, starting_affine=affine)
+        str(fflo), str(fref), moving_affine=None, static_affine=None, starting_affine=affine)
     affine_map = align.AffineMap(between_affine, static.shape, static_affine, moving.shape,
                                  moving_affine)
     rsmpl = affine_map.transform(moving, interpolation=interpolation)
@@ -281,7 +315,7 @@ def affine_niftyreg(
     omp=1,
     rigOnly=False,
     affDirect=False,
-    maxit=5,
+    maxit=10,
     speed=True,
     pi=50,
     pv=50,
@@ -347,7 +381,8 @@ def affine_niftyreg(
         str(pi), '-pv',
         str(pv), '-smooF',
         str(smof), '-smooR',
-        str(smor), '-maxit', '10', '-omp',
+        str(smor), '-maxit',
+        str(maxit), '-omp',
         str(omp), '-res', fout]
     if speed:
         cmd.append('-speeeeed')
@@ -473,7 +508,7 @@ def realign_mltp_spm(
     for f in fims:
         if f[-3:] == '.gz':
             fun = imio.nii_ugzip(f, outpath=tmpth)
-        elif os.path.isfile(f) and f.endswith('nii'):
+        elif os.path.isfile(f) and hasext(f, 'nii'):
             if niicopy:
                 fun = os.path.join(tmpth, os.path.basename(f).split('.nii')[0] + '_copy.nii')
                 shutil.copyfile(f, fun)
@@ -491,7 +526,7 @@ def realign_mltp_spm(
     else:
         fsrt = fungz
 
-    P_input = [f + ',1' for f in fsrt if f.endswith('nii') and f[0] != 'r' and 'mean' not in f]
+    P_input = [f + ',1' for f in fsrt if hasext(f, 'nii') and f[0] != 'r' and 'mean' not in f]
 
     # > maximal number of characters per line (for Matlab array)
     Pinmx = max(map(len, P_input))
@@ -592,13 +627,13 @@ def resample_mltp_spm(
 
     # > decompress if necessary
     for f in fims:
-        if not os.path.isfile(f) and not (f.endswith('nii') or f.endswith('nii.gz')):
-            raise IOError('e> could not open file:', f)
+        if not os.path.isfile(f) and not hasext(f, ('nii', 'nii.gz')):
+            raise IOError('could not open file:', f)
 
-        if f[-3:] == '.gz':
+        if hasext(f, 'gz'):
             fugz = imio.nii_ugzip(f, outpath=os.path.join(opth, 'copy'))
         elif copy_input:
-            fnm = os.path.basename(f).split('.nii')[0] + '_copy.nii'
+            fnm = os.path.basename(f).rsplit('.nii', 1)[0] + '_copy.nii'
             fugz = os.path.join(opth, 'copy', fnm)
             shutil.copyfile(f, fugz)
         else:
@@ -739,7 +774,7 @@ def coreg_vinci(
     else:
 
         # > add '.xml' extension if not in the affine output file name
-        if not fname_aff.endswith('.xml'):
+        if not hasext(fname_aff, 'xml'):
             fname_aff += '.xml'
 
         faff = os.path.join(opth, 'affine-vinci', fname_aff)
@@ -980,7 +1015,6 @@ def affine_fsl(
         if opth == '':
             opth = os.path.dirname(fflo)
         fname_aff = os.path.basename(fname_aff)
-
     elif outpath == '':
         opth = os.path.dirname(fflo)
     else:
@@ -991,21 +1025,17 @@ def affine_fsl(
 
     # > output floating and affine file names
     if fname_aff == '':
-
         if pickname == 'ref':
             faff = os.path.join(
                 opth, 'affine-fsl',
                 'affine-ref-' + os.path.basename(fref).split('.nii')[0] + fcomment + '.txt')
-
         else:
             faff = os.path.join(
                 opth, 'affine-fsl',
                 'affine-flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment + '.txt')
-
     else:
-
-        # > add '.xml' extension if not in the affine output file name
-        if not fname_aff.endswith('.txt'):
+        # > add '.txt' extension if not in the affine output file name
+        if not hasext(fname_aff, 'txt'):
             fname_aff += '.txt'
 
         faff = os.path.join(opth, 'affine-vinci', fname_aff)

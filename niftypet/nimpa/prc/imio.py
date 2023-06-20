@@ -13,11 +13,12 @@ from textwrap import dedent
 import nibabel as nib
 import numpy as np
 import pydicom as dcm
-from miutil.imio.nii import array2nii  # NOQA: F401 # yapf: disable
+from miutil.fdio import create_dir, hasext
 from miutil.imio.nii import getnii  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_gzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_ugzip  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import niisort  # NOQA: F401 # yapf: disable
+from miutil.imio.nii import array2nii
 
 # > NiftyPET resources
 from .. import resources as rs
@@ -25,19 +26,14 @@ from .. import resources as rs
 log = logging.getLogger(__name__)
 
 # > possible extensions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
+dcmext = 'dcm', 'ima', 'img'
 
 # > remove characters unwanted in file/folder names
-avoid_chars = '{}[]!@#$%^&*.()+=:;~ '
+avoid_chars = '/{}[]!@#$%^&*.()+=:;~ '
 
 # > DICOM coding of PET isotopes
 istp_code = {
     'C-111A1': 'F18', 'C-105A1': 'C11', 'C-B1038': 'O15', 'C-128A2': 'Ge68', 'C-131A3': 'Ga68'}
-
-
-def create_dir(pth):
-    if not os.path.exists(pth):
-        os.makedirs(pth)
 
 
 def time_stamp(simple_ascii=False):
@@ -61,15 +57,34 @@ def rem_chars(txt, replacement_char='_'):
     '''
     for c in avoid_chars:
         txt = txt.replace(c, '_')
+    txt = txt.lstrip(replacement_char)
+    return txt or 'undefined'
 
-    while txt[0] == replacement_char:
-        txt = txt[1:]
 
-    return txt
+def isdcm(f):
+    try:
+        dcm.dcmread(f)
+    except Exception:
+        return False
+    else:
+        return True
+
+
+def dcmdir(inpth):
+    '''
+    Check if the folder has DICOM files and
+    specify them
+    '''
+    if not inpth.is_dir():
+        raise IOError('unrecognised folder')
+    dcmlst = [f for f in inpth.iterdir() if isdcm(f)]
+    Ndcm = len(dcmlst) # number of DICOM files
+    return {'fdcm': dcmlst, 'N': Ndcm} if Ndcm > 0 else None
 
 
 def mgh2nii(fim, fout=None, output=None):
-    ''' Convert `*.mgh` or `*.mgz` FreeSurfer image to NIfTI.
+    '''
+    Convert `*.mgh` or `*.mgz` FreeSurfer image to NIfTI.
         Arguments:
             fim: path to the input MGH file
             fout: path to the output NIfTI file, if None then
@@ -810,31 +825,31 @@ def list_dcm_datain(datain):
     if 'mumapDCM' in datain:
         dcmump = os.listdir(datain['mumapDCM'])
         # accept only *.dcm extensions
-        dcmump = [os.path.join(datain['mumapDCM'], d) for d in dcmump if d.endswith(dcmext)]
+        dcmump = [os.path.join(datain['mumapDCM'], d) for d in dcmump if hasext(d, dcmext)]
         dcmlst += dcmump
 
     if 'T1DCM' in datain:
         dcmt1 = os.listdir(datain['T1DCM'])
         # accept only *.dcm extensions
-        dcmt1 = [os.path.join(datain['T1DCM'], d) for d in dcmt1 if d.endswith(dcmext)]
+        dcmt1 = [os.path.join(datain['T1DCM'], d) for d in dcmt1 if hasext(d, dcmext)]
         dcmlst += dcmt1
 
     if 'T2DCM' in datain:
         dcmt2 = os.listdir(datain['T2DCM'])
         # accept only *.dcm extensions
-        dcmt2 = [os.path.join(datain['T2DCM'], d) for d in dcmt2 if d.endswith(dcmext)]
+        dcmt2 = [os.path.join(datain['T2DCM'], d) for d in dcmt2 if hasext(d, dcmext)]
         dcmlst += dcmt2
 
     if 'UTE1' in datain:
         dcmute1 = os.listdir(datain['UTE1'])
         # accept only *.dcm extensions
-        dcmute1 = [os.path.join(datain['UTE1'], d) for d in dcmute1 if d.endswith(dcmext)]
+        dcmute1 = [os.path.join(datain['UTE1'], d) for d in dcmute1 if hasext(d, dcmext)]
         dcmlst += dcmute1
 
     if 'UTE2' in datain:
         dcmute2 = os.listdir(datain['UTE2'])
         # accept only *.dcm extensions
-        dcmute2 = [os.path.join(datain['UTE2'], d) for d in dcmute2 if d.endswith(dcmext)]
+        dcmute2 = [os.path.join(datain['UTE2'], d) for d in dcmute2 if hasext(d, dcmext)]
         dcmlst += dcmute2
 
     # list-mode data dcm
@@ -881,12 +896,12 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         # > create a list of DICOM files inside the folder
         dcmlst = [
             os.path.join(dcmpth, d) for d in dircontent
-            if os.path.isfile(os.path.join(dcmpth, d)) and d.endswith(dcmext)]
+            if os.path.isfile(os.path.join(dcmpth, d)) and hasext(d, dcmext)]
         log.debug('recognised the input argument as the folder containing DICOM files.')
 
     # > check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
-        if not all(os.path.isfile(d) and d.endswith(dcmext) for d in dcmpth):
+        if not all(os.path.isfile(d) and hasext(d, dcmext) for d in dcmpth):
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
         log.debug('recognised the input argument as the list of DICOM file paths.')
@@ -1053,21 +1068,21 @@ def dcm2im(fpth):
     fpth can be a list of DICOM files or a path (string) to the folder with DICOM files.
     '''
     # possible DICOM file extensions
-    ext = ('dcm', 'DCM', 'ima', 'IMA')
+    ext = 'dcm', 'ima'
 
     # case when given a folder path
     if isinstance(fpth, str) and os.path.isdir(fpth):
-        SZ0 = len([d for d in os.listdir(fpth) if d.endswith(ext)])
+        SZ0 = len([d for d in os.listdir(fpth) if hasext(d, ext)])
         # list of DICOM files
         fdcms = os.listdir(fpth)
-        fdcms = [os.path.join(fpth, f) for f in fdcms if f.endswith(ext)]
+        fdcms = [os.path.join(fpth, f) for f in fdcms if hasext(f, ext)]
 
     # case when list of DICOM files is given
     elif isinstance(fpth, list) and os.path.isfile(os.path.join(fpth[0])):
         SZ0 = len(fpth)
         # list of DICOM files
         fdcms = fpth
-        fdcms = [f for f in fdcms if f.endswith(ext)]
+        fdcms = [f for f in fdcms if hasext(f, ext)]
     else:
         raise NameError('Unrecognised input for DICOM files.')
 

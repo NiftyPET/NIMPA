@@ -8,6 +8,7 @@ import os
 import pathlib
 import re
 import sys
+from pathlib import Path, PurePath
 from subprocess import run
 from textwrap import dedent
 from warnings import warn
@@ -15,11 +16,16 @@ from warnings import warn
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
-from pkg_resources import resource_filename
+from miutil.fdio import hasext
 from tqdm.auto import trange
 
 from . import imio, regseg
 from .num import conv_separable
+
+try:          # py<3.9
+    import importlib_resources as resources
+except ImportError:
+    from importlib import resources
 
 try:
     import SimpleITK as sitk
@@ -29,12 +35,11 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# possible extentions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
-niiext = ('nii.gz', 'nii', 'img', 'hdr')
+# filename extentions
+dcmext = 'dcm', 'ima', 'img'
+niiext = 'nii.gz', 'nii', 'img', 'hdr'
 
 
-# ----------------------------------------------------------------------
 def num(s):
     '''Converts the string to a float or integer number.'''
     try:
@@ -43,7 +48,6 @@ def num(s):
         return float(s)
 
 
-# ----------------------------------------------------------------------
 def psf_gaussian(vx_size=(1, 1, 1), fwhm=(6, 5, 5), hradius=8):
     '''
     Separable kernels for Gaussian convolution executed on the GPU device
@@ -90,7 +94,8 @@ def psf_gaussian(vx_size=(1, 1, 1), fwhm=(6, 5, 5), hradius=8):
 def psf_measured(scanner='mmr', scale=1):
     if scanner == 'mmr':
         # file name for the mMR's PSF and chosen scale
-        fdat = resource_filename("niftypet.nimpa", f"auxdata/PSF-17_scl-{scale:d}.npy")
+        fdat = os.fspath(
+            resources.files("niftypet.nimpa").resolve() / "auxdata" / f"PSF-17_scl-{scale:d}.npy")
         # transaxial and axial PSF
         Hxy, Hz = np.load(fdat)
         return np.array([Hz, Hxy, Hxy], dtype=np.float32)
@@ -127,7 +132,8 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
         dev_id = Cnt['DEVID']
 
     isfile = False
-    if isinstance(fim, str) and os.path.isfile(fim):
+    if isinstance(fim, (str, Path, PurePath)) and os.path.isfile(fim):
+        fim = Path(fim)
         isfile = True
         imd = imio.getnii(fim, output='all')
         im = imd['im']
@@ -148,7 +154,14 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
             voxsize = [Cnt['SO_VXZ'], Cnt['SO_VXY'], Cnt['SO_VXX']]
         elif voxsize is None and Cnt is None:
             raise ValueError('the correct voxel size has to be provided')
-        psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
+
+        # > check if the GPU kernel size (17, radius=8) will be sufficient to fit the PSF
+        if np.any(2 * (fwhm / np.min(voxsize)) > (17 - 1)):
+            hradius = (2 * (fwhm / np.min(voxsize)) + 1) // 2
+            psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm, hradius=hradius)
+        else:
+            psf = psf_gaussian(vx_size=voxsize, fwhm=fwhm)
+
     imsmo = conv_separable(im, psf, output=output_array, dev_id=dev_id, sync=sync)
 
     # output dictionary
@@ -157,7 +170,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
     dctout['fwhm'] = fwhm
 
     if isfile and fout == '':
-        if fim.endswith('.nii.gz'):
+        if hasext(fim, 'nii.gz'):
             fout = fim.split('.nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
         else:
             fout = os.path.splitext(fim)[0] + '_smo' + str(fwhm).replace(
@@ -208,8 +221,8 @@ def im_project3(im):
 
 def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_order=0,
              outpath=None, fname='', fcomment='', fcomment_pfx='', store_avg=False,
-             store_img_intrmd=False, store_img=False, imdtype=np.float32, memlim=False,
-             verbose=False, Cnt=None):
+             store_img_intrmd=False, store_img=False, imdtype=np.float32, grid_mode=True,
+             memlim=False, verbose=False, Cnt=None):
     '''
     Trim and upsample PET image(s), e.g., for GPU execution,
     PVC correction, ROI sampling, etc.
@@ -236,6 +249,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     store_img_intrmd: stores intermediate images with suffix '_i'
     store_avg: stores the average image (if multiple images are given)
     imdtype: data type for output images
+    grid_mode: mode for scipy zooming.  Default is True, where the distance including
+               the full pixel extent is used.
     memlim: Ture for cases when memory is limited and takes more processing time instead.
     verbose: verbose mode [True/False]
     '''
@@ -245,7 +260,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     # case when input folder is given
     if isinstance(fims, (str, pathlib.PurePath)) and os.path.isdir(fims):
         # list of input images (e.g., PET)
-        fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if f.endswith(niiext)]
+        fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if hasext(f, niiext)]
         imdic = imio.niisort(fimlist, memlim=memlim)
         if not (imdic['N'] > 50 and memlim):
             imin = imdic['im']
@@ -258,8 +273,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(
-            fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and str(fims).endswith(niiext):
+    elif isinstance(fims,
+                    (str, pathlib.PurePath)) and os.path.isfile(fims) and hasext(fims, niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:
@@ -361,27 +376,30 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     if any(scale > 1):
         newshape = (scale[0] * imshape[0], scale[1] * imshape[1], scale[2] * imshape[2])
         imsum = np.zeros(newshape, dtype=imdtype)
+        mode = 'constant'
+        if grid_mode:
+            mode = 'grid-' + mode
         if not memlim:
             imscl = np.zeros((Nim,) + newshape, dtype=imdtype)
-            with trange(Nim, desc="loading-scaling",
-                        disable=log.getEffectiveLevel() > logging.INFO,
-                        leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+            with trange(Nim, desc="loading-scaling", disable=log.getEffectiveLevel()
+                        > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
                 for i in pbar:
                     imscl[i, :, :, :] = ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale),
-                                                               order=int_order)
+                                                               order=int_order, mode=mode,
+                                                               grid_mode=grid_mode)
                     imsum += imscl[i, :, :, :]
         else:
-            with trange(Nim, desc="loading-scaling",
-                        disable=log.getEffectiveLevel() > logging.INFO,
-                        leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+            with trange(Nim, desc="loading-scaling", disable=log.getEffectiveLevel()
+                        > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
                 for i in pbar:
                     if Nim > 50 and using_multiple_files:
                         imin_temp = imio.getnii(imdic['files'][i])
-                        imsum += ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order)
+                        imsum += ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order,
+                                                        mode=mode, grid_mode=grid_mode)
                         log.debug(' image sum: read {}'.format(imdic['files'][i]))
                     else:
-                        imsum += ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale),
-                                                        order=int_order)
+                        imsum += ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale), mode=mode,
+                                                        order=int_order, grid_mode=grid_mode)
     else:
         imscl = imin
         imsum = np.sum(imin, axis=0)
@@ -479,9 +497,10 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     A = np.diag(np.append(sf[::-1], 1.) * np.diag(affine))
 
     # > note half of new voxel offset is used for the new centre of voxels
-    A[0, 3] = affine[0, 3] + A[0, 0] * (ix0-0.5)
-    A[1, 3] = affine[1, 3] + (affine[1, 1] * (imshape[1] - 1) - A[1, 1] * (iy1-0.5))
-    A[2, 3] = affine[2, 3] - A[1, 1] * 0.5
+    A[0, 3] = affine[0, 3] + A[0, 0] * (ix0 - 0.5 * (scale[2] - 1))
+    A[1, 3] = affine[1, 3] + (affine[1, 1] * (imshape[1] - 1) - A[1, 1] * (iy1 - 0.5 *
+                                                                           (scale[1] - 1)))
+    A[2, 3] = affine[2, 3] - A[2, 2] * 0.5 * (scale[0] - 1)
     A[3, 3] = 1
 
     # output dictionary
@@ -506,9 +525,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     # list of file names for the upsampled and trimmed images
     fpetu = []
     # > perform the trimming and save the intermediate images if requested
-    with trange(Nim, desc="finalising trimming/scaling",
-                disable=log.getEffectiveLevel() > logging.INFO,
-                leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
+    with trange(Nim, desc="finalising trimming/scaling", disable=log.getEffectiveLevel()
+                > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
 
         for i in pbar:
 
@@ -902,6 +920,50 @@ def centre_mass_img(img, output='mm'):
 # ==============================================================================
 
 
+def centre_mass_rel(im, com=None):
+    '''
+    get the relative centre of mass and the corrected affine matrix
+    '''
+
+    if isinstance(im, (str, PurePath)):
+        imdct = imio.getnii(im, output='all')
+    elif isinstance(im, dict) and 'shape' in im:
+        imdct = im
+    else:
+        raise ValueError('unrecognised input image')
+
+    if com is None:
+        com = centre_mass_img(imdct)
+
+    # > initialise the list of relative NIfTI image CoMs
+    com_nii = []
+
+    # > modified affine for the centre of mass
+    mA = imdct['affine'].copy()
+
+    # > go through x, y and z
+    for i in range(3):
+        vox_size = max(imdct['affine'][i, :-1], key=abs)
+
+        # > get the relative centre of mass for each axis (relative to the translation
+        # > values in the affine matrix)
+        if vox_size > 0:
+            com_rel = com[2 - i] + imdct['affine'][i, -1]
+        else:
+            com_rel = com[2 - i] - abs(vox_size) * imdct['shape'][-i - 1] + imdct['affine'][i, -1]
+
+        mA[i, -1] -= com_rel
+
+        com_nii.append(com_rel)
+
+    log.info('''
+        \r relative CoM values are:
+        \r {}
+        '''.format(com_nii))
+
+    return mA, com_nii
+
+
 # ==============================================================================
 def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment='_com-modified',
                      fout=None):
@@ -947,31 +1009,7 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
     if not isinstance(com, np.ndarray):
         raise ValueError('The Centre of Mass is not a Numpy array!')
 
-    # > initialise the list of relative NIfTI image CoMs
-    com_nii = []
-
-    # > modified affine for the centre of mass
-    mA = imdct['affine'].copy()
-
-    # > go through x, y and z
-    for i in range(3):
-        vox_size = max(imdct['affine'][i, :-1], key=abs)
-
-        # > get the relative centre of mass for each axis (relative to the translation
-        # > values in the affine matrix)
-        if vox_size > 0:
-            com_rel = com[2 - i] + imdct['affine'][i, -1]
-        else:
-            com_rel = com[2 - i] - abs(vox_size) * imdct['shape'][-i - 1] + imdct['affine'][i, -1]
-
-        mA[i, -1] -= com_rel
-
-        com_nii.append(com_rel)
-
-    log.info('''
-        \r relative CoM values are:
-        \r {}
-        '''.format(com_nii))
+    mA, com_nii = centre_mass_rel(imdct, com)
 
     # >------------------------------------------------------
     # > get the file name and path separated
@@ -992,13 +1030,12 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
 
         if isinstance(fimc, pathlib.Path) and (fimc.suffix != '.gz' or fimc.suffix != '.nii'):
             fimc.with_suffix('.nii.gz')
-
-        elif isinstance(fimc, str) and not fimc.endswith(('.nii', 'nii.gz')):
+        elif isinstance(fimc, str) and not hasext(fimc, ('nii', 'nii.gz')):
             fimc = fimc + '.nii.gz'
 
         fimc = pathlib.Path(fimc)
 
-        if not fimc.parent == '.':
+        if fimc.parent != '.':
             opth = fimc.parent
             fnm = fimc.name
         else:
@@ -1006,17 +1043,20 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
     else:
         fnm = fsplt[1].split('.nii')[0] + fcomment + '.nii.gz'
 
-    # save to NIfTI
+    # > save to NIfTI, first load
     innii = nib.load(imdct['fim'])
-    # get a new NIfTI image for the perturbed MR
+
+    # > get the data and flip if needed
     imdata = innii.get_fdata()
     if flip is not None:
         imdata = imdata[::flip[2], ::flip[1], ::flip[0], ...]
-    newnii = nib.Nifti1Image(imdata, mA, innii.header)
 
+    # > generate a new NIfTI image
     fnew = os.path.join(opth, fnm)
-    # save into a new file name for the T1w
+    innii.header['descrip'] = 'NiftyPET: CoM-modified'
+    newnii = nib.Nifti1Image(imdata, mA, innii.header)
     nib.save(newnii, fnew)
+
     return {'fim': fnew, 'com_rel': com_nii, 'com_abs': com}
 
 
@@ -1187,7 +1227,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
 
     # > path to a folder
     elif isinstance(fmr, (str, pathlib.PurePath)) and os.path.isdir(fmr):
-        fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
+        fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if hasext(f, ('nii', 'nii.gz'))]
         log.info('multiple input files from input folder.')
         fimout = ''
 
