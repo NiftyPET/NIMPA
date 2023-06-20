@@ -38,6 +38,13 @@ def imfill(immsk):
     return immsk
 
 
+# SPM options
+# 'mi'  - Mutual Information (default)
+# 'nmi' - Normalised Mutual Information
+# 'ecc' - Entropy Correlation Coefficient
+# 'ncc' - Normalised Cross Correlation
+
+
 # ------------------------------------------------------------------------------
 # Create object mask for the input image
 # ------------------------------------------------------------------------------
