@@ -83,4 +83,4 @@ jobs:
         tag="${GITHUB_REF#refs/tags/}"
         gh release create --title "nimpa $tag beta" --draft --notes "$changelog" "$tag" dist/${{ steps.dist.outputs.targz }} dist/${{ steps.dist.outputs.targz_asc }}
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
