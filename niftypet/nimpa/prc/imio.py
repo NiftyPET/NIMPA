@@ -694,12 +694,19 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         trcr = None
         if [0x054, 0x016] in dhdr:
             trinf = dhdr[0x054, 0x016][0]
+
             if [0x018, 0x1078] in trinf:
                 val = trinf[0x018, 0x1078].value
                 if '.' in val:
                     tinjct = datetime.datetime.strptime(val, '%Y%m%d%H%M%S.%f')
                 else:
                     tinjct = datetime.datetime.strptime(val, '%Y%m%d%H%M%S')
+            elif [0x018, 0x1072] in trinf:
+                val = trinf[0x018, 0x1072].value
+                if '.' in val:
+                    tinjct = datetime.datetime.strptime(std_date+val, '%Y%m%d%H%M%S.%f')
+                else:
+                    tinjct = datetime.datetime.strptime(std_date+val, '%Y%m%d%H%M%S')
 
             if [0x018, 0x031] in trinf:
                 trcr = trinf[0x018, 0x031].value
