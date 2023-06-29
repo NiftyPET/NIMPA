@@ -73,7 +73,7 @@ Copyright 2018-21
    :target: https://doi.org/10.5281/zenodo.4417633
 .. |Licence| image:: https://img.shields.io/pypi/l/nimpa.svg?label=licence
    :target: https://github.com/NiftyPET/NIMPA/blob/master/LICENCE
-.. |Tests| image:: https://img.shields.io/github/workflow/status/NiftyPET/NIMPA/Test?logo=GitHub
+.. |Tests| image:: https://img.shields.io/github/actions/workflow/status/NiftyPET/NIMPA/test.yml?branch=master&logo=GitHub
    :target: https://github.com/NiftyPET/NIMPA/actions
 .. |Downloads| image:: https://img.shields.io/pypi/dm/nimpa.svg?logo=pypi&logoColor=white&label=PyPI%20downloads
    :target: https://pypi.org/project/nimpa
