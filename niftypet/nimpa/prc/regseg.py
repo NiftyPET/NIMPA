@@ -8,7 +8,7 @@ import os
 import shutil
 import sys
 from os import fspath
-from pathlib import Path, PurePath
+from pathlib import PurePath
 from subprocess import call
 from textwrap import dedent
 
@@ -268,7 +268,7 @@ def resample_dipy(
 
     # ------------------------------------------------------------------
     if faff is not None:
-        if isinstance(faff, (str, PurePath)) and Path(faff).name.endswith('.npy'):
+        if isinstance(faff, (str, PurePath)) and hasext(faff, 'npy'):
             affine = np.load(faff)
         elif isinstance(faff, np.ndarray):
             affine = faff
@@ -508,7 +508,7 @@ def realign_mltp_spm(
     for f in fims:
         if f[-3:] == '.gz':
             fun = imio.nii_ugzip(f, outpath=tmpth)
-        elif os.path.isfile(f) and f.endswith('nii'):
+        elif os.path.isfile(f) and hasext(f, 'nii'):
             if niicopy:
                 fun = os.path.join(tmpth, os.path.basename(f).split('.nii')[0] + '_copy.nii')
                 shutil.copyfile(f, fun)
@@ -526,7 +526,7 @@ def realign_mltp_spm(
     else:
         fsrt = fungz
 
-    P_input = [f + ',1' for f in fsrt if f.endswith('nii') and f[0] != 'r' and 'mean' not in f]
+    P_input = [f + ',1' for f in fsrt if hasext(f, 'nii') and f[0] != 'r' and 'mean' not in f]
 
     # > maximal number of characters per line (for Matlab array)
     Pinmx = max(map(len, P_input))
@@ -627,13 +627,13 @@ def resample_mltp_spm(
 
     # > decompress if necessary
     for f in fims:
-        if not os.path.isfile(f) and not (f.endswith('nii') or f.endswith('nii.gz')):
-            raise IOError('e> could not open file:', f)
+        if not os.path.isfile(f) and not hasext(f, ('nii', 'nii.gz')):
+            raise IOError('could not open file:', f)
 
-        if f[-3:] == '.gz':
+        if hasext(f, 'gz'):
             fugz = imio.nii_ugzip(f, outpath=os.path.join(opth, 'copy'))
         elif copy_input:
-            fnm = os.path.basename(f).split('.nii')[0] + '_copy.nii'
+            fnm = os.path.basename(f).rsplit('.nii', 1)[0] + '_copy.nii'
             fugz = os.path.join(opth, 'copy', fnm)
             shutil.copyfile(f, fugz)
         else:
@@ -774,7 +774,7 @@ def coreg_vinci(
     else:
 
         # > add '.xml' extension if not in the affine output file name
-        if not fname_aff.endswith('.xml'):
+        if not hasext(fname_aff, 'xml'):
             fname_aff += '.xml'
 
         faff = os.path.join(opth, 'affine-vinci', fname_aff)
@@ -1015,7 +1015,6 @@ def affine_fsl(
         if opth == '':
             opth = os.path.dirname(fflo)
         fname_aff = os.path.basename(fname_aff)
-
     elif outpath == '':
         opth = os.path.dirname(fflo)
     else:
@@ -1026,21 +1025,17 @@ def affine_fsl(
 
     # > output floating and affine file names
     if fname_aff == '':
-
         if pickname == 'ref':
             faff = os.path.join(
                 opth, 'affine-fsl',
                 'affine-ref-' + os.path.basename(fref).split('.nii')[0] + fcomment + '.txt')
-
         else:
             faff = os.path.join(
                 opth, 'affine-fsl',
                 'affine-flo-' + os.path.basename(fflo).split('.nii')[0] + fcomment + '.txt')
-
     else:
-
-        # > add '.xml' extension if not in the affine output file name
-        if not fname_aff.endswith('.txt'):
+        # > add '.txt' extension if not in the affine output file name
+        if not hasext(fname_aff, 'txt'):
             fname_aff += '.txt'
 
         faff = os.path.join(opth, 'affine-vinci', fname_aff)

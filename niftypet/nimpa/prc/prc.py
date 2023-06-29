@@ -13,18 +13,19 @@ from subprocess import run
 from textwrap import dedent
 from warnings import warn
 
-try:          # py<3.9
-    import importlib_resources as resources
-except ImportError:
-    from importlib import resources
-
 import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
+from miutil.fdio import hasext
 from tqdm.auto import trange
 
 from . import imio, regseg
 from .num import conv_separable
+
+try:          # py<3.9
+    import importlib_resources as resources
+except ImportError:
+    from importlib import resources
 
 try:
     import SimpleITK as sitk
@@ -34,9 +35,9 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# possible extentions for DICOM files
-dcmext = ('dcm', 'DCM', 'ima', 'IMA', 'img', 'IMG')
-niiext = ('nii.gz', 'nii', 'img', 'hdr')
+# filename extentions
+dcmext = 'dcm', 'ima', 'img'
+niiext = 'nii.gz', 'nii', 'img', 'hdr'
 
 
 def num(s):
@@ -169,7 +170,7 @@ def imsmooth(fim, fwhm=4, psf=None, voxsize=None, fout='', output='image', outpu
     dctout['fwhm'] = fwhm
 
     if isfile and fout == '':
-        if fim.name.endswith('.nii.gz'):
+        if hasext(fim, 'nii.gz'):
             fout = fim.split('.nii.gz')[0] + '_smo' + str(fwhm).replace('.', '-') + '.nii.gz'
         else:
             fout = os.path.splitext(fim)[0] + '_smo' + str(fwhm).replace(
@@ -259,7 +260,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
     # case when input folder is given
     if isinstance(fims, (str, pathlib.PurePath)) and os.path.isdir(fims):
         # list of input images (e.g., PET)
-        fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if f.endswith(niiext)]
+        fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if hasext(f, niiext)]
         imdic = imio.niisort(fimlist, memlim=memlim)
         if not (imdic['N'] > 50 and memlim):
             imin = imdic['im']
@@ -272,8 +273,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         using_multiple_files = True
 
     # case when input file is a 3D or 4D NIfTI image
-    elif isinstance(
-            fims, (str, pathlib.PurePath)) and os.path.isfile(fims) and str(fims).endswith(niiext):
+    elif isinstance(fims,
+                    (str, pathlib.PurePath)) and os.path.isfile(fims) and hasext(fims, niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:
@@ -1029,13 +1030,12 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
 
         if isinstance(fimc, pathlib.Path) and (fimc.suffix != '.gz' or fimc.suffix != '.nii'):
             fimc.with_suffix('.nii.gz')
-
-        elif isinstance(fimc, str) and not fimc.endswith(('.nii', 'nii.gz')):
+        elif isinstance(fimc, str) and not hasext(fimc, ('nii', 'nii.gz')):
             fimc = fimc + '.nii.gz'
 
         fimc = pathlib.Path(fimc)
 
-        if not fimc.parent == '.':
+        if fimc.parent != '.':
             opth = fimc.parent
             fnm = fimc.name
         else:
@@ -1227,7 +1227,7 @@ def bias_field_correction(fmr, fimout='', outpath='', fcomment='_N4bias', execut
 
     # > path to a folder
     elif isinstance(fmr, (str, pathlib.PurePath)) and os.path.isdir(fmr):
-        fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if f.endswith(('.nii', '.nii.gz'))]
+        fins = [os.path.join(fmr, f) for f in os.listdir(fmr) if hasext(f, ('nii', 'nii.gz'))]
         log.info('multiple input files from input folder.')
         fimout = ''
 

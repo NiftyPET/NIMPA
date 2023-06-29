@@ -3,10 +3,12 @@ __author__ = "Pawel Markiewicz"
 __copyright__ = "Copyright 2021-23"
 
 import os
+from itertools import chain
 from pathlib import Path, PurePath
 from subprocess import run
 
 import dcm2niix
+from miutil.fdio import hasext
 
 from ..prc import imio, prc
 
@@ -25,27 +27,21 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
     imio.create_dir(outdir)
 
     if isinstance(indat, (str, PurePath)) and Path(indat).is_dir():
+        # CONVERT TO NIfTI
         if not imio.dcmdir(indat):
             raise IOError('the provided folder does not contain DICOM files')
-
-        # > CONVERT TO NIfTI
-        # > remove previous files
-        fs_ = list(outdir.glob('*.nii*')) + list(outdir.glob('*.json'))
-        for f in fs_:
+        for f in chain(outdir.glob('*.nii*'), outdir.glob('*.json')):
+            # remove previous files
             os.remove(f)
-
-        run([dcm2niix.bin, '-i', 'y', '-v', 'n', '-o', outdir, 'f', '%f_%s', str(indat)])
+        run([dcm2niix.bin, '-i', 'y', '-v', 'n', '-o', outdir, '-f', '%f_%s', str(indat)])
         fnii = list(outdir.glob('*offline3D*.nii*'))
         if len(fnii) == 1:
             fnii = fnii[0]
         else:
             raise ValueError('Confusing or missing NIfTI output')
-
-    elif isinstance(indat,
-                    (str, PurePath)) and Path(indat).is_file() and Path(indat).name.endswith(
-                        ('.nii', '.nii.gz')):
+    elif isinstance(indat, (str, PurePath)) and Path(indat).is_file() and hasext(
+            indat, ('nii', 'nii.gz')):
         fnii = Path(indat)
-
     else:
         raise ValueError('the input NIfTI file or DICOM folder do not exist')
 
