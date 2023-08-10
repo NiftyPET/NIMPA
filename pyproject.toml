@@ -16,7 +16,7 @@ changelog = "https://github.com/NiftyPET/NIMPA/releases"
 
 [project]
 name = "nimpa"
-dynamic = ["version"]
+dynamic = ["version", "dependencies"]
 authors = [{name = "Pawel Markiewicz", email = "p.markiewicz@ucl.ac.uk"}]
 maintainers = [{name = "Casper da Costa-Luis", email = "casper.dcl@physics.org"}]
 description = "CUDA-accelerated Python utilities for high-throughput neuroimage processing and analysis"
