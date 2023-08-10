@@ -1,17 +1,16 @@
-#!/usr/bin/env python3
 """
 Compile CUDA source code and setup Python 3 package 'nimpa'
 for namespace 'niftypet'.
 """
 import logging
 import re
+import sys
 from pathlib import Path
 
 from setuptools import find_packages, setup
 from setuptools_scm import get_version
 
 from niftypet.ninst import cudasetup as cs
-from niftypet.ninst import dinf
 from niftypet.ninst import install_tools as tls
 
 __version__ = get_version(root=".", relative_to=__file__)
@@ -36,6 +35,8 @@ resources = cs.get_resources()
 Cnt = resources.get_setup()
 
 build_ver = ".".join(__version__.split('.')[:3]).split(".dev")[0]
+# some setup kwargs cannot be in `pyproject.toml` since
+# `install_requires` is dynamically set depending on CUDA GPU detection
 setup_kwargs = {
     "use_scm_version": True, "packages": find_packages(exclude=["tests"]), "package_data": {
         "niftypet": [
@@ -51,11 +52,18 @@ cmake_args = [
 
 try:
     import cuvec as cu
+    from miutil import cuinfo
     from skbuild import setup as sksetup
     assert cu.include_path.is_dir()
-    nvcc_arches = {"{2:d}{3:d}".format(*i) for i in dinf.gpuinfo() if i[2:4] >= (3, 5)}
-    if nvcc_arches:
-        cmake_args.append("-DCMAKE_CUDA_ARCHITECTURES=" + ";".join(sorted(nvcc_arches)))
+    try:
+        nvcc_arch_raw = map(cuinfo.compute_capability, range(cuinfo.num_devices()))
+        nvcc_arches = {"%d%d" % i for i in nvcc_arch_raw if i >= (3, 5)}
+        if nvcc_arches:
+            cmake_args.append("-DCMAKE_CUDA_ARCHITECTURES=" + ";".join(sorted(nvcc_arches)))
+    except Exception as exc:
+        if "sdist" not in sys.argv or any(i in sys.argv for i in ["build", "bdist", "wheel"]):
+            log.warning("CUDA device detection error:\n%s", exc)
+            log.warning("Compiling for all architectures")
 except Exception as exc:
     log.warning("Import or CUDA device detection error:\n%s", exc)
     setup(**setup_kwargs)
