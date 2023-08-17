@@ -894,20 +894,23 @@ def centre_mass_img(img, output='mm'):
     # > total image sum
     imsum = np.sum(imdct['im'])
 
-    for ind_ax in [-1, -2, -3]:
-        # > list of axes
-        axs = list(range(imdct['im'].ndim))
-        del axs[ind_ax]
-        # > indexed centre of mass
-        icom[ind_ax] = np.sum(
-            np.sum(imdct['im'], axis=tuple(axs)) * np.arange(imdct['shape'][ind_ax])) / imsum
-        # > centre of mass in mm (zyx)
-        com[ind_ax] = icom[ind_ax] * imdct['voxsize'][ind_ax]
+    if imsum>0:
+        for ind_ax in [-1, -2, -3]:
+            # > list of axes
+            axs = list(range(imdct['im'].ndim))
+            del axs[ind_ax]
+            # > indexed centre of mass
+            icom[ind_ax] = np.sum(
+                np.sum(imdct['im'], axis=tuple(axs)) * np.arange(imdct['shape'][ind_ax])) / imsum
+            # > centre of mass in mm (zyx)
+            com[ind_ax] = icom[ind_ax] * imdct['voxsize'][ind_ax]
 
-    # > correct due to flipped indexing and world mm
-    com[-1] = imdct['shape'][-1] * imdct['voxsize'][-1] - com[-1]
-    com[-2] = imdct['shape'][-2] * imdct['voxsize'][-2] - com[-2]
-    com[-3] = imdct['shape'][-3] * imdct['voxsize'][-3] - com[-3]
+        # > correct due to flipped indexing and world mm
+        com[-1] = imdct['shape'][-1] * imdct['voxsize'][-1] - com[-1]
+        com[-2] = imdct['shape'][-2] * imdct['voxsize'][-2] - com[-2]
+        com[-3] = imdct['shape'][-3] * imdct['voxsize'][-3] - com[-3]
+    else:
+        return None
 
     if output == 'mm':
         return com
@@ -1000,9 +1003,13 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
     if Cnt is None:
         Cnt = {}
 
-    # > output the centre of mass if image radiodistribution in each dimension in mm.
+    # > output the centre of mass of image radiodistribution in each dimension in mm.
     if com is None:
         com = centre_mass_img(imdct, output='mm')
+
+    if com is None:
+        log.warning('Centre of mass of the image could not be found - returning `None`')
+        return None
 
     com = np.array(com)
 
