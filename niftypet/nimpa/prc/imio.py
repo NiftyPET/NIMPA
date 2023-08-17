@@ -651,7 +651,10 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         if [0x028, 0x030] in dhdr and [0x018, 0x050] in dhdr:
             pxsz = np.array([float(e) for e in dhdr[0x028, 0x030].value])
             vxsz[:2] = pxsz
-            vxsz[2] = float(dhdr[0x018, 0x050].value)
+            if dhdr[0x018, 0x050].value is not None:
+                vxsz[2] = float(dhdr[0x018, 0x050].value)
+            else:
+                vxsz[2] = 0.
 
         # > orientation
         ornt = np.zeros(6, dtype=np.float64)
