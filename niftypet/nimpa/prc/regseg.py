@@ -148,7 +148,7 @@ def affine_dipy(
     factors=None,
     outpath=None,
     faffine=None,
-    pipeline=[center_of_mass, translation, rigid],
+    pipeline=['center_of_mass', 'translation', 'rigid'],
     pickname='ref',
     fcomment='',
     rfwhm=8.,
@@ -156,6 +156,8 @@ def affine_dipy(
     verbose=True,
 ):
     """
+    https://dipy.org/documentation/1.4.0./examples_built/affine_registration_3d/
+
     Perform affine 3-stage image registration using DIPY.
 
     Arguments:
@@ -164,7 +166,22 @@ def affine_dipy(
       fflo: file path to the floating image to be registered to the
         reference image.
       outpath: folder path for the output
+      pipeline: pick what goes to the pipeline: 
+                center_of_mass, translation, rigid, affine
+                (default is without affine, which is rigid-body only)
     """
+
+    # > go through possible piplenie components
+    ppln = []
+    if 'center_of_mass' in pipeline:
+        ppln.append(center_of_mass)
+    if 'translation' in pipeline:
+        ppln.append(translation)
+    if 'rigid' in pipeline:
+        ppln.append(rigid)
+    if 'affine' in pipeline:
+        ppln.append(affine)
+
     if level_iters is None:
         level_iters = [10000, 1000, 200]
     if sigmas is None:
@@ -210,7 +227,7 @@ def affine_dipy(
 
     # ------------------------------------------------------------------
     txim, txaff = affine_registration(fmoving, fstatic, nbins=nbins, metric=metric,
-                                      pipeline=pipeline, level_iters=level_iters, sigmas=sigmas,
+                                      pipeline=ppln, level_iters=level_iters, sigmas=sigmas,
                                       factors=factors)
     # ------------------------------------------------------------------
     np.save(faff, txaff)
