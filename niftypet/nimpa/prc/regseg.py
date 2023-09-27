@@ -16,7 +16,7 @@ import nibabel as nib
 import numpy as np
 import scipy.ndimage as ndi
 from dipy.align import _public as align
-from dipy.align import affine_registration, center_of_mass, rigid, translation
+from dipy.align import affine_registration, center_of_mass, rigid, translation, affine
 from miutil.fdio import hasext
 from spm12.regseg import resample_spm  # NOQA: F401 yapf: disable
 from spm12.regseg import coreg_spm
@@ -148,6 +148,7 @@ def affine_dipy(
     factors=None,
     outpath=None,
     faffine=None,
+    pipeline=[center_of_mass, translation, rigid],
     pickname='ref',
     fcomment='',
     rfwhm=8.,
@@ -208,8 +209,6 @@ def affine_dipy(
         fmoving = fflo
 
     # ------------------------------------------------------------------
-    pipeline = [center_of_mass, translation, rigid]
-
     txim, txaff = affine_registration(fmoving, fstatic, nbins=nbins, metric=metric,
                                       pipeline=pipeline, level_iters=level_iters, sigmas=sigmas,
                                       factors=factors)
