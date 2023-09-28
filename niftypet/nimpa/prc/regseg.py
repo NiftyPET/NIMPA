@@ -171,7 +171,13 @@ def affine_dipy(
                 (default is without affine, which is rigid-body only)
     """
 
-    # > go through possible piplenie components
+
+    if os.path.isfile(fref):
+        fref = str(fref)
+    if os.path.isfile(fflo):
+        fflo = str(fflo)
+
+    # > go through possible pipeline components
     ppln = []
     if 'center_of_mass' in pipeline:
         ppln.append(center_of_mass)
