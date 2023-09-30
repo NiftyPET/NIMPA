@@ -154,6 +154,7 @@ def affine_dipy(
     rfwhm=8.,
     ffwhm=8.,
     verbose=True,
+    modify_nii=False,
 ):
     """
     https://dipy.org/documentation/1.4.0./examples_built/affine_registration_3d/
@@ -237,7 +238,26 @@ def affine_dipy(
                                       factors=factors)
     # ------------------------------------------------------------------
     np.save(faff, txaff)
-    return {'affine': txaff, 'faff': faff}
+
+    outdct = {'affine': txaff, 'faff': faff}
+
+    if modify_nii:
+        flo_d = imio.getnii(fflo ,output='all')
+        flo_a = flo_d['affine']
+        newaff = np.linalg.lstsq(txaff, flo_a)[0]
+        splt = fflo.name.split('.nii')
+        fmodi = odir/(splt[0]+'_affine-modified.nii'+splt[1])
+
+        imio.array2nii(
+            flo_d['im'],
+            newaff,
+            fmodi,
+            trnsp=flo_d['transpose'],
+            flip=flo_d['flip'])
+
+        outdct['fnii_mod'] = fmodi
+
+    return  outdct
 
 
 def resample_dipy(
