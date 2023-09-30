@@ -239,7 +239,7 @@ def affine_dipy(
     # ------------------------------------------------------------------
     np.save(faff, txaff)
 
-    outdct = {'affine': txaff, 'faff': faff}
+    outdct = {'affine': txaff, 'faff': faff, 'regim':txim}
 
     if modify_nii:
         flo_d = imio.getnii(fflo ,output='all')
