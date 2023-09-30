@@ -245,8 +245,8 @@ def affine_dipy(
         flo_d = imio.getnii(fflo ,output='all')
         flo_a = flo_d['affine']
         newaff = np.linalg.lstsq(txaff, flo_a)[0]
-        splt = fflo.name.split('.nii')
-        fmodi = odir/(splt[0]+'_affine-modified.nii'+splt[1])
+        splt = os.path.basename(fflo).split('.nii')
+        fmodi = os.path.join(odir, splt[0]+'_affine-modified.nii'+splt[1])
 
         imio.array2nii(
             flo_d['im'],
