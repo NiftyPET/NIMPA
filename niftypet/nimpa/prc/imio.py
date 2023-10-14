@@ -691,6 +691,11 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             val = np.round(int(dhdr[0x018, 0x1242].value) / 1e3, decimals=0)
             frm_dur = datetime.timedelta(seconds=val)
 
+        # > DICOM source of coutns
+        cnt_src = None
+        if [0x054, 0x1002] in dhdr:
+            cnt_src = dhdr[0x054, 0x1002].value
+
         # > time of tracer administration (start)
         tinjct = None
         # > PET tracer if present
@@ -796,6 +801,8 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 srs[s]['frm_dur'] = frm_dur
             if trcr is not None:
                 srs[s]['tracer'] = trcr
+            if cnt_src is not None:
+                srs[s]['source'] = cnt_src
 
         # append the file name
         srs[s].setdefault('files', [])
