@@ -140,51 +140,137 @@ def get_params(cpath=None):
     drpth = mfldr / 'rods'
     dspth = mfldr / 'sampling'
 
-    # dictionary of design constant
+    # > dictionary of design and constants
     Cntd = {
-        'dspth': dspth, 'dmpth': dmpth, 'vxysz': vxysz, 'vxsz': vxsz, 'sclt': sclt,
-        'interp': interp, 'scld': scld, 'scl': scl, 'intord': intord, 'rods_rotate': rods_rotate,
-        'buff_rods_size': buff_size, 'itr_nac': itr_nac, 'itr_qnt': itr_qnt, 'itr_qnt2': itr_qnt2,
-        'fwhm_nac': fwhm_nac, 'fwhm_qnt': fwhm_qnt}
-    # mu-values
-    Cntd.update(mu_prspx=mu_prspx, mu_water=mu_water, mu_bone=mu_bone, mu_screw=mu_screw)
+        'dspth': dspth, 
+        'dmpth': dmpth,
+        'vxysz': vxysz,
+        'vxsz': vxsz,
+        'sclt': sclt,
+        'scld': scld,
+        'scl': scl,
+        'intord': intord,
+        'rods_rotate': rods_rotate,
+        
+        'itr_nac': itr_nac,
+        'itr_qnt': itr_qnt,
+        'itr_qnt2': itr_qnt2,
 
-    # activity values
-    Cntd.update(ains=ains, abck=abck, aedg=aedg)
-    # PNG mu-values
-    Cntd.update(png_water=water, png_prspx=prspx, png_scrwy=boney)
-    # PNG activity values
-    Cntd.update(png_ains=png_ains, png_abck=png_abck, png_acap=png_acap, png_aedg=png_aedg,
-                dpad=pad, fwhm_tmpl=fwhm_tmpl, dipy_itrs=dipy_itrs, dipy_sgms=dipy_sgms,
-                dipy_fcts_itrs=dipy_rods_itrs)
-    # ACR core mu-map designs
-    Cntd.update(fmcap0=dmpth / 'acr-main-cap-0.png', fmcap1=dmpth / 'acr-main-cap-1.png',
-                fmcap2=dmpth / 'acr-main-cap-2.png', fbscrw=dmpth / 'acr-bone-screw.png',
-                fscrws=dmpth / 'acr-screws.png', flid0=dmpth / 'acr-lid0.png',
-                flid1=dmpth / 'acr-lid1.png', finsrt=dmpth / 'acr-inserts.png',
-                fbinsrt=dmpth / 'acr-inserts-bottoms.png', fmain=dmpth / 'acr-bottom.png')
-    # ACR core activity (NAC) designs
-    Cntd.update(fcap=dnpth / 'acr-cap.png', fins=dnpth / 'acr-inserts.png',
-                fbig=dnpth / 'acr-rng.png', frng=dnpth / 'acr-rng.png')
-    # ACR rods
-    Cntd.update(frespng=drpth / 'acr-rods.png', frenpng=drpth / 'acr-rods-ends.png',
-                fresWpng=drpth / 'acr-rods-ends-water.png')
-    # ACR sampling designs
-    Cntd.update(fs_rods=dspth / 'acr-rods-sampling.png', fs_bckg=dspth / 'acr-bckg-sampling.png',
-                fs_ibckg=dspth / 'acr-insrt-bckg-sampling.png',
-                fs_air=dspth / 'acr-air-sampling.png', fs_h2o=dspth / 'acr-h2o-sampling.png',
-                fs_bone=dspth / 'acr-bone-sampling.png', fs_hot1=dspth / 'acr-hot1-sampling.png',
-                fs_hot2=dspth / 'acr-hot2-sampling.png', fs_hot3=dspth / 'acr-hot4-sampling.png')
-    # parameters for plotting rods results
-    Cntd.update(rods_rngc=rods_rngc, rods_rad=rods_rad, rods_nom=rods_nom, rods_nrn=rods_off)
-    # intensity offsetsfor the front phantom sampling
-    Cntd.update(soff_rods=None, soff_bckg=300, soff_ibckg=200, soff_air=70, soff_h2o=50,
-                soff_bone=90, soff_hot1=10, soff_hot2=20, soff_hot3=30, soff_hot4=40,
-                rbckgs=rbckgs, sbckgs=sbckgs, rinsrt=sinsrt)
-    # AXIAL DEMNSIONS, extension in mm
-    Cntd.update(k_rods=83.40, k_rodsend=3.0) # rods
+        'fwhm_nac': fwhm_nac,
+        'fwhm_qnt': fwhm_qnt,
 
-    # CORE PHANTOM
+        'interp': interp,
+        'buff_rods_size': buff_size,}
+    
+    # > mu-values
+    Cntd.update(
+        mu_prspx=mu_prspx,
+        mu_water=mu_water,
+        mu_bone=mu_bone,
+        mu_screw=mu_screw)
+
+    # > activity values
+    Cntd.update(
+        ains=ains,
+        abck=abck,
+        aedg=aedg)
+
+    # > PNG mu-values
+    Cntd.update(
+        png_water=water,
+        png_prspx=prspx,
+        png_scrws=scrws,
+        png_boney=boney)
+
+    # > PNG activity values
+    Cntd.update(
+        png_ains=png_ains,
+        png_abck=png_abck,
+        png_acap=png_acap,
+        png_aedg=png_aedg,
+        
+        dpad=pad,
+        
+        fwhm_tmpl=fwhm_tmpl,
+        dipy_itrs=dipy_itrs,
+        dipy_sgms=dipy_sgms,
+        dipy_fcts=dipy_fcts,
+        dipy_rods_itrs=dipy_rods_itrs)
+
+    # > ACR core mu-map designs
+    Cntd.update(
+        fmcap0 = dmpth / 'acr-main-cap-0.png',
+        fmcap1 = dmpth / 'acr-main-cap-1.png',
+        fmcap2 = dmpth / 'acr-main-cap-2.png',
+        fbscrw = dmpth / 'acr-bone-screw.png',
+        fscrws = dmpth / 'acr-screws.png',
+        flid0  = dmpth / 'acr-lid0.png',
+        flid1  = dmpth / 'acr-lid1.png',
+        finsrt = dmpth / 'acr-inserts.png',
+        fbinsrt= dmpth / 'acr-inserts-bottoms.png',
+        fmain  = dmpth / 'acr-main-compartment.png',
+        fbttm  = dmpth / 'acr-bottom.png')
+
+    # > ACR core activity (NAC) designs
+    Cntd.update(
+        fcap=dnpth / 'acr-cap.png',
+        fins=dnpth / 'acr-inserts.png',
+        fbig=dnpth / 'acr-main.png',
+        frng=dnpth / 'acr-rng.png')
+
+    # > ACR rods
+    Cntd.update(
+        frespng  = drpth / 'acr-rods.png',
+        frenpng  = drpth / 'acr-rods-ends.png',
+        fresWpng = drpth / 'acr-rods-water.png',
+        frenWpng = drpth / 'acr-rods-ends-water.png',
+        )
+
+    # > ACR sampling designs
+    Cntd.update(
+        fs_rods = dspth / 'acr-rods-sampling.png',
+        fs_bckg = dspth / 'acr-bckg-sampling.png',
+        fs_ibckg= dspth / 'acr-insrt-bckg-sampling.png',
+        fs_air  = dspth / 'acr-air-sampling.png',
+        fs_h2o  = dspth / 'acr-h2o-sampling.png',
+        fs_bone = dspth / 'acr-bone-sampling.png',
+        fs_hot1 = dspth / 'acr-hot1-sampling.png',
+        fs_hot2 = dspth / 'acr-hot2-sampling.png',
+        fs_hot3 = dspth / 'acr-hot3-sampling.png',
+        fs_hot4 = dspth / 'acr-hot4-sampling.png')
+
+    # > parameters for plotting rods results
+    Cntd.update(
+        rods_rngc=rods_rngc,
+        rods_rad=rods_rad,
+        rods_nom=rods_nom,
+        rods_nrngs=rods_nrngs,
+        rods_off=rods_off)
+    
+    # > intensity offsets for the front phantom sampling
+    Cntd.update(
+        soff_rods=None,
+        soff_bckg=300,
+        soff_ibckg=200,
+        soff_air=70,
+        soff_h2o=50,
+        soff_bone=90,
+        soff_hot1=10,
+        soff_hot2=20,
+        soff_hot3=30,
+        soff_hot4=40,
+        rbckgs=rbckgs,
+        sbckgs=sbckgs,
+        rinsrt=rinsrt,
+        sinsrt=sinsrt)
+
+    # > AXIAL DEMNSIONS, extension in mm
+    # > rods
+    Cntd.update(
+        k_rods = 83.40,
+        k_rodsend = 3.0) 
+
+    # core phantom
     Cntd.update(
         k_mcapA=19.2,   # main cap top
         k_mcapB=5.3,    # main cap
