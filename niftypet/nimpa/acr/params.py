@@ -165,7 +165,7 @@ def get_params(cpath=None):
                 fbinsrt=dmpth / 'acr-inserts-bottoms.png', fmain=dmpth / 'acr-bottom.png')
     # ACR core activity (NAC) designs
     Cntd.update(fcap=dnpth / 'acr-cap.png', fins=dnpth / 'acr-inserts.png',
-                fbig=dnpth / 'acr-rng.png')
+                fbig=dnpth / 'acr-rng.png', frng=dnpth / 'acr-rng.png')
     # ACR rods
     Cntd.update(frespng=drpth / 'acr-rods.png', frenpng=drpth / 'acr-rods-ends.png',
                 fresWpng=drpth / 'acr-rods-ends-water.png')

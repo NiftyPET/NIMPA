@@ -688,8 +688,12 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         frm_dur = None
         # > frame duration time (for PET)
         if [0x018, 0x1242] in dhdr:
-            val = np.round(int(dhdr[0x018, 0x1242].value) / 1e3, decimals=0)
-            frm_dur = datetime.timedelta(seconds=val)
+            try:
+                val = np.round(int(dhdr[0x018, 0x1242].value) / 1e3, decimals=0)
+                frm_dur = datetime.timedelta(seconds=val)
+            except:
+                frm_dur = None
+            
 
         # > DICOM source of coutns
         cnt_src = None
