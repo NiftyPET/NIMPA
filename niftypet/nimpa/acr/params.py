@@ -150,7 +150,7 @@ def get_params(cpath=None):
     Cntd.update(mu_prspx=mu_prspx, mu_water=mu_water, mu_bone=mu_bone, mu_screw=mu_screw)
 
     # activity values
-    Cntd.update(ains=ains, abck=aedg)
+    Cntd.update(ains=ains, abck=abck, aedg=aedg)
     # PNG mu-values
     Cntd.update(png_water=water, png_prspx=prspx, png_scrwy=boney)
     # PNG activity values
