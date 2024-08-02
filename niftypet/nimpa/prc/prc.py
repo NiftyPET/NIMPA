@@ -258,7 +258,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         Cnt = {}
 
     # case when input folder is given
-    if isinstance(fims, (str, pathlib.PurePath)) and os.path.isdir(fims):
+    if isinstance(fims, (str, PurePath)) and os.path.isdir(fims):
         # list of input images (e.g., PET)
         fimlist = [os.path.join(fims, f) for f in os.listdir(fims) if hasext(f, niiext)]
         imdic = imio.niisort(fimlist, memlim=memlim)
@@ -266,6 +266,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
             imin = imdic['im']
         imshape = imdic['shape']
         affine = imdic['affine']
+        flip = imdic['flip']
+        trnsp = imdic['transpose']
         fldrin = fims
         fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files'] if f is not None]
         # number of images/frames
@@ -274,7 +276,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
 
     # case when input file is a 3D or 4D NIfTI image
     elif isinstance(fims,
-                    (str, pathlib.PurePath)) and os.path.isfile(fims) and hasext(fims, niiext):
+                    (str, PurePath)) and os.path.isfile(fims) and hasext(fims, niiext):
         imdic = imio.getnii(fims, output='all')
         imin = imdic['im']
         if imin.ndim == 3:
@@ -282,6 +284,8 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         imdtype = imdic['dtype']
         imshape = imdic['shape'][-3:]
         affine = imdic['affine']
+        flip = imdic['flip']
+        trnsp = imdic['transpose']
         fldrin = os.path.dirname(fims)
         fnms = imin.shape[0] * [os.path.basename(fims).split('.nii')[0]]
         # number of images/frames
@@ -292,9 +296,11 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         imdic = imio.niisort(fims, memlim=memlim)
         if not (imdic['N'] > 50 and memlim):
             imin = imdic['im']
+        imdtype = imdic['dtype']
         imshape = imdic['shape']
         affine = imdic['affine']
-        imdtype = imdic['dtype']
+        flip = imdic['flip']
+        trnsp = imdic['transpose']
         fldrin = os.path.dirname(fims[0])
         fnms = [os.path.basename(f).split('.nii')[0] for f in imdic['files']]
         # number of images/frames
@@ -441,15 +447,25 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         IZ = divdim * ((tmp+divdim-1) // divdim)
         iz0 -= IZ - tmp + 1
 
+    # > this assumes the image 'bottom' is always 'busy' hence equal to the full image extension (shape)
+    iz1 = imsum.shape[0]
+
     # save the trimming parameters in a dic
     trimpar = {'x': (ix0, ix1), 'y': (iy0, iy1), 'z': (iz0), 'fmax': fmax, 'scale': scale}
 
-    # new dims (z,y,x)
-    newdims = (imsum.shape[0] - iz0, iy1 - iy0 + 1, ix1 - ix0 + 1)
+    #>---------------------------------------------------------------
+    # > NEW DIMENSIONS  (z,y,x)
+
+    newdims = (iz1 - iz0, iy1 - iy0 + 1, ix1 - ix0 + 1)
     imtrim = np.zeros((Nim,) + newdims, dtype=imdtype)
     imsumt = np.zeros(newdims, dtype=imdtype)
-    # in case of needed padding (negative indx resulting above)
-    # the absolute values are supposed to work like padding in case the indx are negative
+    #>---------------------------------------------------------------
+
+    #>---------------------------------------------------------------
+    # > PADDING (when needed)
+    # in case of needed padding (where negative indices are obtained above)
+    # the absolute values are supposed to work like padding in such a case
+    #>---------------------------------------------------------------
     iz0s, iy0s, ix0s = iz0, iy0, ix0
     iz0t, iy0t, ix0t = 0, 0, 0
     if iz0 < 0:
@@ -491,17 +507,35 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
 
     # first trim the sum image
     imsumt[iz0t:, iy0t:iy1t, ix0t:ix1t] = imsum[iz0s:, iy0s:iy1 + 1, ix0s:ix1 + 1]
+    #>---------------------------------------------------------------
 
     # > new affine matrix for the upscaled and trimmed image
     # > use the scale factor reversely for consistency
     A = np.diag(np.append(sf[::-1], 1.) * np.diag(affine))
 
     # > note half of new voxel offset is used for the new centre of voxels
-    A[0, 3] = affine[0, 3] + A[0, 0] * (ix0 - 0.5 * (scale[2] - 1))
-    A[1, 3] = affine[1, 3] + (affine[1, 1] * (imshape[1] - 1) - A[1, 1] * (iy1 - 0.5 *
-                                                                           (scale[1] - 1)))
-    A[2, 3] = affine[2, 3] - A[2, 2] * 0.5 * (scale[0] - 1)
+    if flip[0]<0: # < this is `x` (note flip array is oriented differently to shape/scale)
+        A[0, 3] = affine[0, 3] + A[0, 0] * (ix0 - (scale[2]-1)/2)
+    else:
+        # not tested - needs to be checked on an appropriate example
+        A[0, 3] = affine[0, 3] + affine[0, 0]*(imshape[2]-1) - A[0, 0]*(ix1 - (scale[2]-1)/2)
+        
+    if flip[1]>0:
+        A[1, 3] = affine[1, 3] + affine[1, 1]*(imshape[1]-1) - A[1, 1]*(iy1 - (scale[1]-1)/2)
+    else:
+        A[1, 3] = affine[1, 3] + A[1, 1]*(iy0 - (scale[1]-1)/2)
+
+    if flip[2]>0:
+        A[2, 3] = affine[2, 3] - A[2, 2]*(scale[0]-1)/2
+    else:
+        A[2, 3] = affine[2, 3] + A[2, 2]*(iz0 - (scale[0]-1)/2)
+
     A[3, 3] = 1
+
+    # A[0, 3] = affine[0, 3] + A[0, 0] * (ix0 - 0.5 * (scale[2] - 1))
+    # A[1, 3] = affine[1, 3] + (affine[1, 1] * (imshape[1] - 1) - A[1, 1] * (iy1 - 0.5 * (scale[1] - 1)))
+    # A[2, 3] = affine[2, 3] - A[2, 2] * 0.5 * (scale[0] - 1)
+    # A[3, 3] = 1
 
     # output dictionary
     dctout = {'affine': A, 'trimpar': trimpar, 'imsum': imsumt}
@@ -518,7 +552,11 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
         fsum = os.path.join(
             petudir,
             fcomment_pfx + 'avg_trimmed-upsampled-scale-' + scale_fnm + fcomment + '.nii.gz')
-        imio.array2nii(imsumt[::-1, ::-1, :], A, fsum, descrip=niidescr)
+        imio.array2nii(
+            imsumt, A, fsum,
+            descrip=niidescr,
+            flip=flip,
+            trnsp=trnsp)
         log.debug('saved averaged image to: {}'.format(fsum))
         dctout['fsum'] = fsum
 
@@ -549,7 +587,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
                 _frm = '_trmfrm' + str(i)
                 _fstr = '_trimmed-upsampled-scale-' + scale_fnm + _frm * (Nim > 1) + fcomment
                 fpetu.append(os.path.join(petudir, fnms[i] + _fstr + '_i.nii.gz'))
-                imio.array2nii(imtrim[i, ::-1, ::-1, :], A, fpetu[i], descrip=niidescr)
+                imio.array2nii(imtrim[i,...], A, fpetu[i], descrip=niidescr, flip=flip, trnsp=trnsp) #[i,::-1,::-1,:]
                 log.debug('saved upsampled PET image to: {}'.format(fpetu[i]))
 
     if store_img:
@@ -558,7 +596,7 @@ def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_o
                            scale_fnm) + _nfrm * (Nim > 1) + fcomment + '.nii.gz'
         log.info('storing image to:\n{}'.format(fim))
 
-        imio.array2nii(np.squeeze(imtrim[:, ::-1, ::-1, :]), A, fim, descrip=niidescr)
+        imio.array2nii(np.squeeze(imtrim), A, fim, descrip=niidescr, flip=flip, trnsp=trnsp) #[:, ::-1, ::-1, :]
         dctout['fim'] = fim
 
     # file names (with paths) for the intermediate PET images
