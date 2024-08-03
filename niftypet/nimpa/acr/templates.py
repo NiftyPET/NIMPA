@@ -305,16 +305,17 @@ def create_nac_core(Cntd, return_raw=False):
     # > affine
     imxys = acrad.shape[2]
     imzys = acrad.shape[0]
+    flpx, flpy, flpz = imupd['flip']
     affined = np.array(
-        [[-Cntd['vxsz'] * Cntd['scld'], 0., 0., .5 * imxys * Cntd['vxsz'] * Cntd['scld']],
-         [0., Cntd['vxsz'] * Cntd['scld'], 0., -.5 * imxys * Cntd['vxsz'] * Cntd['scld']],
-         [0., 0., Cntd['vxsz'] * Cntd['scld'], -.5 * imzys * Cntd['vxsz'] * Cntd['scld']],
+        [[flpx*Cntd['vxsz'] * Cntd['scld'], 0.,  0., -.5 * flpx * imxys * Cntd['vxsz'] * Cntd['scld']],
+         [0., flpy*Cntd['vxsz'] * Cntd['scld'], 0., -.5 * flpy * imxys * Cntd['vxsz'] * Cntd['scld']],
+         [0., 0., flpz*Cntd['vxsz'] * Cntd['scld'], -.5 * flpz * imzys * Cntd['vxsz'] * Cntd['scld']],
          [0., 0., 0., 1.]])
 
     nimpa.array2nii(
         acrad, affined, Cntd['out']['facrad'],
-        trnsp=(imupd['transpose'].index(0), imupd['transpose'].index(1),
-               imupd['transpose'].index(2)), flip=imupd['flip'])
+        trnsp=imupd['transpose'], 
+        flip=imupd['flip'])
 
     # matshow(acrad[420,...], cmap='magma')
     # matshow(imup['im'][420,...], cmap='magma')
