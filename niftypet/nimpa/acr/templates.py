@@ -307,7 +307,7 @@ def create_nac_core(Cntd, return_raw=False):
     imzys = acrad.shape[0]
     flpx, flpy, flpz = imupd['flip']
     affined = np.array(
-        [[flpx*Cntd['vxsz'] * Cntd['scld'], 0.,  0., -.5 * flpx * imxys * Cntd['vxsz'] * Cntd['scld']],
+        [[flpx*Cntd['vxsz'] * Cntd['scld'], 0., 0., -.5 * flpx * imxys * Cntd['vxsz'] * Cntd['scld']],
          [0., flpy*Cntd['vxsz'] * Cntd['scld'], 0., -.5 * flpy * imxys * Cntd['vxsz'] * Cntd['scld']],
          [0., 0., flpz*Cntd['vxsz'] * Cntd['scld'], -.5 * flpz * imzys * Cntd['vxsz'] * Cntd['scld']],
          [0., 0., 0., 1.]])
