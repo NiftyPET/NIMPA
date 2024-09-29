@@ -36,7 +36,7 @@ def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
         shape = shape_in
 
     imsk = np.zeros((gen_scale * shape[1], gen_scale * shape[2]), dtype=np.float32)
-    for t in np.arange(0, math.pi, math.pi / (gen_scale*400)):
+    for t in np.arange(0, math.pi, math.pi / (gen_scale*1000)):
         x = gen_scale * r * np.cos(t) + gen_scale*a
         y = gen_scale * r * np.sin(t) + gen_scale*b
 

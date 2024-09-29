@@ -219,7 +219,7 @@ def im_project3(im):
 # <><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 
-def imtrimup(fims, refim='', affine=None, scale=2, divdim=8**2, fmax=0.05, int_order=0,
+def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim=8**2, fmax=0.05, int_order=0,
              outpath=None, fname='', fcomment='', fcomment_pfx='', store_avg=False,
              store_img_intrmd=False, store_img=False, imdtype=np.float32, grid_mode=True,
              memlim=False, verbose=False, Cnt=None):
