@@ -57,7 +57,16 @@ def create_disk(shape_in, r=1, a=0, b=0, gen_scale=1, threshold=None):
         return imsk
 
 
-def get_cylinder(Cnt, rad=25, xo=0, yo=0, unival=1, gpu_dim=False, mask=True, two_d=False):
+def get_cylinder(
+        Cnt,
+        rad=25,
+        xo=0, yo=0,
+        unival=1,
+        gpu_dim=False,
+        mask=True,
+        two_d=False,
+        nangle=2*360):
+
     ''' Output image with a uniform cylinder of intensity = `unival`.
         A better version of generating disk/cylinder in a given image space.
         Arguments:
@@ -70,7 +79,7 @@ def get_cylinder(Cnt, rad=25, xo=0, yo=0, unival=1, gpu_dim=False, mask=True, tw
 
     imdsk = np.zeros((1, Cnt['SZ_IMY'], Cnt['SZ_IMX']), dtype=np.float32)
 
-    for t in np.arange(0, math.pi, math.pi / (2*360)):
+    for t in np.arange(0, math.pi, math.pi / nangle):
         x = xo + rad * math.cos(t)
         y = yo + rad * math.sin(t)
         yf = np.arange(-y + 2*yo, y, Cnt['SZ_VOXY'] / 2)
