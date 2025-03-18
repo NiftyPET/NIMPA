@@ -28,12 +28,12 @@ def get_paths(Cntd, outpath=None):
     '''
 
     fimup = None
-    if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
+    if 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        fimup = Path(Cntd['fqntfup'])
+    elif 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         fimup = Path(Cntd['fqntup'])
-
     elif 'fnacup' in Cntd and Path(Cntd['fnacup']).is_file():
         fimup = Path(Cntd['fnacup'])
-
     else:
         raise ValueError(
             'NAC or QNT PET image has to be identified in the constants dictionary Cntd')
@@ -122,8 +122,9 @@ def get_paths(Cntd, outpath=None):
         t_acr_reso_flddr,
         'acr-reso-active-qnt-' + str(Cntd['vxsz'] * Cntd['scld']).replace('.', '-') + 'mm.nii.gz')
 
-    if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
-        # output file for the resolution rods part only
+    if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file() or \
+        'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        # > output file for the resolution rods part only
         fpet_res = os.path.join(
             rpth,
             os.path.basename(fimup).split('-scale-' + str(Cntd['sclt']) + '-')[0] + '_rods.nii.gz')
@@ -168,17 +169,22 @@ def get_paths(Cntd, outpath=None):
     return Cntd
 
 
-def extract_reso_part(Cntd, offset=15, forced=False):
+def extract_reso_part(Cntd, offset=15, forced=False, dip_threshold=1e5):
     '''
     extract resolution part for registration
     Arguments:
     offset:     the extend of the extra extension from rods to the uniform
                 region.
     forced:     force the extraction even if detected to be already done.
+    dip_threshold: the threshold for finding the negative dip for the phantoms
+                activity 'dip' due to the resolution rods disk - used to 
+                segment this resolution bit out.
     '''
 
     if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = imio.getnii(Cntd['fqntup'], output='all')
+    elif 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = imio.getnii(Cntd['fqntfup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed QNT ACR PET image cannot be found')
 
@@ -193,7 +199,7 @@ def extract_reso_part(Cntd, offset=15, forced=False):
 
         tmp = axprf[i0:i1]
         wndw = 7
-        dip = np.array([(tmp[i + wndw] - tmp[i]) < -4e6 for i in range(i1 - i0 - wndw)])
+        dip = np.array([(tmp[i + wndw] - tmp[i]) < -dip_threshold for i in range(i1 - i0 - wndw)])
 
         cutoff = np.max(np.where(dip)) + i0 + offset
         '''
@@ -220,7 +226,10 @@ def sampling_masks(Cntd, use_stored=False):
     ''' get the sampling masks for analysis of the ACR phantom
     '''
 
-    if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
+    
+    if 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        fimup = str(Cntd['fqntfup'])
+    elif 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         fimup = str(Cntd['fqntup'])
     else:
         raise ValueError('Upscaled and trimmed ACR PET image cannot be found')
@@ -329,6 +338,8 @@ def zmask(masks, key, Cntd, axial_offset=8, width_mm=10, z_start_idx=None, level
 
     if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = imio.getnii(Cntd['fqntup'], output='all')
+    elif 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = nimpa.getnii(Cntd['fqntfup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed ACR PET image cannot be found')
 

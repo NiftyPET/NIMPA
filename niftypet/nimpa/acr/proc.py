@@ -63,6 +63,7 @@ def preproc(indat, Cntd, smooth=True, reftrim='', outpath=None, mode='nac'):
         scale=Cntd['sclt'],
         int_order=Cntd['interp'],
         fmax=0.1,                                       # controls how much trimming there is
+        outpath=outdir,
         fcomment_pfx=fnii.name.split('.nii')[0] + '__',
         store_img=True)
 

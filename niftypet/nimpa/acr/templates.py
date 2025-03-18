@@ -24,6 +24,8 @@ def create_mumap_core(Cntd, return_raw=False):
         imupd = nimpa.getnii(Cntd['fnacup'], output='all')
     elif 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = nimpa.getnii(Cntd['fqntup'], output='all')
+    elif 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = nimpa.getnii(Cntd['fqntfup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed ACR PET image cannot be found')
 
@@ -228,6 +230,8 @@ def create_nac_core(Cntd, return_raw=False):
         imupd = nimpa.getnii(Cntd['fnacup'], output='all')
     elif 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = nimpa.getnii(Cntd['fqntup'], output='all')
+    elif 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = nimpa.getnii(Cntd['fqntfup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed ACR PET image cannot be found')
 
@@ -337,6 +341,8 @@ def create_reso(Cntd, return_raw=False):
 
     if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = nimpa.getnii(Cntd['fqntup'], output='all')
+    elif 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = nimpa.getnii(Cntd['fqntfup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed ACR QNT PET image cannot be found')
 
@@ -529,7 +535,9 @@ def create_sampl_reso(Cntd, return_raw=False):
     if os.path.isfile(Cntd['out']['fst_res']):
         return None
 
-    if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
+    if 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = nimpa.getnii(Cntd['fqntfup'], output='all')
+    elif 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = nimpa.getnii(Cntd['fqntup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed ACR QNT PET image cannot be found')
@@ -628,14 +636,16 @@ def create_sampl_reso(Cntd, return_raw=False):
 
 def create_sampl(Cntd, return_raw=False):
     """Create template of sampling rings for the inserts."""
-    if all(os.path.isfile(Cntd['out'][f] for f in ('fst_insrt', 'fst_insrt3', 'fst_ibckg'))):
+    if all([os.path.isfile(Cntd['out'][f]) for f in ('fst_insrt', 'fst_insrt3', 'fst_ibckg')]):
         if return_raw:
             return {
                 'allsmplng': Cntd['out']['fst_insrt'], 'insrt3smplng': Cntd['out']['fst_insrt3'],
                 'ibckgsmplng': Cntd['out']['fst_ibckg']}
         return None
 
-    if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
+    if 'fqntfup' in Cntd and Path(Cntd['fqntfup']).is_file():
+        imupd = nimpa.getnii(Cntd['fqntfup'], output='all')
+    elif 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
         imupd = nimpa.getnii(Cntd['fqntup'], output='all')
     else:
         raise ValueError('Upscaled and trimmed ACR QNT PET image cannot be found')
