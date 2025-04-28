@@ -52,6 +52,9 @@ pad = 4
 # angle of rotations for the initial position of resolution rods (cold)
 rods_rotate = 0
 
+# flip left-right of the resolution rods (the rods can be inserted both ways)
+rods_fliplr = 0
+
 # > buffer size for the activity image for registration purposes
 buff_size = 16
 
@@ -151,6 +154,7 @@ def get_params(cpath=None):
         'scl': scl,
         'intord': intord,
         'rods_rotate': rods_rotate,
+        'rods_fliplr': rods_fliplr,
         
         'itr_nac': itr_nac,
         'itr_qnt': itr_qnt,

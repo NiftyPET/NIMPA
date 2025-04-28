@@ -334,9 +334,10 @@ def create_nac_core(Cntd, return_raw=False):
         return None
 
 
-def create_reso(Cntd, return_raw=False):
+def create_reso(Cntd, return_raw=False, forced=False):
     """Create the resolution rods for the mu-map and for registration."""
-    if all(os.path.isfile(Cntd['out'][f]) for f in ('fresomu', 'fresdmu', 'fresdWmu', 'fresdQmu')):
+    
+    if not forced and all(os.path.isfile(Cntd['out'][f]) for f in ('fresomu', 'fresdmu', 'fresdWmu', 'fresdQmu')):
         return None
 
     if 'fqntup' in Cntd and Path(Cntd['fqntup']).is_file():
@@ -349,12 +350,12 @@ def create_reso(Cntd, return_raw=False):
     # ------------------------------------------------------
     # > form 3D digital resolution part of the phantom for registration
     # > and attenuation purposes
-    renpng = imageio.imread(Cntd['frenpng'])
-    respng = imageio.imread(Cntd['frespng'])
+    renpng = imageio.v2.imread(Cntd['frenpng'])
+    respng = imageio.v2.imread(Cntd['frespng'])
 
     # > these are rods mixed with water
-    renWpng = imageio.imread(Cntd['frenWpng'])
-    resWpng = imageio.imread(Cntd['fresWpng'])
+    renWpng = imageio.v2.imread(Cntd['frenWpng'])
+    resWpng = imageio.v2.imread(Cntd['fresWpng'])
     # ------------------------------------------------------
 
     ren = np.float32((renpng[..., 0] == Cntd['png_prspx']) * Cntd['mu_prspx'])
@@ -380,6 +381,12 @@ def create_reso(Cntd, return_raw=False):
     '''
     # --END-PRINT--
 
+    if Cntd['rods_fliplr'] != 0:
+        ren  = np.flip(ren,  axis=1)
+        res  = np.flip(res,  axis=1)
+        renW = np.flip(renW, axis=1)
+        resW = np.flip(resW, axis=1)
+
     if Cntd['rods_rotate'] != 0:
         ren = ndi.rotate(ren, Cntd['rods_rotate'], reshape=False, order=Cntd['intord'],
                          mode='constant')
@@ -390,6 +397,9 @@ def create_reso(Cntd, return_raw=False):
                           mode='constant')
         resW = ndi.rotate(resW, Cntd['rods_rotate'], reshape=False, order=Cntd['intord'],
                           mode='constant')
+
+    # > copy array here for easy QC
+    res_qc = res.copy()
 
     ren = ndi.zoom(ren, Cntd['scl'], output=None, order=Cntd['intord'], mode='constant')
     res = ndi.zoom(res, Cntd['scl'], output=None, order=Cntd['intord'], mode='constant')
@@ -506,7 +516,7 @@ def create_reso(Cntd, return_raw=False):
                imupd['transpose'].index(2)), flip=imupd['flip'])
 
     if return_raw:
-        return {'resoW': resoW, 'resdW': resdW, 'resd': resd, 'reso': reso}
+        return {'resoW': resoW, 'resdW': resdW, 'resd': resd, 'reso': reso, 'res2d':res_qc}
 
 
 # =======================================================================
@@ -597,6 +607,10 @@ def create_sampl_reso(Cntd, return_raw=False):
     for i, off in enumerate([10, 20, 30, 40, 50, 60]):
         for j, lvl in enumerate(g[i, g[i, :] > 0]):
             srods[y == lvl] = off + j
+
+    # > flipping and/or rotating the rods
+    if Cntd['rods_fliplr'] != 0:
+        srods  = np.flip(srods,  axis=1)
 
     if Cntd['rods_rotate'] != 0:
         srods = ndi.rotate(srods, Cntd['rods_rotate'], reshape=False, order=Cntd['intord'],
