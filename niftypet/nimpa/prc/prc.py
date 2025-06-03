@@ -362,14 +362,14 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
     # ------------------------------------------------------
     # scale is preferred to be integer
     try:
-        scale = np.int8(scale)
+        scale = np.int32(scale)
     except ValueError:
         raise ValueError('scale has to be an integer or array of integers.')
 
     # > check if scale is given as scalar of array.
     # > if scalar, change it to an array.
-    if isinstance(scale, np.int8):
-        scale = scale * np.ones(3, dtype=np.int8)
+    if isinstance(scale, np.int32):
+        scale = scale * np.ones(3, dtype=np.int32)
 
     # > scale factor as the inverse of scale
     sf = 1 / np.float64(scale)
@@ -390,7 +390,7 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
             with trange(Nim, desc="loading-scaling", disable=log.getEffectiveLevel()
                         > logging.INFO, leave=log.getEffectiveLevel() <= logging.INFO) as pbar:
                 for i in pbar:
-                    imscl[i, :, :, :] = ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale),
+                    imscl[i, :, :, :] = ndi.zoom(imin[i, :, :, :], tuple(scale),
                                                                order=int_order, mode=mode,
                                                                grid_mode=grid_mode)
                     imsum += imscl[i, :, :, :]
@@ -400,11 +400,11 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
                 for i in pbar:
                     if Nim > 50 and using_multiple_files:
                         imin_temp = imio.getnii(imdic['files'][i])
-                        imsum += ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order,
+                        imsum += ndi.zoom(imin_temp, tuple(scale), order=int_order,
                                                         mode=mode, grid_mode=grid_mode)
                         log.debug(' image sum: read {}'.format(imdic['files'][i]))
                     else:
-                        imsum += ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale), mode=mode,
+                        imsum += ndi.zoom(imin[i, :, :, :], tuple(scale), mode=mode,
                                                         order=int_order, grid_mode=grid_mode)
     else:
         imscl = imin
@@ -417,20 +417,37 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
         # find the object bounding indexes in x, y and z axes, e.g., ix0-ix1 for the x axis
         qx, qy, qz = im_project3(imsum)
 
-        ix0 = np.argmax(qx > (fmax * np.nanmax(qx)))
-        ix1 = ix0 + np.argmin(qx[ix0:] > (fmax * np.nanmax(qx)))
+        # > threshold for x,y,z projections
+        thr_x = fmax*(np.nanmax(qx)-np.nanmin(qx)) + np.nanmin(qx)
+        thr_y = fmax*(np.nanmax(qy)-np.nanmin(qy)) + np.nanmin(qy)
+        thr_z = fmax*(np.nanmax(qz)-np.nanmin(qz)) + np.nanmin(qz)
 
+        # > use centre of mass and find the last index where values are below the threshold
+        cx = np.int16(np.average(np.arange(len(qx)), weights=qx))
+        ix0 = np.max(np.where(qx[:cx]<thr_x))
+        ix1 = cx+np.min(np.where(qx[cx:]<thr_x))
+
+        cy = np.int16(np.average(np.arange(len(qy)), weights=qy))
+        iy0 = np.max(np.where(qy[:cy]<thr_y))
+        iy1 = cy+np.min(np.where(qy[cy:]<thr_y))
+
+        cz = np.int16(np.average(np.arange(len(qz)), weights=qz))
+        iz0 = np.max(np.where(qz[:cz]<thr_z))
+
+        ''' old way
+        ix0 = np.argmax(qx > thr_x)
+        ix1 = ix0 + np.argmin(qx[ix0:] > thr_x)
         iy0 = np.argmax(qy > (fmax * np.nanmax(qy)))
         iy1 = iy0 + np.argmin(qy[iy0:] > (fmax * np.nanmax(qy)))
-
         iz0 = np.argmax(qz > (fmax * np.nanmax(qz)))
+        '''
 
         # import pdb; pdb.set_trace()
 
         # find the maximum voxel range for x and y axes
         IX = ix1 - ix0 + 1
         IY = iy1 - iy0 + 1
-        tmp = max(IX, IY)
+        tmp = np.max([IX, IY])
         # > get the range such that it is divisible by
         # > divdim (64 by default) for GPU execution
         IXY = divdim * ((tmp+divdim-1) // divdim)
@@ -450,7 +467,7 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
     # > this assumes the image 'bottom' is always 'busy' hence equal to the full image extension (shape)
     iz1 = imsum.shape[0]
 
-    # save the trimming parameters in a dic
+    # save the trimming parameters in a dictionary
     trimpar = {'x': (ix0, ix1), 'y': (iy0, iy1), 'z': (iz0), 'fmax': fmax, 'scale': scale}
 
     #>---------------------------------------------------------------
@@ -498,12 +515,14 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
     # > in case the upper index goes beyond the scaled but untrimmed image
     iy1t = imsumt.shape[1]
     if iy1 >= imsum.shape[1]:
-        iy1t -= iy1 + 1
+        #iy1t -= iy1 + 1
+        iy1t = imsum.shape[1]-iy1-1
 
     # > the same for x
     ix1t = imsumt.shape[2]
     if ix1 >= imsum.shape[2]:
-        ix1t -= ix1 + 1
+        #ix1t -= ix1 + 1
+        ix1t = imsum.shape[2]-ix1-1
 
     # first trim the sum image
     imsumt[iz0t:, iy0t:iy1t, ix0t:ix1t] = imsum[iz0s:, iy0s:iy1 + 1, ix0s:ix1 + 1]
@@ -572,10 +591,10 @@ def imtrimup(fims, refim='', affine=None, flip=None, trnsp=None, scale=2, divdim
             if memlim:
                 if Nim > 50 and using_multiple_files:
                     imin_temp = imio.getnii(imdic['files'][i])
-                    im = ndi.interpolation.zoom(imin_temp, tuple(scale), order=int_order)
+                    im = ndi.zoom(imin_temp, tuple(scale), order=int_order)
                     log.debug('image scaling: {}'.format(imdic['files'][i]))
                 else:
-                    im = ndi.interpolation.zoom(imin[i, :, :, :], tuple(scale), order=int_order)
+                    im = ndi.zoom(imin[i, :, :, :], tuple(scale), order=int_order)
             else:
                 im = imscl[i, :, :, :]
 
