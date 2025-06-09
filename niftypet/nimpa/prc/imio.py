@@ -695,7 +695,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 frm_dur = None
             
 
-        # > DICOM source of coutns
+        # > DICOM source of counts
         cnt_src = None
         if [0x054, 0x1002] in dhdr:
             cnt_src = dhdr[0x054, 0x1002].value
