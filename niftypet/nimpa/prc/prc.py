@@ -727,7 +727,7 @@ def pvc_iyang(
         faff:   a text file of the affine transformations needed to get the MRI into PET space.
                 If not provided, it will be obtained from the performed rigid transformation.
                 For this the MR T1w image is required.  If faff and T1w image are not provided,
-                it will results in exception/error.
+                it will results in exception/error (unless parcellations are in PET space).
         fcomment:a string used in naming the produced files, helpful for distinguishing them.
         tool:   co-registration tool.  By default it is NiftyReg, but SPM is also
                 possible (needs Matlab engine and more validation)
@@ -753,7 +753,7 @@ def pvc_iyang(
     # > avoid registration if the provided parcellation is already in PET space
     # > it is assumed so if the parcellation is given as a file path and no affine is given
     noreg = False
-    if isinstance(mrin, str) and os.path.isfile(mrin):
+    if isinstance(mrin, (str, Path)) and os.path.isfile(mrin):
         prcl_dir = os.path.dirname(mrin)
         tmpdct = imio.getnii(mrin, output='all')
         if faff is None and tmpdct['shape'] == imdct['shape']:
