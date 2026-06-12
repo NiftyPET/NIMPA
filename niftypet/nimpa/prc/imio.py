@@ -681,6 +681,10 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
         acq_time = ''
         if [0x0008, 0x0032] in dhdr:
             acq_time = dhdr[0x0008, 0x0032].value[:6]
+        # > frame ref time (e.g., dynamic PET), convert to seconds in integer
+        frr_time = ''
+        if [0x054,0x1300] in dhdr:
+            frr_time = str(int(float(dhdr[0x054,0x1300].value)/1000))
 
         # > study date
         std_date = dhdr[0x008, 0x020].value
@@ -750,7 +754,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 if (np.array_equal(srs[s]['imorient'], ornt)
                         and np.array_equal(srs[s]['imsize'], imsz)
                         and np.array_equal(srs[s]['voxsize'], vxsz)
-                        and srs[s]['tseries'] == srs_time and srs[s]['tacq'] == acq_time
+                        and srs[s]['tseries'] == srs_time and srs[s]['tacq'] == acq_time and srs[s]['tfrr'] == frr_time
                         and srs[s]['series'] == srs_dcrp):
                     recognised_series = True
                     break
@@ -779,7 +783,10 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             if grouping == 't+d':
                 s = srs_time + '_' + srs_dcrp
             elif grouping == 'a+t+d':
-                s = acq_time + '_' + srs_time + '_' + srs_dcrp
+                if frr_time!='':
+                    s = 'ref-'+frr_time + '_' + acq_time + '_' + srs_time + '_' + srs_dcrp
+                else:
+                    s = acq_time + '_' + srs_time + '_' + srs_dcrp
             elif grouping == 'd':
                 s = srs_dcrp
             elif grouping == 'd+suid':
@@ -791,6 +798,7 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
             srs[s]['imorient'] = ornt
             srs[s]['imsize'] = imsz
             srs[s]['voxsize'] = vxsz
+            srs[s]['tfrr'] = frr_time
             srs[s]['tacq'] = acq_time
             srs[s]['tseries'] = srs_time
             srs[s]['tstudy'] = std_time
