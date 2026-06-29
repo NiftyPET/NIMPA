@@ -726,6 +726,12 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
 
             if [0x018, 0x031] in trinf:
                 trcr = trinf[0x018, 0x031].value
+
+        # > procedure code (potentially more information about tracer etc.)
+        proc_code = None
+        if [0x08, 0x1032] in dhdr:
+            pr_code_sq = dhdr[0x08, 0x1032][0]
+            proc_code = pr_code_sq[0x08, 0x0104].value
         # --------------------------------
 
         log.debug(
@@ -813,6 +819,8 @@ def dcmsort(folder, copy_series=False, Cnt=None, outpath=None, grouping='t+d'):
                 srs[s]['frm_dur'] = frm_dur
             if trcr is not None:
                 srs[s]['tracer'] = trcr
+            if proc_code is not None:
+                srs[s]['proc_code'] = proc_code
             if cnt_src is not None:
                 srs[s]['source'] = cnt_src
 
