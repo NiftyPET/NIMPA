@@ -1117,7 +1117,7 @@ def centre_mass_corr(img, Cnt=None, com=None, flip=None, outpath=None, fcomment=
 
     # > generate a new NIfTI image
     fnew = os.path.join(opth, fnm)
-    innii.header['descrip'] = 'NiftyPET: CoM-modified'
+    innii.header['descrip'] = 'NiftyPET CoM modification of affine (relative):' + ' '.join(f'{c:.6f}' for c in com_nii)
     newnii = nib.Nifti1Image(imdata, mA, innii.header)
     nib.save(newnii, fnew)
 
