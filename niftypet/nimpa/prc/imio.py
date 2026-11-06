@@ -557,6 +557,9 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
     elif any('MRPET_UMAP3D' in s for s in dtype) or cmmnt == 'MR based umap':
         out = ['mr', 'mumap', 'ute', 'mr', scanner_id]
 
+    elif any('MRPET_EXTUMAP3D' in s for s in dtype) or cmmnt.lower() == 'mlaa based umap':
+        out = ['mr', 'mumap', 'mlaa', 'mr', scanner_id]
+
     elif isPET:
         """
         petdct = {
