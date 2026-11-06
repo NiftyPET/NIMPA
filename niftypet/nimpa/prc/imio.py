@@ -13,6 +13,7 @@ from textwrap import dedent
 import nibabel as nib
 import numpy as np
 import pydicom as dcm
+from pydicom.misc import is_dicom
 from miutil.fdio import create_dir, hasext
 from miutil.imio.nii import getnii  # NOQA: F401 # yapf: disable
 from miutil.imio.nii import nii_gzip  # NOQA: F401 # yapf: disable
@@ -27,6 +28,10 @@ log = logging.getLogger(__name__)
 
 # > possible extensions for DICOM files
 dcmext = 'dcm', 'ima', 'img'
+
+# > extensions which are never DICOM (files skipped without reading)
+nodcmext = ('bf', 'nii', 'nii.gz', 'npy', 'npz', 'dic', 'json', 'txt', 'csv', 'mat', 'mgh', 'mgz',
+            'gz', 'zip', 'log', 'py', 'pdf', 'png', 'jpg')
 
 # > remove characters unwanted in file/folder names
 avoid_chars = '/{}[]!@#$%^&*.()+=:;~ '
@@ -61,13 +66,23 @@ def rem_chars(txt, replacement_char='_'):
     return txt or 'undefined'
 
 
-def isdcm(f):
+def isdcm(f, ext=dcmext):
+    """
+    Check if `f` is a DICOM file, with or without a file extension.
+    Files with a DICOM extension (`ext`) are accepted without reading;
+    files with a known non-DICOM extension are rejected without reading;
+    all other files are checked for the DICOM preamble + 'DICM' prefix
+    (only the first 132 bytes are read).
+    """
+    f = os.fspath(f)
+    if hasext(f, ext):
+        return True
+    if hasext(f, nodcmext) or not os.path.isfile(f):
+        return False
     try:
-        dcm.dcmread(f)
+        return is_dicom(f)
     except Exception:
         return False
-    else:
-        return True
 
 
 def dcmdir(inpth):
@@ -456,7 +471,7 @@ def dcminfo(dcmvar, Cnt=None, output='class', t1_name='mprage'):
     ttime0 = None
     ttime1 = None
 
-    if [0x054, 0x016] in dhdr:
+    if [0x054, 0x016] in dhdr and len(dhdr[0x054, 0x016].value) > 0:
         # > all tracer info
         tinf = dhdr[0x054, 0x016][0]
 
@@ -864,32 +879,37 @@ def list_dcm_datain(datain):
     # list of mu-map DICOM files
     if 'mumapDCM' in datain:
         dcmump = os.listdir(datain['mumapDCM'])
-        # accept only *.dcm extensions
-        dcmump = [os.path.join(datain['mumapDCM'], d) for d in dcmump if hasext(d, dcmext)]
+        # accept DICOM files only (with or without extension)
+        dcmump = [os.path.join(datain['mumapDCM'], d) for d in dcmump]
+        dcmump = [f for f in dcmump if isdcm(f)]
         dcmlst += dcmump
 
     if 'T1DCM' in datain:
         dcmt1 = os.listdir(datain['T1DCM'])
-        # accept only *.dcm extensions
-        dcmt1 = [os.path.join(datain['T1DCM'], d) for d in dcmt1 if hasext(d, dcmext)]
+        # accept DICOM files only (with or without extension)
+        dcmt1 = [os.path.join(datain['T1DCM'], d) for d in dcmt1]
+        dcmt1 = [f for f in dcmt1 if isdcm(f)]
         dcmlst += dcmt1
 
     if 'T2DCM' in datain:
         dcmt2 = os.listdir(datain['T2DCM'])
-        # accept only *.dcm extensions
-        dcmt2 = [os.path.join(datain['T2DCM'], d) for d in dcmt2 if hasext(d, dcmext)]
+        # accept DICOM files only (with or without extension)
+        dcmt2 = [os.path.join(datain['T2DCM'], d) for d in dcmt2]
+        dcmt2 = [f for f in dcmt2 if isdcm(f)]
         dcmlst += dcmt2
 
     if 'UTE1' in datain:
         dcmute1 = os.listdir(datain['UTE1'])
-        # accept only *.dcm extensions
-        dcmute1 = [os.path.join(datain['UTE1'], d) for d in dcmute1 if hasext(d, dcmext)]
+        # accept DICOM files only (with or without extension)
+        dcmute1 = [os.path.join(datain['UTE1'], d) for d in dcmute1]
+        dcmute1 = [f for f in dcmute1 if isdcm(f)]
         dcmlst += dcmute1
 
     if 'UTE2' in datain:
         dcmute2 = os.listdir(datain['UTE2'])
-        # accept only *.dcm extensions
-        dcmute2 = [os.path.join(datain['UTE2'], d) for d in dcmute2 if hasext(d, dcmext)]
+        # accept DICOM files only (with or without extension)
+        dcmute2 = [os.path.join(datain['UTE2'], d) for d in dcmute2]
+        dcmute2 = [f for f in dcmute2 if isdcm(f)]
         dcmlst += dcmute2
 
     # list-mode data dcm
@@ -936,12 +956,12 @@ def dcmanonym(dcmpth, displayonly=False, patient='anonymised', physician='anonym
         # > create a list of DICOM files inside the folder
         dcmlst = [
             os.path.join(dcmpth, d) for d in dircontent
-            if os.path.isfile(os.path.join(dcmpth, d)) and hasext(d, dcmext)]
+            if isdcm(os.path.join(dcmpth, d))]
         log.debug('recognised the input argument as the folder containing DICOM files.')
 
     # > check if a folder containing DICOM files
     elif isinstance(dcmpth, list):
-        if not all(os.path.isfile(d) and hasext(d, dcmext) for d in dcmpth):
+        if not all(isdcm(d) for d in dcmpth):
             raise IOError('Not all files in the list are DICOM files.')
         dcmlst = dcmpth
         log.debug('recognised the input argument as the list of DICOM file paths.')
@@ -1112,17 +1132,17 @@ def dcm2im(fpth):
 
     # case when given a folder path
     if isinstance(fpth, str) and os.path.isdir(fpth):
-        SZ0 = len([d for d in os.listdir(fpth) if hasext(d, ext)])
-        # list of DICOM files
-        fdcms = os.listdir(fpth)
-        fdcms = [os.path.join(fpth, f) for f in fdcms if hasext(f, ext)]
+        # list of DICOM files (with or without extension)
+        fdcms = [os.path.join(fpth, f) for f in os.listdir(fpth)]
+        fdcms = [f for f in fdcms if isdcm(f, ext)]
+        SZ0 = len(fdcms)
 
     # case when list of DICOM files is given
     elif isinstance(fpth, list) and os.path.isfile(os.path.join(fpth[0])):
         SZ0 = len(fpth)
         # list of DICOM files
         fdcms = fpth
-        fdcms = [f for f in fdcms if hasext(f, ext)]
+        fdcms = [f for f in fdcms if isdcm(f, ext)]
     else:
         raise NameError('Unrecognised input for DICOM files.')
 
@@ -1131,7 +1151,7 @@ def dcm2im(fpth):
         raise IOError('Input DICOM images not recognised')
 
     # pick single DICOM header
-    dhdr = dcm.read_file(fdcms[0])
+    dhdr = dcm.dcmread(fdcms[0])
 
     # -----------------------------------
     # some info, e.g.: patient position and series UID
@@ -1163,7 +1183,7 @@ def dcm2im(fpth):
 
     c = 0
     for d in fdcms:
-        dhdr = dcm.read_file(d)
+        dhdr = dcm.dcmread(d)
         if [0x20, 0x32] in dhdr and [0x20, 0x37] in dhdr and [0x28, 0x30] in dhdr:
             P[c, :] = np.array([float(f) for f in dhdr[0x20, 0x32].value])
             Orn[c, :] = np.array([float(f) for f in dhdr[0x20, 0x37].value])
